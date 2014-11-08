@@ -1,0 +1,66 @@
+#!/bin/bash
+
+PERSISTENT_STORAGE_DIR="/storage"
+NOVA_DIR="/var/lib/nova"
+NOVA_CONF_DIR="/etc/nova"
+LIBVIRT_CONF_DIR="/etc/libvirt"
+RPCORE_CONF_DIR="/tmp/rptmp"
+INTERFACE_FILE="/etc/network/interfaces"
+HOSTNAME_FILE="/etc/hostname"
+INIT_FILE="/etc/rc.local"
+NOVA="nova"
+
+# enable swap
+swapon -v /dev/mapper/crypt-swap
+
+# mount the encrypted storage LVM
+mkdir -p $PERSISTENT_STORAGE_DIR
+mount -t ext4 /dev/mapper/crypt-storage $PERSISTENT_STORAGE_DIR
+
+# copy directiries from rootfs to storage dir, if they are not already present
+# This is done to persist the directories across reboots
+for currentdir in "$NOVA_DIR" "$NOVA_CONF_DIR" "$LIBVIRT_CONF_DIR" "$RPCORE_CONF_DIR"
+do
+    link_dir=`echo $currentdir | sed  's/\//_/g'`
+
+    # special handling for rpcore conf dir, the empty directory needs to be created in /tmp/
+    if [ "$currentdir" == "$RPCORE_CONF_DIR" ]; then
+        mkdir -p $currentdir
+    fi
+
+    # create persistent storage directory if not already exists
+    if [ ! -d "$PERSISTENT_STORAGE_DIR/$link_dir" ]; then
+        mkdir -p $PERSISTENT_STORAGE_DIR/$link_dir
+        cp -rf $currentdir/* $PERSISTENT_STORAGE_DIR/$link_dir
+    fi
+
+    # remove directories created from rootfs tar and create a soft link 
+    # to persistent storage directory
+    if [ ! -L $currentdir ]; then
+        rm -rf $currentdir
+        ln -s $PERSISTENT_STORAGE_DIR/$link_dir $currentdir
+        if echo "$link_dir" | grep -q "$NOVA"; then
+            chown -R nova:nova $PERSISTENT_STORAGE_DIR/$link_dir
+            chown -R nova:nova $currentdir
+        fi
+    fi
+done
+
+
+for currentfile in "$INTERFACE_FILE" "$HOSTNAME_FILE" "$INIT_FILE"
+do
+    link_file=`echo $currentfile | sed  's/\//_/g'`
+
+    if [ ! -f "$PERSISTENT_STORAGE_DIR/$link_file" ]; then
+         cp -f $currentfile $PERSISTENT_STORAGE_DIR/$link_file
+    fi
+
+    if [ ! -L $currentfile ]; then
+        rm -f $currentfile
+        ln -s $PERSISTENT_STORAGE_DIR/$link_file $currentfile
+    fi
+done
+
+exit 0
+
+

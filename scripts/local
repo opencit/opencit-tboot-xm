@@ -1,0 +1,175 @@
+# Local filesystem mounting			-*- shell-script -*-
+
+pre_mountroot()
+{
+	[ "$quiet" != "y" ] && log_begin_msg "Running /scripts/local-top"
+	run_scripts /scripts/local-top
+
+	[ "$quiet" != "y" ] && log_end_msg
+
+	# Don't wait for a root device that doesn't have a corresponding
+	# device in /dev (ie, mtd0)
+	if [ "${ROOT#/dev}" = "${ROOT}" ]; then
+		return
+	fi
+
+	while [ -z "${FSTYPE}" ]; do
+		FSTYPE=$(wait-for-root "${ROOT}" ${ROOTDELAY:-30})
+
+		# Load ubi with the correct MTD partition and return since
+		# fstype doesn't work with a char device like ubi.
+		if [ -n "$UBIMTD" ]; then
+			modprobe ubi mtd=$UBIMTD
+			return
+		fi
+
+		# Run failure hooks, hoping one of them can fix up the system
+		# and we can restart the wait loop.  If they all fail, abort
+		# and move on to the panic handler and shell.
+		if [ -z "${FSTYPE}" ] && ! try_failure_hooks; then
+			break
+		fi
+	done
+
+	# We've given up, but we'll let the user fix matters if they can
+	while [ -z "${FSTYPE}" -a ! -e "${ROOT}" ]; do
+		# give hint about renamed root
+		case "${ROOT}" in
+		/dev/hd*)
+			suffix="${ROOT#/dev/hd}"
+			major="${suffix%[[:digit:]]}"
+			major="${major%[[:digit:]]}"
+			if [ -d "/sys/block/sd${major}" ]; then
+				echo "WARNING bootdevice may be renamed. Try root=/dev/sd${suffix}"
+			fi
+			;;
+		/dev/sd*)
+			suffix="${ROOT#/dev/sd}"
+			major="${suffix%[[:digit:]]}"
+			major="${major%[[:digit:]]}"
+			if [ -d "/sys/block/hd${major}" ]; then
+				echo "WARNING bootdevice may be renamed. Try root=/dev/hd${suffix}"
+			fi
+			;;
+		esac
+		echo "Gave up waiting for root device.  Common problems:"
+		echo " - Boot args (cat /proc/cmdline)"
+		echo "   - Check rootdelay= (did the system wait long enough?)"
+		echo "   - Check root= (did the system wait for the right device?)"
+		echo " - Missing modules (cat /proc/modules; ls /dev)"
+		panic "ALERT!  ${ROOT} does not exist.  Dropping to a shell!"
+	done
+}
+
+mountroot()
+{
+    pre_mountroot
+
+    # Get the root filesystem type if not set
+    if [ -z "${ROOTFSTYPE}" ]; then
+        [ -n "${FSTYPE}" ] || FSTYPE=$(blkid -s TYPE -o value "${ROOT}")
+        ROOTFSTYPE="${FSTYPE}"
+    else
+        FSTYPE=${ROOTFSTYPE}
+    fi
+
+    [ "$quiet" != "y" ] && log_begin_msg "Running /scripts/local-premount"
+    run_scripts /scripts/local-premount
+    [ "$quiet" != "y" ] && log_end_msg
+
+    if [ -d ${rootmnt} ]; then
+            echo "${rootmnt} exist"
+    fi
+
+    c=$(cat /proc/cmdline)
+    c="${c##*boot_partition=}"
+    boot_partition="${c%% *}"
+
+    c=$(cat /proc/cmdline)
+    c="${c##*conf_partition=}"
+    conf_partition="${c%% *}"
+
+    c=$(cat /proc/cmdline)
+    c="${c##*rootfs_path=}"
+    rootfs_path="${c%% *}"
+    rootfs_full_path="${c%% *}"
+
+    c=$(cat /proc/cmdline)
+    c="${c##*manifest_path=}"
+    manifest_path="${c%% *}"
+
+    c=$(cat /proc/cmdline)
+    c="${c##*tpm_major_version=}"
+    tpm_major_version="${c%% *}"
+
+    if [ "$boot_partition" != "$conf_partition" ]; then
+        CONF_PARTITION="/confpartition"
+    else
+        CONF_PARTITION="/bootpartition"
+    fi
+
+    if [ ! -f "$CONF_PARTITION/$rootfs_path" ]; then
+        panic "$CONF_PARTITION/$rootfs_path not found"
+    fi
+
+    if [ ! -f "$CONF_PARTITION/$manifest_path" ]; then
+        panic "$CONF_PARTITION/$manifest_path not found"
+    fi
+
+    echo "rootfs path = $rootfs_path , manifest file path= $manifest_path"
+    echo "TPM major version from grub file = $tpm_major_version"
+    echo "extracting rootfs to LVM disk ..."
+
+    tar zxfp $CONF_PARTITION/$rootfs_path -C ${rootmnt}
+    /bin/verifier $CONF_PARTITION/$manifest_path NA HOST /etc/mtw_pubkey.pem > /tmp/imvm-result.out
+    if [ $? -ne 0 ]; then
+        echo "TCB verification failed."
+        sleep 2
+        panic "TCB verification failed. Dropping to a shell!"
+    fi
+
+    echo "Image verification details:"
+    cat /tmp/imvm-result.out
+    sleep 5
+
+    grep -w -i "fail" /tmp/imvm-result.out > /dev/null
+
+    if [ $? -eq 0 ]; then
+		echo "TCB verification failed."
+        sleep 2
+		panic "TCB verification failed. Dropping to a shell!"
+    else
+        echo "TCB verification complete."        
+    fi
+
+    image_hash=""
+    if [ "$tpm_major_version" == "1" ]; then
+        echo "SHA1 hash will be used to extend PCR"
+        image_hash=`cat /tmp/imvm-result.out |grep "SHA-1-IMAGE-HASH" | cut -d':' -f2`
+    else
+        echo "SHA256 hash will be used to extend PCR"
+        image_hash=`cat /tmp/imvm-result.out |grep "SHA-256-IMAGE-HASH" | cut -d':' -f2`
+    fi
+
+    echo "run tpmextend for extending pcr 19"
+    tpmextend 19 $image_hash
+    if [ $? -ne 0 ]; then
+        echo "TPM extend failed."
+        sleep 2
+        panic "TPM extend failed. Dropping to a shell!"
+    fi
+
+    sleep 5
+
+    ##XEN_SPECIFIC_CODE
+
+    [ "$quiet" != "y" ] && log_begin_msg "Running /scripts/local-bottom"
+    run_scripts /scripts/local-bottom
+    [ "$quiet" != "y" ] && log_end_msg
+
+    echo "Booting system .............. end of measureagent script"
+
+}
+
+
+

@@ -1,0 +1,56 @@
+#!/bin/bash
+
+PERSISTENT_STORAGE_DIR="/storage"
+INTERFACE_FILE="/etc/network/interfaces"
+HOSTNAME_FILE="/etc/hostname"
+XAPI_PROXY_CONFIG_FILE="/etc/intel_rpcore_plugin.conf"
+RPCORE_CONF_DIR="/tmp/rptmp"
+# enable swap
+swapon -v /dev/mapper/crypt-swap
+
+# mount the encrypted storage LVM
+
+for currentdir in "$RPCORE_CONF_DIR"
+do
+    link_dir=`echo $currentdir | sed  's/\//_/g'`
+
+    # special handling for rpcore conf dir, the empty directory needs to be created in /tmp/
+    if [ "$currentdir" == "$RPCORE_CONF_DIR" ]; then
+        mkdir -p $currentdir
+    fi
+
+    # create persistent storage directory if not already exists
+    if [ ! -d "$PERSISTENT_STORAGE_DIR/$link_dir" ]; then
+        mkdir -p $PERSISTENT_STORAGE_DIR/$link_dir
+        cp -rf $currentdir/* $PERSISTENT_STORAGE_DIR/$link_dir
+    fi
+
+    # remove directories created from rootfs tar and create a soft link
+    # to persistent storage directory
+    if [ ! -L $currentdir ]; then
+        rm -rf $currentdir
+        ln -s $PERSISTENT_STORAGE_DIR/$link_dir $currentdir
+        if echo "$link_dir" | grep -q "$NOVA"; then
+            chown -R nova:nova $PERSISTENT_STORAGE_DIR/$link_dir
+            chown -R nova:nova $currentdir
+        fi
+    fi
+done
+
+for currentfile in "$INTERFACE_FILE" "$HOSTNAME_FILE" "$XAPI_PROXY_CONFIG_FILE"
+do
+    link_file=`echo $currentfile | sed  's/\//_/g'`
+
+    if [ ! -f "$PERSISTENT_STORAGE_DIR/$link_file" ]; then
+         cp -f $currentfile $PERSISTENT_STORAGE_DIR/$link_file
+    fi
+
+    if [ ! -L $currentfile ]; then
+        rm -f $currentfile
+        ln -s $PERSISTENT_STORAGE_DIR/$link_file $currentfile
+    fi
+done
+
+exit 0
+
+
