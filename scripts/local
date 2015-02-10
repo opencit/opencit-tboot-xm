@@ -121,7 +121,8 @@ mountroot()
     echo "extracting rootfs to LVM disk ..."
 
     tar zxfp $CONF_PARTITION/$rootfs_path -C ${rootmnt}
-    /bin/verifier $CONF_PARTITION/$manifest_path NA HOST /etc/mtw_pubkey.pem > /tmp/imvm-result.out
+    echo "/bin/verifier $CONF_PARTITION/$manifest_path NA HOST /etc/mtw_pubkey.pem" > /tmp/imvm-result.out
+    /bin/verifier $CONF_PARTITION/$manifest_path NA HOST /etc/mtw_pubkey.pem 0 >> /tmp/imvm-result.out
     if [ $? -ne 0 ]; then
         echo "TCB verification failed."
         sleep 2

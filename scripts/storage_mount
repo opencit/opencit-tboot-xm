@@ -11,7 +11,23 @@ INIT_FILE="/etc/rc.local"
 NOVA="nova"
 
 # enable swap
-swapon -v /dev/mapper/crypt-swap
+# Validation required for swap lvm partition
+#while : ; do
+#    echo "Please enter device for swap partition (e.g. /dev/mapper/vg1-swap-vol )"
+#    read swap_lvm_device
+#    if valid_device $swap_lvm_device; then
+#        break
+#    else
+#        echo "Incorrect device : Please try again" 
+#    fi
+#done
+#swapon -v /dev/mapper/crypt-swap
+#echo "Please enter device for swap partition (e.g. /dev/mapper/vg1-swap-vol )"
+c=$(cat /proc/cmdline)
+c="${c##*swap_lvm_device=}"
+swap_lvm_device="${c%% *}"
+
+swapon -v $swap_lvm_device
 
 # mount the encrypted storage LVM
 mkdir -p $PERSISTENT_STORAGE_DIR

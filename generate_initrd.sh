@@ -106,8 +106,10 @@ if [ $input == "XEN" ]; then
     sed -i '/##XEN_SPECIFIC_CODE/r scripts/xen-specific-code-local' scripts/local        
     sed -i '/##XEN_SPECIFIC_CODE/r scripts/xen-specific-code-tcbcrypt' scripts/tcbcrypt
     trap xen_restore_local_script SIGHUP SIGINT SIGTERM
+    PREGENERATED_FILES=xen_pre_generated_files
+else
+    PREGENERATED_FILES=kvm_pre_generated_files
 fi
-
 
 backup_config
 update_config
@@ -118,7 +120,19 @@ cp -f initrd_hooks/tcb $INITRAMFS_HOOKS_DIR
 change_permissions
 
 echo "Generating new initrd, this might take few seconds ..."
-$MKINITRAMFS -o $OUTPUT_DIR/$INITRD_NAME $KERNEL_VERSION &> $OUTPUT_LOG
+
+#Remove any initrd.img files that exist in the kvm_pre_generated_files folder
+rm $WORKING_DIR/$PREGENERATED_FILES/initrd.img-* | awk 'BEGIN{FS="-"} {print $2"-"$3}'
+#$MKINITRAMFS -o $OUTPUT_DIR/$INITRD_NAME $KERNEL_VERSION &> $OUTPUT_LOG
+$MKINITRAMFS -o $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME $KERNEL_VERSION &> $OUTPUT_LOG
+
+
+#Remove any vmlinuz file that may exist in kvm_pre_generated_files folder
+rm $WORKING_DIR/$PREGENERATED_FILES/vmlinuz-* | awk 'BEGIN{FS="-"} {print $2"-"$3}'
+
+#Copy the vmlinuz of the current machine to kvm_pre_generated_files folder
+fname="/boot/vmlinuz-`uname -r`"
+cp $fname $WORKING_DIR/$PREGENERATED_FILES
 
 if [ $? -ne 0 ];then
     echo "initrd generation failed. Please check logs at $OUTPUT_LOG"
@@ -130,7 +144,7 @@ if [ $input == "XEN" ]; then
     xen_restore_local_script
 fi
 
-echo "Generated initrd at $OUTPUT_DIR/$INITRD_NAME"
+echo "Generated initrd at $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME"
 
 restore_config
 

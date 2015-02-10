@@ -91,19 +91,22 @@ fi
 echo "prepare encrypted disk partition now"
 dd if=/dev/urandom of=mykeyfile bs=1k count=2 
 
-echo "encrypt and open the encrypt disk partition"
-echo YES | cryptsetup -c aes-xts-plain64 luksFormat --key-file=mykeyfile $host_lvm_device
-cryptsetup -c aes-xts-plain64 luksOpen --key-file=/mykeyfile $host_lvm_device crypt-rootFS
+echo "Bypassing encrypt and open the encrypt disk partition"
+#echo YES | cryptsetup -c aes-xts-plain64 luksFormat --key-file=mykeyfile $host_lvm_device
+#cryptsetup -c aes-xts-plain64 luksOpen --key-file=/mykeyfile $host_lvm_device crypt-rootFS
 
-mkfs.ext4 /dev/mapper/crypt-rootFS
-mount -t ext4 /dev/mapper/crypt-rootFS ${rootmnt}
+#mkfs.ext4 /dev/mapper/crypt-rootFS
+#mount -t ext4 /dev/mapper/crypt-rootFS ${rootmnt}
+mkfs.ext4 $host_lvm_device
+mount -t ext4 $host_lvm_device ${rootmnt}
+
 echo "Created filsystem on ${rootmnt}.............."
 
 echo "Open parition for storage"
 cryptsetup -c aes-xts-plain64 luksOpen --key-file=$CONF_PARTITION/$lvm_enc_key  $storage_lvm_device crypt-storage
 
-echo "Open parition for swap"
-cryptsetup -c aes-xts-plain64 luksOpen --key-file=$CONF_PARTITION/$lvm_enc_key  $swap_lvm_device crypt-swap
+echo "Bypassing Open parition for swap"
+#cryptsetup -c aes-xts-plain64 luksOpen --key-file=$CONF_PARTITION/$lvm_enc_key  $swap_lvm_device crypt-swap
 
 echo "Cleaning up temporary encryption keys"
 rm -f mykeyfile

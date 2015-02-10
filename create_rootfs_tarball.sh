@@ -4,6 +4,7 @@ OUTFILE="/rootfs.tar.gz"
 KERNEL_VERSION=`uname -r`
 WORKING_DIR=`pwd`
 
+
 echo -e "\nThis script will create tarball of the whole filesystem (excluding the current working directory)"
 echo -e "All logs in /var/logs will be cleared by the script.\n"
 echo -e "Do you want to continue? (y/n)"
@@ -22,6 +23,16 @@ if [ $input != "XEN" ] && [ $input != "KVM" ] ; then
     exit 1
 fi
 
+if [ $input == "XEN" ]; then
+    	PREGENERATED_FILES=xen_pre_generated_files
+	#Clean any pre-existing rootfs file in the folder
+	rm $WORKING_DIR/$PREGENERATED_FILES/rootfs.tar.gz
+
+else
+    	PREGENERATED_FILES=kvm_pre_generated_files
+	#Clean any pre-existing rootfs file in the folder
+	rm $WORKING_DIR/$PREGENERATED_FILES/rootfs.tar.gz
+fi
 
 #cleanup logs first
 for file in `find /var/log/ -type f`; 
@@ -114,11 +125,17 @@ exit 0" > /etc/rc.local
     --exclude="/*gz"                             \
     --exclude="/etc/rc.local.bak"                \
     --exclude="/etc/fstab.bak"                   \
+    --exclude="/*iso"				 \
+    --exclude="/root/jdk*"			 \
+    --exclude="/root/test*"			 \
     -zcvpf rootfs.tar.gz /
 
     mv /etc/fstab.bak /etc/fstab
     mv /etc/rc.local.bak /etc/rc.local
+    mv /rootfs.tar.gz $WORKING_DIR/$PREGENERATED_FILES
 fi
+
+
 
 if [ $input == "XEN" ];then
     mkdir /storage
@@ -160,13 +177,7 @@ if [ $input == "XEN" ];then
     --exclude="/var/run/sr-mount/*"              \
     --exclude="/run/sr-mount/*"                  \
     --exclude="/var/spool/*"                     \
-    --exclude="/usr/share/doc/*"                 \
-    --exclude="/usr/share/man/*"                 \
-    --exclude="/usr/src/*"                       \
     --exclude="/var/cache/*"                     \
-    --exclude="/*gz"                             \
-    --exclude="/etc/fstab.bak"                   \
-    --exclude="/etc/rc.local.bak"                \
     -zcvpf rootfs.tar.gz /
 
     mv /etc/rc.local.bak /etc/rc.local
@@ -174,12 +185,13 @@ if [ $input == "XEN" ];then
     unlink /var/lib/xcp
     cp -r /storage/xcp  /var/lib/xcp
     rm -r /storage
+    mv /rootfs.tar.gz $WORKING_DIR/$PREGENERATED_FILES
 
 fi
 #restore motd
 rm -f /etc/motd
 ln -s /var/run/motd /etc/motd
 
-echo "Created tar at location /rootfs.tar.gz"
+echo "Created tar at location $WORKING_DIR/kvm_pre_generated_files/rootfs.tar.gz"
 
 
