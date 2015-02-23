@@ -15,9 +15,12 @@ esac
 
 . /usr/share/initramfs-tools/hook-functions
 
-copy_exec /bin/tar /bin/
+
+
+
+#copy_exec /bin/tar /bin/
 copy_exec /sbin/mkfs.ext4 /sbin/
-copy_exec /bin/gzip /sbin/
+#copy_exec /bin/gzip /sbin/
 copy_exec /usr/bin/awk /bin/
 copy_exec /usr/bin/tr /bin/
 copy_exec /bin/grep /bin/
@@ -25,11 +28,11 @@ copy_exec /usr/bin/base64 /bin/
 copy_exec /bin/sed /bin/
 copy_exec /lib/x86_64-linux-gnu/libcrypto.so.1.0.0 /lib/x86_64-linux-gnu/
 copy_exec /usr/lib/x86_64-linux-gnu/libxml2.so.2 /lib/x86_64-linux-gnu/
-copy_exec /sbin/cryptsetup /sbin/
-copy_exec /lib/modules/`uname -r`/kernel/drivers/md/dm-crypt.ko /lib/modules/`uname -r`/kernel/drivers/md/dm-crypt.ko
-copy_exec $RPROOT/bin/debug/tpmextend /bin/
-copy_exec $RPROOT/src/rptpm/rpmmio/rpmmio.ko /lib/modules/`uname -r`/kernel/drivers/char/tpm/
-copy_exec $RPROOT/bin/debug/verifier /bin/
+#copy_exec /sbin/cryptsetup /sbin/
+#copy_exec /lib/modules/`uname -r`/kernel/drivers/md/dm-crypt.ko /lib/modules/`uname -r`/kernel/drivers/md/dm-crypt.ko
+copy_exec $WORKING_DIR/bin/tpmextend /bin/
+copy_exec $WORKING_DIR/bin/rpmmio.ko /lib/modules/`uname -r`/kernel/drivers/char/tpm/
+copy_exec $WORKING_DIR/bin/verifier /bin/
 copy_exec $MT_PUBKEY /etc/mtw_pubkey.pem
 
 exit 0
