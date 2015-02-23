@@ -20,7 +20,7 @@
 #include <nxjson.h>
 
 #define MOUNTPATH_IMVM  "/tmp/mount/"
-#define MOUNTPATH_HOST  "/root"
+#define MOUNTPATH_HOST  "/tmp/root"
 #define MAX_FILES       120000
 
 int fileCount;
