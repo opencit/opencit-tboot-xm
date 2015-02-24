@@ -1,0 +1,79 @@
+#!/bin/sh -e
+# initramfs local-premount script for fixrtc
+
+PREREQ=""
+
+# Output pre-requisites
+prereqs()
+{
+        echo "$PREREQ"
+}
+
+case "$1" in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+echo "***********************************************************************************"
+#LOADING - RPMMIO DRIVERS
+echo "Load our own rpmmio driver, and create device rpmmio0, for direct TPM access"
+insmod /lib/modules/`uname -r`/kernel/drivers/char/tpm/rpmmio.ko
+major=$(awk '$2 == "rpmmio" {print $1}' /proc/devices)
+mknod /dev/rpmmio0 c $major 0
+chmod 777 /dev/rpmmio0
+
+tmp_root=/tmp/root
+mkdir $tmp_root
+#MOUNT
+echo -e "\nMount ${roflag} ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} ${tmp_root}"
+mount ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} $tmp_root
+
+boot_part=/tmp/root/boot
+
+#mkdir $boot_part
+#mount -r /dev/sda1 $boot_part
+#VERIFICATION LOGIC
+ #   echo "TPM major version from grub file = $tpm_major_version"
+
+verification_result=$tmp_root/var/log/tcb-verification-result.out
+
+/bin/verifier $boot_part/tcb-manifest.xml NA HOST /etc/mtw_pubkey.pem 0 > $verification_result
+    
+if [ $? -ne 0 ]; then
+    echo "TCB verification failed."
+else
+    echo "TCB verification complete."
+fi
+
+echo "Image verification details:"
+
+image_hash=""
+
+tpm_version=$tpm_major_version
+
+if [ "$tpm_version" == "1" ]; then
+    echo "SHA1 hash will be used to extend PCR"
+    image_hash=`cat $verification_result |grep "SHA-1-IMAGE-HASH" | cut -d':' -f2`
+else
+    echo "SHA256 hash will be used to extend PCR"
+    image_hash=`cat $verification_result |grep "SHA-256-IMAGE-HASH" | cut -d':' -f2`
+fi
+
+echo "Run TPM Extend for Extending PCR 19"
+/bin/tpmextend 19 $image_hash >> /tmp/tpm_log
+
+if [ $? -ne 0 ]; then
+    echo "TPM extend failed." >> /tmp/tpm_log
+    sleep 2
+    panic "TPM extend failed. Dropping to a shell!"
+fi
+
+echo "END OF MEASUREMENT AGENT"
+
+#UNMOUNT
+umount $tmp_root
+#umount $boot_part
+
+echo "***********************************************************************************"

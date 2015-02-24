@@ -1,9 +1,0 @@
-    mkdir /mnt
-    mount /dev/mapper/crypt-storage /mnt
-    if [ ! -d "/mnt/xcp" ]; then
-        echo "xcp not present on persistent storage, Copying from rootfs"
-        cp -r ${rootmnt}/storage/xcp /mnt/
-    fi
-    rm -rf ${rootmnt}/storage/xcp
-    umount /mnt
-     
