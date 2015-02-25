@@ -137,5 +137,5 @@ if [ $? -ne 0 ];then
     exit 1
 fi
 
-echo "*******************> *Generated initrd at $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME <*************************"
+echo "********> Generated initrd at $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME <**********"
 restore_config

@@ -24,34 +24,47 @@ major=$(awk '$2 == "rpmmio" {print $1}' /proc/devices)
 mknod /dev/rpmmio0 c $major 0
 chmod 777 /dev/rpmmio0
 
+#Mount / in /tmp/root
 tmp_root=/tmp/root
 mkdir $tmp_root
 #MOUNT
 echo -e "\nMount ${roflag} ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} ${tmp_root}"
 mount ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} $tmp_root
 
-boot_part=/tmp/root/boot
+part_info=$PARTITION_INFO
+part_info=`echo $part_info | sed 's/{\|}//g'`
+for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' ` 
+ do 
+	 mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
+	 mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
+	 if [ $mntPoint == "/" ] 
+	 then 
+		echo "Skipping mount for / " 
+	 else 
+		mkdir -p $tmp_root/$mntPoint
+		mount -r $mntDevice $tmp_root/$mntPoint 
+	 fi 
+ done
 
-#mkdir $boot_part
-#mount -r /dev/sda1 $boot_part
-#VERIFICATION LOGIC
- #   echo "TPM major version from grub file = $tpm_major_version"
 
+#Grab the tcb-manifest file path from Grub Entry
+manifest_path=$MANIFEST_PATH
+
+#Verification Logic
 verification_result=$tmp_root/var/log/tcb-verification-result.out
 
-/bin/verifier $boot_part/tcb-manifest.xml NA HOST /etc/mtw_pubkey.pem 0 > $verification_result
-    
+#Run the Verifier and the check for its results
+/bin/verifier $tmp_root/$manifest_path NA HOST /etc/mtw_pubkey.pem 0 > $verification_result
 if [ $? -ne 0 ]; then
     echo "TCB verification failed."
 else
     echo "TCB verification complete."
 fi
 
-echo "Image verification details:"
-
 image_hash=""
 
-tpm_version=$tpm_major_version
+#Grab the value of tpm_version from Grub Entry
+tpm_version=$TPM_MAJOR_VERSION
 
 if [ "$tpm_version" == "1" ]; then
     echo "SHA1 hash will be used to extend PCR"
@@ -62,18 +75,30 @@ else
 fi
 
 echo "Run TPM Extend for Extending PCR 19"
-/bin/tpmextend 19 $image_hash >> /tmp/tpm_log
 
+/bin/tpmextend 19 $image_hash >> $tmp_root/var/log/tpm_log
 if [ $? -ne 0 ]; then
-    echo "TPM extend failed." >> /tmp/tpm_log
-    sleep 2
+    echo "TPM extend failed." >> $tmp_root/var/log/tpm_log
     panic "TPM extend failed. Dropping to a shell!"
 fi
 
+cat $tmp_root/var/log/tpm_log
 echo "END OF MEASUREMENT AGENT"
 
-#UNMOUNT
-umount $tmp_root
-#umount $boot_part
+#UNMOUNT all partitions except /
+for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' `
+ do 
+	mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
+ 	mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
+	if [ $mntPoint == "/" ] 
+	then 
+		echo "Skipping unmount /"
+	else 
+		unmount $tmp_root/$mntPoint 
+		rm -rf $tmp_root/$mntPoint 
+	fi
+ done
 
+#Unmount Root Partition
+umount $tmp_root
 echo "***********************************************************************************"
