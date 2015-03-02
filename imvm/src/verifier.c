@@ -33,7 +33,7 @@ Keywords in the Policy should match with those in this code.
 //Maybe some of the above header files aren't needed? Like the json one? 
 
 #define MOUNTPATH_IMVM  "/tmp/mount"
-#define MOUNTPATH_HOST  "/root"
+#define MOUNTPATH_HOST  "/tmp/root"
 
 int fileCount; //extraneous? Can remove later
 char fs_mount_path[1024];
