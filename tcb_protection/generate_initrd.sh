@@ -42,12 +42,6 @@ restore_config() {
 }
 
 prerequisites() {
-
-    if [ -z "$MT_PUBKEY" ]; then
-        echo "Please set MT_PUBKEY environment variable to Mt Wilson public key path (e.g. /root/pubkey.pem)"
-        exit 1
-    fi 
-
     if [ -z "$MKINITRAMFS" ]; then
         echo "Please install initramfs-tools first using apt-get"
         exit 1
@@ -126,8 +120,8 @@ change_permissions
 
 echo "Generating New Initrd, this might take few seconds ..."
 
-#Remove any initrd.img files that exist in the kvm_pre_generated_files folder
-rm $WORKING_DIR/$PREGENERATED_FILES/initrd.img-* | awk 'BEGIN{FS="-"} {print $2"-"$3}'
+# Remove any initrd.img files that exist in the kvm_pre_generated_files folder
+rm -r $WORKING_DIR/$PREGENERATED_FILES/initrd.img-* | awk 'BEGIN{FS="-"} {print $2"-"$3}'
 
 #Run the GENERATE_INITRD Command
 $MKINITRAMFS -o $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME $KERNEL_VERSION &> $OUTPUT_LOG

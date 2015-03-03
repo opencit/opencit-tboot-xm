@@ -358,11 +358,20 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     char *exclude="";
     size_t len = 0;
     char calc_hash[256];
+    char ma_result_path[256]; 
+    char ma_result_path_default[64]="/root/MA_Hash.xml";
     
+    if(strcmp(verificationType,"HOST") == 0)
+    {
+  	    sprintf(ma_result_path, "%s%s", MOUNTPATH_HOST, ma_result_path_default);
+    }
+    else 
+    {
+        sprintf(ma_result_path, "%s", ma_result_path_default);
+    }
 
     fp=fopen(origManifestPath,"r");
-    fq=fopen("/root/MA_Hash.xml","w");
-    
+    fq=fopen(ma_result_path,"w");   
     
 
    //Open Manifest to get list of files to hash
@@ -462,8 +471,7 @@ int main(int argc, char **argv) {
 
     
    xmlDocPtr Doc;
-   FILE *fc = fopen("/root/cumulative_hash.txt","w");//File for writing cumulative hash 
-   	
+	char hash_file[256]="/root/cumulative_hash.txt";	
 
     if(argc != 4) {
         printf("Usage:\n%s <manifest_path> <disk_path> <IMVM/HOST>  \n", argv[0]);
@@ -479,13 +487,14 @@ int main(int argc, char **argv) {
         imageMountingRequired = 0;
     } else if (strcmp(argv[3], "HOST") == 0) {
         strcpy(fs_mount_path, MOUNTPATH_HOST);
+        sprintf(hash_file, "%s/var/log/cumulative_hash.txt", fs_mount_path);
         imageMountingRequired = 1;
     } else { 
         printf("Invalid verification_type.Valid options are IMVM/HOST\n");
         return EXIT_FAILURE;
     }
-    
-   
+
+    FILE *fc = fopen(hash_file,"w");//File for writing cumulative hash 
     if (imageMountingRequired == 0) {
             char command[512];
            

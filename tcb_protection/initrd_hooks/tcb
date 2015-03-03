@@ -19,7 +19,7 @@ esac
 
 
 #copy_exec /bin/tar /bin/
-copy_exec /sbin/mkfs.ext4 /sbin/
+#copy_exec /sbin/mkfs.ext4 /sbin/
 #copy_exec /bin/gzip /sbin/
 copy_exec /usr/bin/awk /bin/
 copy_exec /usr/bin/tr /bin/
@@ -33,6 +33,5 @@ copy_exec /usr/lib/x86_64-linux-gnu/libxml2.so.2 /lib/x86_64-linux-gnu/
 copy_exec $WORKING_DIR/bin/tpmextend /bin/
 copy_exec $WORKING_DIR/bin/rpmmio.ko /lib/modules/`uname -r`/kernel/drivers/char/tpm/
 copy_exec $WORKING_DIR/bin/verifier /bin/
-copy_exec $MT_PUBKEY /etc/mtw_pubkey.pem
 
 exit 0

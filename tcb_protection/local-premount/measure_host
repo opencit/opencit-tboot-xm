@@ -20,20 +20,24 @@ esac
 #LOADING - RPMMIO DRIVERS
 load_rpmmio_drivers()
 {
+	echo "RPMMIO Driver Load - STARTED"
 	echo "Load our own rpmmio driver, and create device rpmmio0, for direct TPM access"
 	insmod /lib/modules/`uname -r`/kernel/drivers/char/tpm/rpmmio.ko
 	major=$(awk '$2 == "rpmmio" {print $1}' /proc/devices)
 	mknod /dev/rpmmio0 c $major 0
 	chmod 777 /dev/rpmmio0
+	echo "RPMMIO Driver Load - COMPLETE"
 }
 
 #MOUNT / IN /TMP/ROOT
 mount_root()
 {
+	echo "/ Mount STARTED"
 	tmp_root=/tmp/root
 	mkdir -p $tmp_root
 	echo -e "\nMount ${roflag} ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} ${tmp_root}"
 	mount ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} $tmp_root
+	echo "/ Mount COMPLETED"
 }
 
 
@@ -41,6 +45,7 @@ mount_root()
 #UNMOUNT THE PARTITIONS
 unmount_partitions()
 {
+	log "Unmount Partitions - STARTED"
 	for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' `
 	do
         	mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
@@ -56,6 +61,8 @@ unmount_partitions()
 
 	#Unmount Root Partition
 	umount $tmp_root
+	echo "Unmount Paritions - COMPLETE"
+
 }
 #End of Unmount Fn
 
@@ -64,6 +71,7 @@ unmount_partitions()
 #MOUNT OTHER PARTITIONS
 mount_partitions()
 {
+	log "Mount Other Partitions - STARTED"
 	part_info=$PARTITION_INFO
 	part_info=`echo $part_info | sed 's/{\|}//g'`
 	for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' ` 
@@ -78,32 +86,39 @@ mount_partitions()
 			mount -r $mntDevice $tmp_root/$mntPoint 
 	 	fi 
 	done
+	log "Mount Partitions - COMPLETE"
+}
+
+log()
+{
+	echo $1
+	echo $1 >> $tcb_log_file	
 }
 
 
 #CALCULATE THE HASHES MAKING USE OF VERIFIER
 manifest_verify()
 {
-	verification_result=$tmp_root/var/log/tcb-verification-result.out
-	echo "" > $verification_result
-	echo "Log Creation Time: `date`"
+	cumulative_hash=$tmp_root/var/log/cumulative_hash.txt
+	echo "" > $cumulative_hash
 
+	log "TCB Verification - STARTED"
 	#Grab the tcb-manifest file path from Grub Entry
 	manifest_path=$MANIFEST_PATH
 	if [ ! -e "$tmp_root/$manifest_path" ]; then
-        	echo "Manifest Path INCORRECT.File not Found at $tmp_root/$manifest_path" > $verification_result 
+        	log "Manifest Path INCORRECT.File not Found at $tmp_root/$manifest_path"
 		unmount_partitions
         	exit 1
 	fi
 
 	#Run the Verifier and the check for its results
-	/bin/verifier $tmp_root/$manifest_path NA HOST /etc/mtw_pubkey.pem 0 > $verification_result
+	/bin/verifier $tmp_root/$manifest_path NA HOST >> $tcb_log_file 2>&1
 	if [ $? -ne 0 ]; then
-		echo "TCB Verification Failed."
+		log "TCB Verification FAILED"
 		unmount_partitions
 		exit 1
 	else
-		echo "TCB Verification Complete."
+		log "TCB Verification COMPLETE"
 	fi
 }
 
@@ -112,35 +127,31 @@ manifest_verify()
 tpm_extend()
 {
 	image_hash=""
-
+	
+	log "TPM Extend STARTED"
 	#Grab the value of tpm_version from Grub Entry
-	tpm_version=$TPM_MAJOR_VERSION
 
-	if [ "$tpm_version" == "1" ]; then
-		echo "SHA1 hash will be used to extend PCR"
-    		image_hash=`cat $verification_result |grep "SHA-1-IMAGE-HASH" | cut -d':' -f2`
-	else
-		echo "SHA256 hash will be used to extend PCR"
-    		image_hash=`cat $verification_result |grep "SHA-256-IMAGE-HASH" | cut -d':' -f2`
-	fi
+	log "SHA hash will be used to extend PCR"
+	image_hash=`cat $cumulative_hash`
 
-	echo "Run TPM Extend for Extending PCR 19"
-	echo "" > $tmp_root/var/log/tpmextend.log
-	echo "Log Creation Time: `date`" >> $tmp_root/var/log/tpmextend.log
-
-	/bin/tpmextend 19 $image_hash >> $tmp_root/var/log/tpmextend.log
+	log "Run TPM Extend for Extending PCR 19"
+	log "TPM Extend Log"
+	
+	/bin/tpmextend 19 $image_hash >> $tcb_log_file 2>&1
 	if [ $? -ne 0 ]; then
-		echo "TPM extend failed." >> $tmp_root/var/log/tpmextend.log
+		log "TPM extend failed."
 		unmount_partitions
 	fi
 }
-
 
 #Step 1 - Load the RPMMIO Drivers
 load_rpmmio_drivers
 
 #Step 2 - Mount /
 mount_root
+
+tcb_log_file=$tmp_root/var/log/tcb.log
+log "Log Creation Time: `date`"
 
 #Step 3 - Mount Other Partitions
 mount_partitions
@@ -153,4 +164,5 @@ tpm_extend
 
 #Step 6 - Unmount all the Partitions that were mounted in the process
 unmount_partitions
-echo "END OF MEASUREMENT AGENT"
+log "END OF MEASUREMENT AGENT"
+

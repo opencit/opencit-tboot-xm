@@ -1,7 +1,5 @@
 #!/bin/bash
 
-TPM_VER=`tpm_version -v | awk 'BEGIN{FS=":"}{print $2}' | cut -c2-2`
-
 #Read the Manifest File Path
 while :;
 do
@@ -27,6 +25,6 @@ PARTITION_INFO="{"$PARTITION_INFO"}"
 
 echo "Append the following line as kernel argument in grub menuentry for TCB Protection: "
 echo ""
-echo "MANIFEST_PATH=\"`readlink -e $MANIFEST_PATH`\" TPM_MAJOR_VERSION=\"$TPM_VER\" PARTITION_INFO=\"$PARTITION_INFO\""
+echo "MANIFEST_PATH=\"`readlink -e $MANIFEST_PATH`\" PARTITION_INFO=\"$PARTITION_INFO\""
 echo ""
 
