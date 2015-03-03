@@ -16,89 +16,141 @@ case "$1" in
         ;;
 esac
 
-echo "***********************************************************************************"
+
 #LOADING - RPMMIO DRIVERS
-echo "Load our own rpmmio driver, and create device rpmmio0, for direct TPM access"
-insmod /lib/modules/`uname -r`/kernel/drivers/char/tpm/rpmmio.ko
-major=$(awk '$2 == "rpmmio" {print $1}' /proc/devices)
-mknod /dev/rpmmio0 c $major 0
-chmod 777 /dev/rpmmio0
+load_rpmmio_drivers()
+{
+	echo "Load our own rpmmio driver, and create device rpmmio0, for direct TPM access"
+	insmod /lib/modules/`uname -r`/kernel/drivers/char/tpm/rpmmio.ko
+	major=$(awk '$2 == "rpmmio" {print $1}' /proc/devices)
+	mknod /dev/rpmmio0 c $major 0
+	chmod 777 /dev/rpmmio0
+}
 
-#Mount / in /tmp/root
-tmp_root=/tmp/root
-mkdir $tmp_root
-#MOUNT
-echo -e "\nMount ${roflag} ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} ${tmp_root}"
-mount ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} $tmp_root
-
-part_info=$PARTITION_INFO
-part_info=`echo $part_info | sed 's/{\|}//g'`
-for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' ` 
- do 
-	 mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
-	 mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
-	 if [ $mntPoint == "/" ] 
-	 then 
-		echo "Skipping mount for / " 
-	 else 
-		mkdir -p $tmp_root/$mntPoint
-		mount -r $mntDevice $tmp_root/$mntPoint 
-	 fi 
- done
+#MOUNT / IN /TMP/ROOT
+mount_root()
+{
+	tmp_root=/tmp/root
+	mkdir -p $tmp_root
+	echo -e "\nMount ${roflag} ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} ${tmp_root}"
+	mount ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} $tmp_root
+}
 
 
-#Grab the tcb-manifest file path from Grub Entry
-manifest_path=$MANIFEST_PATH
 
-#Verification Logic
-verification_result=$tmp_root/var/log/tcb-verification-result.out
+#UNMOUNT THE PARTITIONS
+unmount_partitions()
+{
+	for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' `
+	do
+        	mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
+        	mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
+        	if [ $mntPoint == "/" ]
+        	then
+                	echo "Skipping unmount /"
+        	else
+                	umount $tmp_root/$mntPoint
+                	rm -rf $tmp_root/$mntPoint
+        	fi
+ 	done
 
-#Run the Verifier and the check for its results
-/bin/verifier $tmp_root/$manifest_path NA HOST /etc/mtw_pubkey.pem 0 > $verification_result
-if [ $? -ne 0 ]; then
-    echo "TCB verification failed."
-else
-    echo "TCB verification complete."
-fi
+	#Unmount Root Partition
+	umount $tmp_root
+}
+#End of Unmount Fn
 
-image_hash=""
 
-#Grab the value of tpm_version from Grub Entry
-tpm_version=$TPM_MAJOR_VERSION
 
-if [ "$tpm_version" == "1" ]; then
-    echo "SHA1 hash will be used to extend PCR"
-    image_hash=`cat $verification_result |grep "SHA-1-IMAGE-HASH" | cut -d':' -f2`
-else
-    echo "SHA256 hash will be used to extend PCR"
-    image_hash=`cat $verification_result |grep "SHA-256-IMAGE-HASH" | cut -d':' -f2`
-fi
+#MOUNT OTHER PARTITIONS
+mount_partitions()
+{
+	part_info=$PARTITION_INFO
+	part_info=`echo $part_info | sed 's/{\|}//g'`
+	for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' ` 
+ 	do 
+		mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
+	 	mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
+	 	if [ $mntPoint == "/" ] 
+	 	then 
+			echo "Skipping mount for / " 
+	 	else 
+			mkdir -p $tmp_root/$mntPoint
+			mount -r $mntDevice $tmp_root/$mntPoint 
+	 	fi 
+	done
+}
 
-echo "Run TPM Extend for Extending PCR 19"
 
-/bin/tpmextend 19 $image_hash >> $tmp_root/var/log/tpm_log
-if [ $? -ne 0 ]; then
-    echo "TPM extend failed." >> $tmp_root/var/log/tpm_log
-    panic "TPM extend failed. Dropping to a shell!"
-fi
+#CALCULATE THE HASHES MAKING USE OF VERIFIER
+manifest_verify()
+{
+	verification_result=$tmp_root/var/log/tcb-verification-result.out
+	echo "" > $verification_result
+	echo "Log Creation Time: `date`"
 
-cat $tmp_root/var/log/tpm_log
-echo "END OF MEASUREMENT AGENT"
-
-#UNMOUNT all partitions except /
-for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' `
- do 
-	mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
- 	mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
-	if [ $mntPoint == "/" ] 
-	then 
-		echo "Skipping unmount /"
-	else 
-		unmount $tmp_root/$mntPoint 
-		rm -rf $tmp_root/$mntPoint 
+	#Grab the tcb-manifest file path from Grub Entry
+	manifest_path=$MANIFEST_PATH
+	if [ ! -e "$tmp_root/$manifest_path" ]; then
+        	echo "Manifest Path INCORRECT.File not Found at $tmp_root/$manifest_path" > $verification_result 
+		unmount_partitions
+        	exit 1
 	fi
- done
 
-#Unmount Root Partition
-umount $tmp_root
-echo "***********************************************************************************"
+	#Run the Verifier and the check for its results
+	/bin/verifier $tmp_root/$manifest_path NA HOST /etc/mtw_pubkey.pem 0 > $verification_result
+	if [ $? -ne 0 ]; then
+		echo "TCB Verification Failed."
+		unmount_partitions
+		exit 1
+	else
+		echo "TCB Verification Complete."
+	fi
+}
+
+
+#EXTEND THE PCR 19 VALUE BY MAKING USE OF TPMEXTEND
+tpm_extend()
+{
+	image_hash=""
+
+	#Grab the value of tpm_version from Grub Entry
+	tpm_version=$TPM_MAJOR_VERSION
+
+	if [ "$tpm_version" == "1" ]; then
+		echo "SHA1 hash will be used to extend PCR"
+    		image_hash=`cat $verification_result |grep "SHA-1-IMAGE-HASH" | cut -d':' -f2`
+	else
+		echo "SHA256 hash will be used to extend PCR"
+    		image_hash=`cat $verification_result |grep "SHA-256-IMAGE-HASH" | cut -d':' -f2`
+	fi
+
+	echo "Run TPM Extend for Extending PCR 19"
+	echo "" > $tmp_root/var/log/tpmextend.log
+	echo "Log Creation Time: `date`" >> $tmp_root/var/log/tpmextend.log
+
+	/bin/tpmextend 19 $image_hash >> $tmp_root/var/log/tpmextend.log
+	if [ $? -ne 0 ]; then
+		echo "TPM extend failed." >> $tmp_root/var/log/tpmextend.log
+		unmount_partitions
+	fi
+}
+
+
+#Step 1 - Load the RPMMIO Drivers
+load_rpmmio_drivers
+
+#Step 2 - Mount /
+mount_root
+
+#Step 3 - Mount Other Partitions
+mount_partitions
+
+#Step 4 - Measurement - Verifier
+manifest_verify
+
+#Step 5 - Extend PCR 19 using TPM Extend
+tpm_extend
+
+#Step 6 - Unmount all the Partitions that were mounted in the process
+unmount_partitions
+echo "END OF MEASUREMENT AGENT"
