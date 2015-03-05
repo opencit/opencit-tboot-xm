@@ -29,17 +29,13 @@ Keywords in the Policy should match with those in this code.
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
 #include <ctype.h>
-#include <nxjson.h>
-//Maybe some of the above header files aren't needed? Like the json one? 
 
 #define MOUNTPATH_IMVM  "/tmp/mount"
 #define MOUNTPATH_HOST  "/tmp/root"
 
-int fileCount; //extraneous? Can remove later
 char fs_mount_path[1024];
 char hashType[10]; //SHA1 or SHA256
 char value[512];
-int imageMountingRequired = 0; //IMVM/HOST
 char NodeValue[500]; //XML Tag value
 
 
@@ -48,39 +44,6 @@ char cHash[65]; //Cumulative hash
 int process_started = 0;
 SHA256_CTX csha256;
 SHA_CTX csha1;
-
-
-
-/* I dont know what this function does. No major role here. Kept it just in case I need it for 
-   Symbolic link resolution thing. May discard later. 
-   
- * load_file:
- * @filepath : path of the file
- *
- * Returns the contents of the file 
- */
-static char* load_file(const char* filepath) {
-  struct stat st;
-  if (stat(filepath, &st)==-1) {
-    printf("can't find file %s\n", filepath);
-    return 0;
-  }
-  int fd=open(filepath, O_RDONLY);
-  if (fd==-1) {
-   printf("can't open file %s\n", filepath);
-    return 0;
-  }
-  char* text=malloc(st.st_size+1);
-  if (st.st_size!=read(fd, text, st.st_size)) {
-    printf("can't read file %s\n", filepath);
-    close(fd);
-    return 0;
-  }
-  close(fd);
-  text[st.st_size]='\0';
-  return text;
-}
-
 
 /* May need this one for Sym Link thing 
  * getSymLinkValue:
@@ -214,15 +177,14 @@ void generate_cumulative_hash(char output[65],int sha_one, int type){
  * Calculate hash of file
  */
 char* calculate(char *path, char output[65], int type) {
-    struct stat p_statbuf;
     
-    char *token;
     char buf[512];
     char hash_in[65];
     /*We append the mount path before the filepath first, 
 	 and then pass that address to calculate the hash */
     
- 
+    getSymLinkValue(path);
+
     strcpy(buf, fs_mount_path);
     strcpy(value, fs_mount_path);
     strcat(buf, path);
@@ -298,7 +260,7 @@ include="*.out" ....> returns *.out and so on..
 
 */
 
-char* tagEntry (char* line){
+void tagEntry (char* line){
            
         char key[500];
 		/*We use a local string 'key' here so that we dont make any changes
@@ -322,7 +284,7 @@ char* tagEntry (char* line){
 		Its contents are copied after its new value addition immediately
 		*/
 		strcpy(NodeValue,start);
-        return start;
+        
 }
 
 /*
@@ -352,15 +314,14 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
   
     FILE *fp, *fq, *fd; 
     char * line = NULL;
-    char * temp;
-    char * end;
     char *include="";
     char *exclude="";
     size_t len = 0;
     char calc_hash[256];
     char ma_result_path[256]; 
     char ma_result_path_default[64]="/root/MA_Hash.xml";
-    
+       
+
     if(strcmp(verificationType,"HOST") == 0)
     {
   	    sprintf(ma_result_path, "%s%s", MOUNTPATH_HOST, ma_result_path_default);
@@ -423,29 +384,48 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
                  
                  }
             
-	        char Dir_Str[256];
+	    char Dir_Str[256];
             char df[256];
+            
             char mDpath[256];
             strcpy(mDpath,fs_mount_path);
             strcat(mDpath,dir_path);//path of dir in the VM
-            strcpy(df,fs_mount_path);
-            strcat(df,"/Dirfiles.txt");//path of directory file****Hardcoded. Configurable
-       
-           
-            if(include != NULL && exclude != NULL )
-               sprintf(Dir_Str,"find %s | grep -E  \"%s\" | grep -vE \"%s\" >%s",mDpath,include,exclude,df);  
-            else if(include != NULL)
-               sprintf(Dir_Str,"find %s | grep -E  \"%s\" >%s",mDpath,include,df);
-            else if(exclude != NULL)
-               sprintf(Dir_Str,"find %s | grep -vE \"%s\" >%s",mDpath,exclude,df);
-            else
-               sprintf(Dir_Str,"find %s  >%s",mDpath,df);
 
-           
+            char *df = "Dirfiles.txt";
+            /*df is used to hold the temporary file that stores the directory hash (after we get it using openssl) */
+
+            if(include != NULL && exclude != NULL )
+               sprintf(Dir_Str,"find %s | grep -E  \"%s\" | grep -vE \"%s\" | openssl dgst -%s >%s",mDpath,include,exclude,hashType,df);
+            else if(include != NULL)
+               sprintf(Dir_Str,"find %s | grep -E  \"%s\" | openssl dgst -%s >%s",mDpath,include,hashType,df);
+            else if(exclude != NULL)
+               sprintf(Dir_Str,"find %s | grep -vE \"%s\" | openssl dgst -%s >%s",mDpath,exclude,hashType,df);
+            else
+               sprintf(Dir_Str,"find %s  | openssl dgst -%s >%s",mDpath,hashType,df);
+
+
             system(Dir_Str);
+
+                        /*Calculate the hash of the directory files using openssl and o/p the stdout to Dirfiles.txt file
+                        then read that value from the file.
+                        In this file, the result is stored as stdout  = "Hash",
+                        so we just take the values after '='
+                        */
+
+            FILE *fy;
+            fy=fopen(df,"r");
+            char *dhash = NULL;
+            getline(&dhash, &len, fy);
+            char *dp = strstr(dhash,"= ");
+            dp++;
+            dp++; /* Navigate until you reach the actual hash, after spaces */
+            dhash = dp;
+
             fprintf(fq,"<Dir path=\"%s\">",dir_path);
-            fprintf(fq,"%s</Dir>\n",calculate("/Dirfiles.txt",calc_hash,1));//call directory hash function here
-            system("rm -rf /tmp/mount/Dirfiles.txt"); //Remove the Directory file. 
+            fprintf(fq,"%s</Dir>\n",dhash);//call directory hash function here
+            sprintf(Dir_Str,"rm -rf %s",df); //Remove the Directory file.
+            system(Dir_Str);
+
 
 
           }//Dir hash ends
@@ -469,9 +449,10 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
  */
 int main(int argc, char **argv) {
 
-    
+   int imageMountingRequired = 0; //IMVM = 1 /HOST = 0
+ 
    xmlDocPtr Doc;
-	char hash_file[256]="/root/cumulative_hash.txt";	
+   char hash_file[256]="/root/cumulative_hash.txt";	
 
     if(argc != 4) {
         printf("Usage:\n%s <manifest_path> <disk_path> <IMVM/HOST>  \n", argv[0]);
@@ -484,18 +465,18 @@ int main(int argc, char **argv) {
     memset(cHash,0,strlen(cHash));
    if (strcmp(argv[3], "IMVM") == 0) {
         strcpy(fs_mount_path, MOUNTPATH_IMVM);
-        imageMountingRequired = 0;
+        imageMountingRequired = 1;
     } else if (strcmp(argv[3], "HOST") == 0) {
         strcpy(fs_mount_path, MOUNTPATH_HOST);
         sprintf(hash_file, "%s/var/log/cumulative_hash.txt", fs_mount_path);
-        imageMountingRequired = 1;
+        imageMountingRequired = 0;
     } else { 
         printf("Invalid verification_type.Valid options are IMVM/HOST\n");
         return EXIT_FAILURE;
     }
 
     FILE *fc = fopen(hash_file,"w");//File for writing cumulative hash 
-    if (imageMountingRequired == 0) {
+    if (imageMountingRequired) {
             char command[512];
            
             sprintf(command,"/root/mount_vm_image.sh %s", argv[2]);
@@ -517,7 +498,7 @@ int main(int argc, char **argv) {
     
     generateLogs(argv[1], argv[2], argv[3]);
     fprintf(fc,"%s",cHash);
-	fclose(fc);
+    fclose(fc);
 
     // Unmount the disk image after verification process completes Not sure about this
     if (strcmp(argv[3], "IMVM") == 0) 
