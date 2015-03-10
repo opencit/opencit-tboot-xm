@@ -26,7 +26,11 @@ update_config() {
 change_permissions() {
 	echo "***Changing file permissions***"
     	chmod 755 $INITRAMFS_HOOKS_DIR/tcb
+	dos2unix $INITRAMFS_HOOKS_DIR/tcb
+
     	chmod 755 $INITRAMFS_SCRIPTS_DIR/local-premount/measure_host
+    	dos2unix $INITRAMFS_SCRIPTS_DIR/local-premount/measure_host
+	
 	chmod 755 $WORKING_DIR/bin/verifier
 	chmod 755 $WORKING_DIR/bin/tpmextend
 	chmod 755 $WORKING_DIR/bin/rpmmio.ko
