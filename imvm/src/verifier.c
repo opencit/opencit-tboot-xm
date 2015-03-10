@@ -343,7 +343,6 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     
           if(strstr(line,"<Whitelist DigestAlg=") != NULL){
 		   /*Get the type of hash */	  
-           temp = tagEntry(line);
            strcpy(hashType,NodeValue);
            fprintf(fq,"<measurements digestalg=%s>\n",hashType);
          }
@@ -351,7 +350,6 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 
      //File Hashes
           if(strstr(line,"<File Path=")!= NULL){
-            temp = tagEntry(line);
             fprintf(fq,"<file path=\"%s\">",NodeValue);
             fprintf(fq,"%s</file>\n",calculate(NodeValue,calc_hash,1));          
           }
@@ -359,12 +357,10 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
      //Directory Hashes
    
           if(strstr(line,"<Dir Path=")!= NULL){
-                temp = tagEntry(line);
                 char dir_path[500];
                 strcpy(dir_path,NodeValue); 
                 
 				if(strstr(line,"Include=")!= NULL){
-                         temp = tagEntry(strstr(line,"Include="));
                          include = NodeValue;
                          
 						 if(*include == '('){
@@ -374,7 +370,6 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
                 }
 
                 if(strstr(line,"Exclude=") != NULL){
-                         temp = tagEntry(strstr(line,"Exclude="));
                          exclude = NodeValue;
                          
 						 if(*exclude == '('){
@@ -391,7 +386,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
             strcpy(mDpath,fs_mount_path);
             strcat(mDpath,dir_path);//path of dir in the VM
 
-            char *df = "Dirfiles.txt";
+	    sprintf(df, "Dirfiles.txt");
             /*df is used to hold the temporary file that stores the directory hash (after we get it using openssl) */
 
             if(include != NULL && exclude != NULL )
