@@ -6,7 +6,7 @@ function install_pkg()
 {
     echo 'installing required packages ...'
 	apt-get update
-	apt-get --force-yes -y install make gcc g++ libxml2-dev libssl-dev linux-kernel-headers
+	apt-get --force-yes -y install make gcc g++ libxml2-dev libssl-dev linux-kernel-headers dos2unix
 }
 function help_instruction()
 {
