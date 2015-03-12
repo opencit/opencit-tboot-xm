@@ -343,13 +343,15 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     
           if(strstr(line,"<Whitelist DigestAlg=") != NULL){
 		   /*Get the type of hash */	  
-           strcpy(hashType,NodeValue);
+           tagEntry(line);
+	   strcpy(hashType,NodeValue);
            fprintf(fq,"<measurements digestalg=%s>\n",hashType);
          }
 
 
      //File Hashes
           if(strstr(line,"<File Path=")!= NULL){
+	    tagEntry(line);
             fprintf(fq,"<file path=\"%s\">",NodeValue);
             fprintf(fq,"%s</file>\n",calculate(NodeValue,calc_hash,1));          
           }
@@ -357,10 +359,12 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
      //Directory Hashes
    
           if(strstr(line,"<Dir Path=")!= NULL){
+		tagEntry(line);
                 char dir_path[500];
                 strcpy(dir_path,NodeValue); 
                 
 				if(strstr(line,"Include=")!= NULL){
+			tagEntry(strstr(line,"Include="));
                          include = NodeValue;
                          
 						 if(*include == '('){
@@ -370,6 +374,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
                 }
 
                 if(strstr(line,"Exclude=") != NULL){
+			tagEntry(strstr(line,"Exclude="));
                          exclude = NodeValue;
                          
 						 if(*exclude == '('){
@@ -380,13 +385,12 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
                  }
             
 	    char Dir_Str[256];
-            char df[256];
             
             char mDpath[256];
             strcpy(mDpath,fs_mount_path);
             strcat(mDpath,dir_path);//path of dir in the VM
 
-	    sprintf(df, "Dirfiles.txt");
+	    char *df = "Dirfiles.txt";
             /*df is used to hold the temporary file that stores the directory hash (after we get it using openssl) */
 
             if(include != NULL && exclude != NULL )
