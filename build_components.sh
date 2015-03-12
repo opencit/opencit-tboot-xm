@@ -2,11 +2,43 @@ CUR_DIR=$(pwd)
 LOG_FILE=$CUR_DIR/outfile
 arg1=$1
 
+##################################################################################
+# check the flavour of OS
+function which_flavour()
+{
+        flavour=""
+        grep -c -i ubuntu /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="ubuntu"
+        fi
+        grep -c -i "red hat" /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="rhel"
+        fi
+        grep -c -i fedora /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="fedora"
+        fi
+        if [ "$flavour" == "" ] ; then
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
+                exit
+        else
+                echo $flavour
+        fi
+}
+
 function install_pkg()
 {
-    echo 'installing required packages ...'
-	apt-get update
-	apt-get --force-yes -y install make gcc g++ libxml2-dev libssl-dev linux-kernel-headers dos2unix
+	os_flavour=`which_flavour`
+	echo "installing required packages $os_flavour ..."
+	if [ $os_flacour == "ubuntu" ]
+	then
+		apt-get update
+		apt-get --force-yes -y install make gcc g++ libxml2-dev libssl-dev linux-kernel-headers dos2unix
+	elif [ $os_flavour == "rhel" ] || [ $os_flavour == "fedora" ]
+	then
+		yum -y install make libgcc gcc-c++ libxml2-devel openssl-devel kernel-devel
+	fi
 }
 function help_instruction()
 {
