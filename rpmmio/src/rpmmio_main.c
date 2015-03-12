@@ -40,6 +40,7 @@
 #include<linux/uaccess.h> /*this is for copy_user vice vers*/
 
 #include "tpm.h"
+#include "asm/io.h"
 
 
 int chardev_init(void);
