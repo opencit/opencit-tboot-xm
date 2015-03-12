@@ -1,16 +1,23 @@
 #!/bin/bash +x
+LOG_FILE="outfile"
 
-MKINITRAMFS=`which mkinitramfs`
-INITRAMFS_DIR=/usr/share/initramfs-tools/
-INITRAMFS_SCRIPTS_DIR=$INITRAMFS_DIR/scripts/
-INITRAMFS_HOOKS_DIR=$INITRAMFS_DIR/hooks/
-KERNEL_VERSION=`uname -r`
-INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
-OUTPUT_LOG="/tmp/tcb-initrd-generation.log"
-LIBXML_SO_PATH="/usr/lib/x86_64-linux-gnu/libxml2.so.2"
 WORKING_DIR=`pwd`
-
 export WORKING_DIR
+#create Output Directory if it does not exist
+PREGENERATED_FILES=generated_files
+mkdir -p $WORKING_DIR/$PREGENERATED_FILES
+DRACUT_MODULE_DIR=89tcbprotection
+TCB_SCRIPTS=$WORKING_DIR/tcb_protection_scripts
+
+function set_os()
+{
+	local file=$1
+	local os=$2
+	sed -i "s/CUR_OS/$os/" $file
+}
+
+############################################################################
+#generate initrd image for ubuntu
 
 backup_config() {
     cp -f /etc/initramfs-tools/initramfs.conf /tmp/initramfs.conf.bak
@@ -57,83 +64,261 @@ prerequisites() {
     fi
 }
 
+function check_prerequisites()
+{
+	#Copy the binaries - Check for their existence at the same time
+        #Check for TPMExtend
+        if [ ! -e "$WORKING_DIR/bin/tpmextend" ]; then
+                echo "TPMExtend File Not Found"
+		if [ $os_flavour == "ubuntu" ]
+		then
+                	restore_config
+		fi
+                exit 1
+        fi
 
-prerequisites
 
-echo "---------------> Generating initrd for KVM <--------------------------"
+        #Check for RPMMIO Driver
+        if [ ! -e "$WORKING_DIR/bin/rpmmio.ko" ]; then
+                echo "RPMMIO.ko File Not Found"
+               	if [ $os_flavour == "ubuntu" ]
+                then
+                        restore_config
+                fi 
+                exit 1
+        fi
 
 
 
+        #Check for Verifier
+        if [ ! -e "$WORKING_DIR/bin/verifier" ]; then
+                echo "Verifier File Not Found"
+                if [ $os_flavour == "ubuntu" ]
+                then
+                        restore_config
+                fi
+		exit 1
+        fi
 
-#Create Output Directory if it does not exist
-PREGENERATED_FILES=generated_files
-mkdir -p $WORKING_DIR/$PREGENERATED_FILES
+	#Check for Measure_Host script
+        if [ ! -e "$TCB_SCRIPTS/measure_host" ]; then
+                echo "Measure_Host File Not Found"
+		if  [ $os_flavour == "ubuntu" ]
+                then
+                        restore_config
+                fi	
+                exit 1
+        fi
+
+}
+
+function generate_initrd_ubuntu()
+{
+	MKINITRAMFS=`which mkinitramfs`
+	INITRAMFS_DIR=/usr/share/initramfs-tools/
+	INITRAMFS_SCRIPTS_DIR=$INITRAMFS_DIR/scripts/
+	INITRAMFS_HOOKS_DIR=$INITRAMFS_DIR/hooks/
+	KERNEL_VERSION=`uname -r`
+	INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
+	OUTPUT_LOG="/tmp/tcb-initrd-generation.log"
+	LIBXML_SO_PATH="/usr/lib/x86_64-linux-gnu/libxml2.so.2"
+
+	prerequisites
+
+	echo "Creating initrd image for Ubuntu ... "
 
 
-#Using the files while reverting the system back to its original state
-backup_config
+	#Using the files while reverting the system back to its original state
+	backup_config
 
-#Bringing out our desired changes to the existing files
-update_config
+	#Bringing out our desired changes to the existing files
+	update_config
+	
+	check_prerequisites
+	
+	#copy the measure_host script to INITRAMFS DIR
+        cp -f $TCB_SCRIPTS/measure_host $INITRAMFS_SCRIPTS_DIR/local-premount/
+	#inject the os in measure_host script
+	set_os $INITRAMFS_SCRIPTS_DIR/local-premount/measure_host `which_flavour`
+	#Check for TCB Script	 
+	if [ -e "$WORKING_DIR/initrd_hooks/tcb" ]; then
+		cp -f $WORKING_DIR/initrd_hooks/tcb $INITRAMFS_HOOKS_DIR
+	else
+        	echo "TCB file does not exist in initrd_hooks directory"
+	        restore_config
+        	exit 1
+	fi
 
-#Copy the binaries - Check for their existence at the same time
-#Check for TPMExtend
-if [ ! -e "$WORKING_DIR/bin/tpmextend" ]; then
-	echo "TPMExtend File Not Found"
+	change_permissions
+
+	echo "this might take some time ..."
+
+	# Remove any initrd.img files that exist in the kvm_pre_generated_files folder
+	rm -r $WORKING_DIR/$PREGENERATED_FILES/initrd.img-* | awk 'BEGIN{FS="-"} {print $2"-"$3}'
+
+	#Run the GENERATE_INITRD Command
+	$MKINITRAMFS -o $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME $KERNEL_VERSION &> $OUTPUT_LOG
+	if [ $? -ne 0 ];then
+	    echo "INITRD Generation failed. Please check logs at $OUTPUT_LOG"
+	    restore_config
+	    exit 1
+	fi
+
+	echo "********> Generated initrd at $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME <**********"
 	restore_config
-	exit 1
-fi
+
+}
+
+##################################################################################
+# check the flavour of OS
+function which_flavour()
+{
+	flavour=""
+        grep -c -i ubuntu /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="ubuntu"
+        fi
+        grep -c -i "red hat" /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="rhel"
+        fi
+        grep -c -i fedora /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="fedora"
+        fi
+        if [ "$flavour" == "" ] ; then
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
+                exit
+        else
+                echo $flavour
+        fi
+}
 
 
-#Check for RPMMIO Driver
-if [ ! -e "$WORKING_DIR/bin/rpmmio.ko" ]; then
-        echo "RPMMIO.ko File Not Found"
-        restore_config
-        exit 1
-fi
+###################################################################################
+#function to generate intird image for redhat
+function generate_initrd_redhat()
+{
+	echo "Creating initramfs image for Redhat..."
+	echo "this might take some time..."
+	redhat_mod_dir=/usr/share/dracut/modules.d/
+	check_prerequisites
+	mkdir -p $redhat_mod_dir/$DRACUT_MODULE_DIR
+	#cp $WORKING_DIR/dracut_files/* $redhat_mod_dir/$DRACUT_MODULE_DIR
+	if [ -e $WORKING_DIR/dracut_files/module-setup.sh ]
+        then
+                cp $WORKING_DIR/dracut_files/module-setup.sh $redhat_mod_dir/$DRACUT_MODULE_DIR
+        else
+                echo "module-setup.sh is missing"
+                echo "fatal error can't proceed further"
+                echo "exiting..."
+                #remove the inserted module
+                rm -rf $redhat_mod_dir/$DRACUT_MODULE_DIR
+                exit
+        fi
+	
+	if [ -e $WORKING_DIR/dracut_files/check ]
+	then
+		cp $WORKING_DIR/dracut_files/check $redhat_mod_dir/$DRACUT_MODULE_DIR
+	else
+		echo "check is missing"
+                echo "fatal error can't proceed further"
+                echo "exiting..."
+                #remove the inserted module
+                rm -rf $redhat_mod_dir/$DRACUT_MODULE_DIR
+                exit
+	fi
+	
+	if [ -e $WORKING_DIR/dracut_files/install ]
+	then
+		cp $WORKING_DIR/dracut_files/install $redhat_mod_dir/$DRACUT_MODULE_DIR
+	else
+		echo "install is missing"
+                echo "fatal error can't proceed further"
+                echo "exiting..."
+                #remove the inserted module
+                rm -rf $redhat_mod_dir/$DRACUT_MODULE_DIR
+                exit
+	fi
+	
+	#copy the measure_host script to dracut module
+	cp $TCB_SCRIPTS/measure_host $redhat_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+	#inject the os in measure_host script
+	set_os $redhat_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh `which_flavour`
+	#copy the binaries to dracut module
+	cp -r $WORKING_DIR/bin $redhat_mod_dir/$DRACUT_MODULE_DIR
+	#change the premission of files in dracut module
+	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/check
+	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/install
+	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
+	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/bin/*
+	#remove all the previous images
+	rm -f $WORKING_DIR/$PREGENERATED_FILES/*.img
+
+        cd $WORKING_DIR/$PREGENERATED_FILES
+        dracut -f -v initramfs-`uname -r`-measurement.img >> $LOG_FILE 2>&1
+        rm -rf $redhat_mod_dir/$DRACUT_MODULE_DIR
+	echo "Finished creating initramfs image"
+}
 
 
+###################################################################################
+#function to generate initrd image for fedora
+function generate_initrd_fedora()
+{
+	echo "Creating initramfs image for Fedora..."
+	echo "this might take some time..."
+	fedora_mod_dir=/usr/lib/dracut/modules.d/
+	check_prerequisites
+	mkdir -p $fedora_mod_dir/$DRACUT_MODULE_DIR
+	#cp $WORKING_DIR/dracut_files/* $fedora_mod_dir/$DRACUT_MODULE_DIR
+	if [ -e $WORKING_DIR/dracut_files/module-setup.sh ]
+	then    
+		cp $WORKING_DIR/dracut_files/module-setup.sh $fedora_mod_dir/$DRACUT_MODULE_DIR
+	else
+                echo "module-setup.sh is missing"
+                echo "fatal error can't proceed further"
+                echo "exiting..."
+		#remove the inserted module
+		rm -rf $fedora_mod_dir/$DRACUT_MODULE_DIR
+                exit
+        fi
+	#copy the measure_host script to dracut module
+        cp $TCB_SCRIPTS/measure_host $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+	#inject the os in measure_host script
+	set_os $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh `which_flavour`
+        #copy the binaries to dracut module
+        cp -r $WORKING_DIR/bin $fedora_mod_dir/$DRACUT_MODULE_DIR
+        #change the premission of files in dracut module
+	chmod 777 $fedora_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
+	chmod 777 $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+	chmod 777 $fedora_mod_dir/$DRACUT_MODULE_DIR/bin/*
+	#remove all the previous images
+        rm -f $WORKING_DIR/$PREGENERATED_FILES/*.img
 
-#Check for Verifier
-if [ ! -e "$WORKING_DIR/bin/verifier" ]; then
-        echo "Verifier File Not Found"
-        restore_config
-        exit 1
-fi
+	cd $WORKING_DIR/$PREGENERATED_FILES
+	dracut -f -v initramfs-`uname -r`-measurement.img >> $LOG_FILE 2>&1
+	rm -rf $fedora_mod_dir/89tcbprotection
+	echo "Finished creating the initramfs image"
+}
+###################################################################################
 
+function main_function()
+{
+	os_flavour=`which_flavour`
+	if [ $os_flavour == "ubuntu" ]
+	then
+		generate_initrd_ubuntu
+	elif [ $os_flavour == "rhel" ]
+	then
+		generate_initrd_redhat
+	elif [ $os_flavour == "fedora" ]
+	then
+		generate_initrd_fedora
+	else
+		echo "ERROR!! : Does not support $os_flavour"
+	fi
+}
 
-#Check for Measure_Host script
-if [ -e "$WORKING_DIR/local-premount/measure_host" ]; then
-	cp -f $WORKING_DIR/local-premount/measure_host $INITRAMFS_SCRIPTS_DIR/local-premount/
-else
-        echo "Measure_Host File Not Found"
-        restore_config
-        exit 1
-fi
-
-#Check for TCB Script	 
-if [ -e "$WORKING_DIR/initrd_hooks/tcb" ]; then
-	cp -f $WORKING_DIR/initrd_hooks/tcb $INITRAMFS_HOOKS_DIR
-else
-        echo "TCB file does not exist in initrd_hooks directory"
-        restore_config
-        exit 1
-fi
-
-change_permissions
-
-echo "Generating New Initrd, this might take few seconds ..."
-
-# Remove any initrd.img files that exist in the kvm_pre_generated_files folder
-rm -r $WORKING_DIR/$PREGENERATED_FILES/initrd.img-* | awk 'BEGIN{FS="-"} {print $2"-"$3}'
-
-#Run the GENERATE_INITRD Command
-$MKINITRAMFS -o $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME $KERNEL_VERSION &> $OUTPUT_LOG
-if [ $? -ne 0 ];then
-    echo "INITRD Generation failed. Please check logs at $OUTPUT_LOG"
-    restore_config
-    exit 1
-fi
-
-echo "********> Generated initrd at $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME <**********"
-restore_config
+main_function

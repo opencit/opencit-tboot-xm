@@ -1,8 +1,24 @@
-#!/bin/sh -e
+#!/bin/sh
 # initramfs local-premount script for fixrtc
 
-PREREQ=""
+os=CUR_OS
 
+PREREQ=""
+if [ $os = "ubuntu" ]
+then
+	MANIFEST_PATH=${MANIFEST_PATH}
+	PARTITION_INFO=${PARTITION_INFO}
+	ROOT_MOUNT_PATH=${ROOT}
+else
+	source /lib/dracut-lib.sh
+	MANIFEST_PATH="$(getarg MANIFEST_PATH=)"
+	PARTITION_INFO="$(getarg PARTITION_INFO=)"
+	ROOT_MOUNT_PATH="$(getarg root=)"
+
+	MANIFEST_PATH=`echo $MANIFEST_PATH | sed s/\"//g`
+	PARTITION_INFO=`echo $PARTITION_INFO | sed s/\"//g`
+	ROOT_MOUNT_PATH=`echo $ROOT_MOUNT_PATH | sed s/\"//g`
+fi
 # Output pre-requisites
 prereqs()
 {
@@ -35,8 +51,11 @@ mount_root()
 	echo "/ Mount STARTED"
 	tmp_root=/tmp/root
 	mkdir -p $tmp_root
-	echo -e "\nMount ${roflag} ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} ${tmp_root}"
-	mount ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} $tmp_root
+	#echo -e "\nMount ${roflag} ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} ${tmp_root}"
+	#mount ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} $tmp_root
+	#root_mntDev=`echo $root | awk 'BEGIN{FS=":"}{print $2}'`
+	echo $ROOT_MOUNT_PATH
+	mount -t auto $ROOT_MOUNT_PATH $tmp_root
 	echo "/ Mount COMPLETED"
 }
 
@@ -50,7 +69,7 @@ unmount_partitions()
 	do
         	mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
         	mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
-        	if [ $mntPoint == "/" ]
+        	if [ $mntPoint = "/" ]
         	then
                 	echo "Skipping unmount /"
         	else
@@ -78,12 +97,12 @@ mount_partitions()
  	do 
 		mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
 	 	mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
-	 	if [ $mntPoint == "/" ] 
+	 	if [ $mntPoint = "/" ] 
 	 	then 
 			echo "Skipping mount for / " 
 	 	else 
 			mkdir -p $tmp_root/$mntPoint
-			mount -r $mntDevice $tmp_root/$mntPoint 
+			mount -t auto -r $mntDevice $tmp_root/$mntPoint 
 	 	fi 
 	done
 	log "Mount Partitions - COMPLETE"
@@ -133,7 +152,12 @@ tpm_extend()
 
 	log "SHA hash will be used to extend PCR"
 	image_hash=`cat $cumulative_hash`
-
+	if [ "$image_hash" = "" ]
+	then
+		log "No cumulative hash to extend"
+		unmount_partitions
+		exit 1
+	fi
 	log "Run TPM Extend for Extending PCR 19"
 	log "TPM Extend Log"
 	
@@ -141,6 +165,7 @@ tpm_extend()
 	if [ $? -ne 0 ]; then
 		log "TPM extend failed."
 		unmount_partitions
+		exit 1
 	fi
 }
 
@@ -164,5 +189,5 @@ tpm_extend
 
 #Step 6 - Unmount all the Partitions that were mounted in the process
 unmount_partitions
-log "END OF MEASUREMENT AGENT"
+echo "END OF MEASUREMENT AGENT"
 

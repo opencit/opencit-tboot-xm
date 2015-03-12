@@ -1,0 +1,7 @@
+#!/bin/bash
+#SCRIPT_PATH= $(readlink -f $0)
+#echo $SCRIPT_PATH
+#srcfile=$(dirname $(readlink -f $0))/module-setup.sh
+#source $srcfile
+source /usr/share/dracut/modules.d/89tcbprotection/module-setup.sh
+exit `check`
