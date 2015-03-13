@@ -1,13 +1,19 @@
 #!/bin/bash +x
 LOG_FILE="outfile"
 
-WORKING_DIR=`pwd`
+WORKING_DIR="$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
 export WORKING_DIR
 #create Output Directory if it does not exist
 PREGENERATED_FILES=generated_files
+if [ -e $WORKING_DIR/$PREGENERATED_FILES ]
+then
+	rm -rf $WORKING_DIR/$PREGENERATED_FILES
+fi
 mkdir -p $WORKING_DIR/$PREGENERATED_FILES
 DRACUT_MODULE_DIR=89tcbprotection
 TCB_SCRIPTS=$WORKING_DIR/tcb_protection_scripts
+KERNEL_VERSION=`uname -r`
+INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
 
 function set_os()
 {
@@ -118,8 +124,6 @@ function generate_initrd_ubuntu()
 	INITRAMFS_DIR=/usr/share/initramfs-tools/
 	INITRAMFS_SCRIPTS_DIR=$INITRAMFS_DIR/scripts/
 	INITRAMFS_HOOKS_DIR=$INITRAMFS_DIR/hooks/
-	KERNEL_VERSION=`uname -r`
-	INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
 	OUTPUT_LOG="/tmp/tcb-initrd-generation.log"
 	LIBXML_SO_PATH="/usr/lib/x86_64-linux-gnu/libxml2.so.2"
 
@@ -152,9 +156,6 @@ function generate_initrd_ubuntu()
 	change_permissions
 
 	echo "this might take some time ..."
-
-	# Remove any initrd.img files that exist in the kvm_pre_generated_files folder
-	rm -r $WORKING_DIR/$PREGENERATED_FILES/initrd.img-* | awk 'BEGIN{FS="-"} {print $2"-"$3}'
 
 	#Run the GENERATE_INITRD Command
 	$MKINITRAMFS -o $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME $KERNEL_VERSION &> $OUTPUT_LOG
@@ -249,15 +250,17 @@ function generate_initrd_redhat()
 	cp -r $WORKING_DIR/bin $redhat_mod_dir/$DRACUT_MODULE_DIR
 	#change the premission of files in dracut module
 	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/check
+	dos2unix $redhat_mod_dir/$DRACUT_MODULE_DIR/check
 	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/install
+	dos2unix $redhat_mod_dir/$DRACUT_MODULE_DIR/install
 	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
+	dos2unix $redhat_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
 	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+	dos2unix $redhat_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
 	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/bin/*
-	#remove all the previous images
-	rm -f $WORKING_DIR/$PREGENERATED_FILES/*.img
 
         cd $WORKING_DIR/$PREGENERATED_FILES
-        dracut -f -v initramfs-`uname -r`-measurement.img >> $LOG_FILE 2>&1
+        dracut -f -v $INITRD_NAME >> $LOG_FILE 2>&1
         rm -rf $redhat_mod_dir/$DRACUT_MODULE_DIR
 	echo "Finished creating initramfs image"
 }
@@ -292,13 +295,13 @@ function generate_initrd_fedora()
         cp -r $WORKING_DIR/bin $fedora_mod_dir/$DRACUT_MODULE_DIR
         #change the premission of files in dracut module
 	chmod 777 $fedora_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
+	dos2unix $fedora_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
 	chmod 777 $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+	dos2unix $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
 	chmod 777 $fedora_mod_dir/$DRACUT_MODULE_DIR/bin/*
-	#remove all the previous images
-        rm -f $WORKING_DIR/$PREGENERATED_FILES/*.img
 
 	cd $WORKING_DIR/$PREGENERATED_FILES
-	dracut -f -v initramfs-`uname -r`-measurement.img >> $LOG_FILE 2>&1
+	dracut -f -v $INITRD_NAME >> $LOG_FILE 2>&1
 	rm -rf $fedora_mod_dir/89tcbprotection
 	echo "Finished creating the initramfs image"
 }

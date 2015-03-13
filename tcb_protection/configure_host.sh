@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_DIR="$(dirname "$0")"
+BASE_DIR="$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
 GENERATED_FILE_LOCATION="$BASE_DIR/generated_files"
 KERNEL_VERSION=`uname -r`
 INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
@@ -59,11 +59,28 @@ function get_manifest_file_location()
 	done
 }
 
+function get_grub_file_location()
+{
+        #Read the GRUB File Path
+        while :;
+        do
+                echo "Enter the GRUB config/menu.lst file path(e.g /boot/grub/grub.cfg ) :"
+                read -e GRUB_FILE
+                if [ -f $GRUB_FILE ] ; then
+                        echo "Found grub config file"
+                        break
+                else
+                        echo "ERROR: Invalid grub config file path"
+                        echo -e "\nPlease enter a valid path"
+                fi
+        done
+}
+
 function get_partition_info()
 {
 	# Get partition information for current OS
 	PARTITION_INFO="" 
-	for val in `df -t ext4 -t ext3 -t ext2 | grep -i -v Filesystem | awk '{ print $1 ":" $6}'`
+	for val in `df -P -t ext4 -t ext3 -t ext2 | grep -i -v Filesystem | awk '{ print $1 ":" $6}'`
 	do 
 		PARTITION_INFO=$PARTITION_INFO","$val; 
 	done 
@@ -80,15 +97,47 @@ function generate_kernel_args()
 	echo ""
 }
 
+function which_grub() {
+	
+	os_version=`which_flavour`
+	GRUB_VERSION=""
+	
+	if [ $os_version == "fedora" ]; then
+		grub2-install --version | grep " 2."
+		GRUB_VERSION=2
+		return
+	fi
+
+	grub-install --version | grep " 2." 
+	if [ $? -eq 0 ]
+	then
+		GRUB_VERSION=2
+		return
+	fi
+	grub-install --version | grep " 0."
+	if [ $? -eq 0 ]
+        then
+                GRUB_VERSION=0
+                return
+        fi
+	grub-install --version | grep " 1."
+	if [ $? -eq 0 ]
+        then
+                GRUB_VERSION=1
+                return
+        fi
+}
+
 function generate_grub_entry()
 {
 	echo "Generate grub entry for TCB-protection"
 	echo > $MENUENTRY_FILE
-
-	perl $CREATE_MENU_ENTRY_SCRIPT $MENUENTRY_FILE $(uname -r) "$INITRD_NAME" "$KERNEL_ARGS" "$MENUENTRY_PREFIX"
+	which_grub
+	get_grub_file_location
+	perl $CREATE_MENU_ENTRY_SCRIPT $MENUENTRY_FILE $(uname -r) "$INITRD_NAME" "$KERNEL_ARGS" "$MENUENTRY_PREFIX" "$GRUB_FILE" $GRUB_VERSION 
 	if [ $? -ne 0 ]; then
-		echo "ERROR: Not able to get appropriate grub entry from /boot/grub/grub.cfg file for kernel version $KERNEL_VERSION with tboot."
-		echo "Make sure that tboot is available on the host and for current kernel tboot entry is populated in /boot/grub/grub.cfg file."
+		echo "ERROR: Not able to get appropriate grub entry from $GRUB_FILE file for kernel version $KERNEL_VERSION ."
+		echo "For Ubuntu OS make sure that tboot is available on the host and for current kernel tboot entry is populated in $GRUB_FILE file."
 		exit 1
 	fi
 	echo "Generated grub entry in $MENUENTRY_FILE file"
@@ -96,6 +145,14 @@ function generate_grub_entry()
 
 function update_grub()
 {
+	if [ "$GRUB_VERSION" == "0" ]; then
+                echo "WARNING: Not updating grub file"
+                echo "          Follow below mentioned steps to update grub manually:"
+                echo "          - Verify grub entry available in $MENUENTRY_FILE file and append it in $GRUB_FILE file manually."
+                echo ""
+		exit
+	fi
+
 	echo "Check for existing menuentry in /etc/grub.d/40_custom file"
 
 	grep -c "menuentry '$MENUENTRY_PREFIX" /etc/grub.d/40_custom > /dev/null
@@ -103,16 +160,46 @@ function update_grub()
 		echo "WARNING: Aborting update grub operation as /etc/grub.d/40_custom already contains grub entry for TCB-Protection"
 		echo "		Follow below mentioned steps to update grub manually:"
 		echo "		- Update menuenry in /etc/grub.d/40_custom file manually using grub entry available in $MENUENTRY_FILE file"
-		echo "		- After updating /etc/grub.d/40_custom execute 'update-grub' command"
+		echo "		- After updating /etc/grub.d/40_custom execute 'update-grub' or 'grub2-mkconfig -o $GRUB_FILE' command."
 		echo ""
 		exit
 	fi
 	cat $MENUENTRY_FILE >> /etc/grub.d/40_custom
 	echo "Menuentry has been appended in /etc/grub.d/40_custom"
-	
-	update-grub
-	echo "Grub entry updated... New grub option will be available in /boot/grub/grub.cfg file"
+
+	if [ $os_version == "fedora" ]; then
+		grub2-mkconfig -o $GRUB_FILE
+		
+	else
+		update-grub
+	fi
+
+	echo "Grub entry updated... New grub option will be available in $GRUB_FILE file"
 	echo "Reboot host and select appropriate grub option to boot host with TCB protection"
+}
+
+# check the flavour of OS
+function which_flavour()
+{
+        flavour=""
+        grep -c -i ubuntu /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="ubuntu"
+        fi
+        grep -c -i "red hat" /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="rhel"
+        fi
+        grep -c -i fedora /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="fedora"
+        fi
+        if [ "$flavour" == "" ] ; then
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
+                exit
+        else
+                echo $flavour
+        fi
 }
 
 if [ $# -gt 1 ]

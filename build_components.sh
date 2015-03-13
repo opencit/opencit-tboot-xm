@@ -1,4 +1,5 @@
-CUR_DIR=$(pwd)
+CUR_DIR="$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
+echo $CUR_DIR
 LOG_FILE=$CUR_DIR/outfile
 arg1=$1
 
@@ -31,13 +32,13 @@ function install_pkg()
 {
 	os_flavour=`which_flavour`
 	echo "installing required packages $os_flavour ..."
-	if [ $os_flacour == "ubuntu" ]
+	if [ $os_flavour == "ubuntu" ]
 	then
 		apt-get update
 		apt-get --force-yes -y install make gcc g++ libxml2-dev libssl-dev linux-kernel-headers dos2unix
 	elif [ $os_flavour == "rhel" ] || [ $os_flavour == "fedora" ]
 	then
-		yum -y install make libgcc gcc-c++ libxml2-devel openssl-devel kernel-devel
+		yum -y install make libgcc gcc-c++ libxml2-devel openssl-devel kernel-devel dos2unix
 	fi
 }
 function help_instruction()

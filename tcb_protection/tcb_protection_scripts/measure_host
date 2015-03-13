@@ -102,7 +102,7 @@ mount_partitions()
 			echo "Skipping mount for / " 
 	 	else 
 			mkdir -p $tmp_root/$mntPoint
-			mount -t auto -r $mntDevice $tmp_root/$mntPoint 
+			mount -t auto $mntDevice $tmp_root/$mntPoint 
 	 	fi 
 	done
 	log "Mount Partitions - COMPLETE"
