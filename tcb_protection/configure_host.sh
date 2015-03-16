@@ -7,6 +7,7 @@ INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
 MENUENTRY_FILE="$BASE_DIR/sample_menuentry"
 MENUENTRY_PREFIX="TCB-Protection"
 CREATE_MENU_ENTRY_SCRIPT="$BASE_DIR/create_menuentry.pl"
+GRUB_FILE=""
 
 
 function help_instruction()
@@ -49,7 +50,7 @@ function get_manifest_file_location()
 	do
 		echo "Enter the manifest file path :"
 		read -e MANIFEST_PATH
-		if [ -f $MANIFEST_PATH ] ; then
+		if [ -f "$MANIFEST_PATH" ] ; then
 			echo "Found manifest file"
 			break
 		else
@@ -61,12 +62,16 @@ function get_manifest_file_location()
 
 function get_grub_file_location()
 {
+	if [ "$GRUB_FILE" != "" ]
+	then
+		return
+	fi
         #Read the GRUB File Path
         while :;
         do
                 echo "Enter the GRUB config/menu.lst file path(e.g /boot/grub/grub.cfg ) :"
                 read -e GRUB_FILE
-                if [ -f $GRUB_FILE ] ; then
+                if [ -f "$GRUB_FILE" ] ; then
                         echo "Found grub config file"
                         break
                 else
@@ -102,7 +107,7 @@ function which_grub() {
 	os_version=`which_flavour`
 	GRUB_VERSION=""
 	
-	if [ $os_version == "fedora" ]; then
+	if [ $os_version == "fedora" ] || [ $os_version == "suse" ]; then
 		grub2-install --version | grep " 2."
 		GRUB_VERSION=2
 		return
@@ -167,7 +172,7 @@ function update_grub()
 	cat $MENUENTRY_FILE >> /etc/grub.d/40_custom
 	echo "Menuentry has been appended in /etc/grub.d/40_custom"
 
-	if [ $os_version == "fedora" ]; then
+	if [ $os_version == "fedora" ] || [ $os_version == "suse" ]; then
 		grub2-mkconfig -o $GRUB_FILE
 		
 	else
@@ -194,12 +199,51 @@ function which_flavour()
         if [ $? -eq 0 ] ; then
                 flavour="fedora"
         fi
+	grep -c -i SuSE /etc/*-release > /dev/null
+	if [ $? -eq 0 ]
+	then
+		flavour="suse"
+	fi
         if [ "$flavour" == "" ] ; then
                 echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
                 exit
         else
                 echo $flavour
         fi
+}
+
+function install_pkg()
+{
+        os_flavour=`which_flavour`
+	get_grub_file_location
+        echo "installing required packages $os_flavour ..."
+        if [ $os_flavour == "ubuntu" ]
+        then
+                apt-get update
+                apt-get --force-yes -y install tboot
+        elif [ $os_flavour == "rhel" ]
+	then 
+                yum -y install tboot
+	elif [ $os_flavour == "fedora" ]
+        then
+                yum -y install tboot
+		grub2-mkconfig -o $GRUB_FILE 
+        elif [ $os_flavour == "suse" ]
+	then
+	        zypper -n in tboot
+		grub2-mkconfig -o $GRUB_FILE
+        fi
+}
+
+function main()
+{
+        echo "Configuring Host"
+        validate_n_copy_initrd
+        get_manifest_file_location
+        get_partition_info
+        generate_kernel_args
+        generate_grub_entry
+        update_grub
 }
 
 if [ $# -gt 1 ]
@@ -209,15 +253,13 @@ then
 elif [ $# -eq 1 ] && [ $1 == "--help" ]
 then
         help_instruction
+elif [ $# -eq 1 ] && [ $1 == "--installpkg" ]
+then
+	install_pkg
+	main
 elif [ $# -eq 0 ]
 then
-	echo "Configuring Host"
-	validate_n_copy_initrd
-	get_manifest_file_location
-	get_partition_info
-	generate_kernel_args
-	generate_grub_entry
-	update_grub
+	main
 else
         help_instruction
 fi

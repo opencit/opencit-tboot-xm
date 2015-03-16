@@ -20,6 +20,11 @@ function which_flavour()
         if [ $? -eq 0 ] ; then
                 flavour="fedora"
         fi
+	grep -c -i SuSE /etc/*-release > /dev/null
+	if [ $? -eq 0 ]
+	then
+		flavour="suse"
+	fi
         if [ "$flavour" == "" ] ; then
                 echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
                 exit
@@ -39,6 +44,9 @@ function install_pkg()
 	elif [ $os_flavour == "rhel" ] || [ $os_flavour == "fedora" ]
 	then
 		yum -y install make libgcc gcc-c++ libxml2-devel openssl-devel kernel-devel dos2unix
+	elif [ $os_flavour == "suse" ]
+	then
+		zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel kernel-desktop-devel dos2unix
 	fi
 }
 function help_instruction()

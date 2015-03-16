@@ -187,6 +187,11 @@ function which_flavour()
         if [ $? -eq 0 ] ; then
                 flavour="fedora"
         fi
+	grep -c -i "SuSE" /etc/*-release > /dev/null
+	if [ $? -eq 0 ]
+	then
+		flavour="suse"
+	fi
         if [ "$flavour" == "" ] ; then
                 echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
                 exit
@@ -270,7 +275,6 @@ function generate_initrd_redhat()
 #function to generate initrd image for fedora
 function generate_initrd_fedora()
 {
-	echo "Creating initramfs image for Fedora..."
 	echo "this might take some time..."
 	fedora_mod_dir=/usr/lib/dracut/modules.d/
 	check_prerequisites
@@ -316,8 +320,9 @@ function main_function()
 	elif [ $os_flavour == "rhel" ]
 	then
 		generate_initrd_redhat
-	elif [ $os_flavour == "fedora" ]
-	then
+	elif [ $os_flavour == "fedora" ] || [ $os_flavour == "suse" ]
+	then	
+		echo "Creating initramfs image for $os_flavour..."
 		generate_initrd_fedora
 	else
 		echo "ERROR!! : Does not support $os_flavour"
