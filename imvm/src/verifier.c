@@ -40,7 +40,12 @@ char NodeValue[500]; //XML Tag value
 
 
 /*These global variables are required for calculating the cumulative hash */
-char cHash[65]; //Cumulative hash
+unsigned char cHash[SHA_DIGEST_LENGTH]; //Cumulative hash
+unsigned char d1[SHA_DIGEST_LENGTH];
+unsigned char d2[SHA256_DIGEST_LENGTH];
+unsigned char c2[SHA256_DIGEST_LENGTH];
+char cH2[65];
+
 int process_started = 0;
 SHA256_CTX csha256;
 SHA_CTX csha1;
@@ -98,16 +103,12 @@ void getSymLinkValue(char *path) {
  *
  * Store hash of file in "fileHashes.txt"
  */
-char* sha256_hash_string (unsigned char hash[SHA256_DIGEST_LENGTH], char outputBuffer[65], int type) {
+char* sha256_hash_string (unsigned char hash[SHA256_DIGEST_LENGTH], char outputBuffer[65]) {
     int i;
     for(i = 0; i < SHA256_DIGEST_LENGTH; i++) {
         sprintf(outputBuffer + (i * 2), "%02x", hash[i]);
     }
-    if (type == 0) {
-        FILE *fp = fopen("fileHashes.txt","a");
-        fprintf(fp,"%s\n",outputBuffer);
-        fclose(fp);
-    }
+    
     return outputBuffer;
 }
 
@@ -118,19 +119,17 @@ char* sha256_hash_string (unsigned char hash[SHA256_DIGEST_LENGTH], char outputB
  *
  * Store hash of file in "fileHashes.txt"
  */
-char* sha1_hash_string (unsigned char hash[SHA_DIGEST_LENGTH], char outputBuffer[65], int type)
+char* sha1_hash_string (unsigned char hash[SHA_DIGEST_LENGTH], char outputBuffer[65])
 {
     int i = 0;
     for(i = 0; i < SHA_DIGEST_LENGTH; i++) {
         sprintf(outputBuffer + (i * 2), "%02x", hash[i]);
     }
-    if (type == 0) {
-        FILE *fp = fopen("fileHashes.txt","a");
-        fprintf(fp,"%s\n",outputBuffer);
-        fclose(fp);
-    }
+   
     return outputBuffer;
 }
+
+
 
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file)
 
@@ -138,34 +137,93 @@ char* sha1_hash_string (unsigned char hash[SHA_DIGEST_LENGTH], char outputBuffer
 
 */
 
-void generate_cumulative_hash(char output[65],int sha_one, int type){
+unsigned char* Hex2Bin(char *HexString,int sha1){
 	
-	unsigned char hash_c1[SHA256_DIGEST_LENGTH];
-	char *ptr;
+  BIGNUM *input = BN_new();
+  int input_length = BN_hex2bn(&input, HexString);
+  input_length = (input_length + 1) / 2; // BN_hex2bn() returns number of hex digits
+  unsigned char *input_buffer = (unsigned char*)malloc(input_length);
+  int retval = BN_bn2bin(input, input_buffer);
+  char ob[65];
+  
+  return sha1_hash_string(input_buffer,ob); 
+ 
+}
+
+/*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
+
+void generate_cumulative_hash(char *hash,int sha_one, int type){
+	
+	unsigned char hash_c1[SHA_DIGEST_LENGTH];
+	unsigned char hash_c2[SHA256_DIGEST_LENGTH];
+	unsigned char digest[SHA256_DIGEST_LENGTH];
+	
+	
+	//char *ptr;
+	char ob[65];
     if(sha_one){
 	/*process_started tells us whether to initialize the SHA st. or not */	
+	 
 	   if(!process_started){
-		 SHA1_Init(&csha1);
-		 process_started = 1;
+	   
+	   SHA1_Init(&csha1);
+	   SHA1_Update(&csha1,hash,strlen(hash));
+	   SHA1_Final(d1,&csha1);
+	   process_started = 1;
+	   
 	   }
-	   SHA1_Update(&csha1, cHash,strlen(cHash));
-	   SHA1_Final(hash_c1, &csha1);
-           ptr = sha1_hash_string(hash_c1, cHash, type);
-           strcpy(cHash,ptr);
+	   
+	   else{
+		  
+		   SHA1_Init(&csha1);
+	   SHA1_Update(&csha1,d1,SHA_DIGEST_LENGTH);
+	   SHA1_Update(&csha1,hash,strlen(hash));
+	   SHA1_Final(d1,&csha1);
+		   
+	   }
+       
+	   
+	   
+	  
+	   
+       strncpy(cHash,d1,SHA_DIGEST_LENGTH);
+	
+	   
+	   memset(ob,'\0',strlen(ob));
+	   
 	   return;
 	}
-	/*If we go here at all, it must be SHA256. If its SHA1, we're up to no good. */
 	
-	if(!process_started){
-		SHA256_Init(&csha256);
-		process_started = 1;
+	else{
+	   
+	  
+	   if(!process_started){
+	   
+	   SHA256_Init(&csha256);
+	   
+	   SHA256_Update(&csha256,hash,strlen(hash));
+	   SHA256_Final(d2, &csha256);
+	   process_started = 1;
+	   
+	   }
+	   else {
+		   SHA256_Init(&csha256);
+	   SHA256_Update(&csha256,d2,SHA256_DIGEST_LENGTH);
+	   SHA256_Update(&csha256,hash,strlen(hash));
+	   SHA256_Final(d2, &csha256);
+	   process_started = 1;
+		   
+	   }
+	  
+       
+	   memset(ob,'0',strlen(ob));
+	   
+	   return;
+		
 	}
-	SHA256_Update(&csha256, cHash,strlen(cHash));
-	SHA256_Final(hash_c1, &csha256);
-        ptr = sha256_hash_string(hash_c1, cHash, type);
-        strcpy(cHash,ptr);
-	return;
+	
 }
+
 
 
 
@@ -183,7 +241,7 @@ char* calculate(char *path, char output[65], int type) {
     /*We append the mount path before the filepath first, 
 	 and then pass that address to calculate the hash */
     
-    getSymLinkValue(path);
+   // getSymLinkValue(path);
 
     strcpy(buf, fs_mount_path);
     strcpy(value, fs_mount_path);
@@ -215,9 +273,9 @@ char* calculate(char *path, char output[65], int type) {
               SHA256_Update(&sha256, buffer, bytesRead);
         }
         SHA256_Final(hash, &sha256);
-        output = sha256_hash_string(hash, output, type);
+        output = sha256_hash_string(hash, output);
 		strcpy(hash_in,output);
-        generate_cumulative_hash(hash_in,0,type);
+        generate_cumulative_hash(output,0,type);
         fclose(file);
       
         free(buffer);
@@ -235,9 +293,9 @@ char* calculate(char *path, char output[65], int type) {
             SHA1_Update(&sha1, buffer, bytesRead);
         }
         SHA1_Final(hash, &sha1);
-        output = sha1_hash_string(hash, output, type);
+        output = sha1_hash_string(hash, output);
 	strcpy(hash_in,output);
-	generate_cumulative_hash(hash_in,1,type);
+	generate_cumulative_hash(output,1,type);
         fclose(file);
         free(buffer);
     }
@@ -314,74 +372,70 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
   
     FILE *fp, *fq, *fd; 
     char * line = NULL;
-    char *include="";
-    char *exclude="";
+    char include[50];
+    char exclude[100];
     size_t len = 0;
     char calc_hash[256];
-    char ma_result_path[256]; 
-    char ma_result_path_default[64]="/root/MA_Hash.xml";
-       
+    
+
+    char ma_result_path[100];
+    char ma_result_path_default[100]="/var/log/trustagent/measurement-agent-log.xml";
+
 
     if(strcmp(verificationType,"HOST") == 0)
     {
-  	    sprintf(ma_result_path, "%s%s", MOUNTPATH_HOST, ma_result_path_default);
+            sprintf(ma_result_path, "%s%s", MOUNTPATH_HOST, ma_result_path_default);
     }
-    else 
+    else
     {
         sprintf(ma_result_path, "%s", ma_result_path_default);
     }
 
     fp=fopen(origManifestPath,"r");
-    fq=fopen(ma_result_path,"w");   
+    fq=fopen(ma_result_path,"w");
+
+
     
 
    //Open Manifest to get list of files to hash
     while (getline(&line, &len, fp) != -1) { 
    
-    include=NULL;
-    exclude=NULL;
+     strcpy(include,"");
+     strcpy(exclude,"");
     
           if(strstr(line,"<Whitelist DigestAlg=") != NULL){
 		   /*Get the type of hash */	  
            tagEntry(line);
-	   strcpy(hashType,NodeValue);
+           strcpy(hashType,NodeValue);
            fprintf(fq,"<measurements digestalg=%s>\n",hashType);
          }
 
 
      //File Hashes
           if(strstr(line,"<File Path=")!= NULL){
-	    tagEntry(line);
+            tagEntry(line);
             fprintf(fq,"<file path=\"%s\">",NodeValue);
             fprintf(fq,"%s</file>\n",calculate(NodeValue,calc_hash,1));          
           }
 
      //Directory Hashes
    
-          if(strstr(line,"<Dir Path=")!= NULL){
-		tagEntry(line);
+          if(strstr(line,"<Dir ")!= NULL){
+                
+                tagEntry(strstr(line,"Path="));
                 char dir_path[500];
                 strcpy(dir_path,NodeValue); 
                 
-				if(strstr(line,"Include=")!= NULL){
-			tagEntry(strstr(line,"Include="));
-                         include = NodeValue;
+			 if(strstr(line,"Include=")!= NULL){
+                         tagEntry(strstr(line,"Include="));
+                         strcpy(include,NodeValue);
                          
-						 if(*include == '('){
-                               *strstr(include,")") = '\0';
-                               include++;
-                         }
                 }
 
                 if(strstr(line,"Exclude=") != NULL){
-			tagEntry(strstr(line,"Exclude="));
-                         exclude = NodeValue;
+                         tagEntry(strstr(line,"Exclude="));
+                         strcpy(exclude,NodeValue);
                          
-						 if(*exclude == '('){
-                               *strstr(exclude,")") = '\0';
-                               exclude++;
-                         }   
-                 
                  }
             
 	    char Dir_Str[256];
@@ -389,28 +443,28 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
             char mDpath[256];
             strcpy(mDpath,fs_mount_path);
             strcat(mDpath,dir_path);//path of dir in the VM
-
-	    char *df = "Dirfiles.txt";
+            
+	    char *df = "Dirfiles.txt"; 
             /*df is used to hold the temporary file that stores the directory hash (after we get it using openssl) */
-
-            if(include != NULL && exclude != NULL )
-               sprintf(Dir_Str,"find %s | grep -E  \"%s\" | grep -vE \"%s\" | openssl dgst -%s >%s",mDpath,include,exclude,hashType,df);
-            else if(include != NULL)
-               sprintf(Dir_Str,"find %s | grep -E  \"%s\" | openssl dgst -%s >%s",mDpath,include,hashType,df);
-            else if(exclude != NULL)
-               sprintf(Dir_Str,"find %s | grep -vE \"%s\" | openssl dgst -%s >%s",mDpath,exclude,hashType,df);
+            //printf("\n\n\nInclude = %s , Exclude = %s\n\n",include,exclude);
+            if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
+               sprintf(Dir_Str,"find %s ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | openssl dgst -%s >%s",mDpath,include,exclude,hashType,df);  
+            else if(strcmp(include,"") != 0)
+               sprintf(Dir_Str,"find %s ! -type d | grep -E  \"%s\" | openssl dgst -%s >%s",mDpath,include,hashType,df);
+            else if(strcmp(exclude,"") != 0)
+               sprintf(Dir_Str,"find %s ! -type d | grep -vE \"%s\" | openssl dgst -%s >%s",mDpath,exclude,hashType,df);
             else
-               sprintf(Dir_Str,"find %s  | openssl dgst -%s >%s",mDpath,hashType,df);
+               sprintf(Dir_Str,"find %s ! -type d | openssl dgst -%s >%s",mDpath,hashType,df);
 
-
+          	
             system(Dir_Str);
-
-                        /*Calculate the hash of the directory files using openssl and o/p the stdout to Dirfiles.txt file
-                        then read that value from the file.
-                        In this file, the result is stored as stdout  = "Hash",
-                        so we just take the values after '='
-                        */
-
+	        
+			/*Calculate the hash of the directory files using openssl and o/p the stdout to Dirfiles.txt file 
+			then read that value from the file. 
+			In this file, the result is stored as stdout  = "Hash",
+			so we just take the values after '='
+			*/
+			
             FILE *fy;
             fy=fopen(df,"r");
             char *dhash = NULL;
@@ -419,13 +473,15 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
             dp++;
             dp++; /* Navigate until you reach the actual hash, after spaces */
             dhash = dp;
-
+           
             fprintf(fq,"<Dir path=\"%s\">",dir_path);
             fprintf(fq,"%s</Dir>\n",dhash);//call directory hash function here
-            sprintf(Dir_Str,"rm -rf %s",df); //Remove the Directory file.
+			if(strcmp(hashType, "sha256") == 0)
+			   generate_cumulative_hash(Hex2Bin(dhash,0),0,1);
+		    else
+			   generate_cumulative_hash(Hex2Bin(dhash,1),1,1);
+            sprintf(Dir_Str,"rm -rf %s",df); //Remove the Directory file. 
             system(Dir_Str);
-
-
 
           }//Dir hash ends
 
@@ -451,7 +507,7 @@ int main(int argc, char **argv) {
    int imageMountingRequired = 0; //IMVM = 1 /HOST = 0
  
    xmlDocPtr Doc;
-   char hash_file[256]="/root/cumulative_hash.txt";	
+   char hash_file[256]="/var/log/trustagent/cumulative_hash.sha";	
 
     if(argc != 4) {
         printf("Usage:\n%s <manifest_path> <disk_path> <IMVM/HOST>  \n", argv[0]);
@@ -496,8 +552,16 @@ int main(int argc, char **argv) {
     xmlFreeDoc(Doc);  
     
     generateLogs(argv[1], argv[2], argv[3]);
-    fprintf(fc,"%s",cHash);
-    fclose(fc);
+    
+	char *ptr;
+	if(strcmp(hashType, "sha256") == 0)
+	   ptr = sha256_hash_string(d2,cH2);
+    else
+	   ptr = sha1_hash_string(cHash,cH2);
+	
+    fprintf(fc,"%s",ptr);
+	fclose(fc);
+
 
     // Unmount the disk image after verification process completes Not sure about this
     if (strcmp(argv[3], "IMVM") == 0) 
