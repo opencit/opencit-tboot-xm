@@ -238,6 +238,7 @@ function install_pkg()
 function main()
 {
         echo "Configuring Host"
+	mkdir -p "/var/log/trustagent"
         validate_n_copy_initrd
         get_manifest_file_location
         get_partition_info

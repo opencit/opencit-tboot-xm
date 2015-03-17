@@ -508,7 +508,6 @@ int main(int argc, char **argv) {
  
    xmlDocPtr Doc;
    char hash_file[256]="/var/log/trustagent/cumulative_hash.sha";	
-
     if(argc != 4) {
         printf("Usage:\n%s <manifest_path> <disk_path> <IMVM/HOST>  \n", argv[0]);
         return EXIT_FAILURE;
@@ -523,7 +522,10 @@ int main(int argc, char **argv) {
         imageMountingRequired = 1;
     } else if (strcmp(argv[3], "HOST") == 0) {
         strcpy(fs_mount_path, MOUNTPATH_HOST);
-        sprintf(hash_file, "%s/var/log/cumulative_hash.txt", fs_mount_path);
+	char temp[256];
+	strcpy(temp,hash_file);
+	memset(hash_file,'\0',strlen(hash_file));	
+        sprintf(hash_file, "%s%s", fs_mount_path,temp);
         imageMountingRequired = 0;
     } else { 
         printf("Invalid verification_type.Valid options are IMVM/HOST\n");
