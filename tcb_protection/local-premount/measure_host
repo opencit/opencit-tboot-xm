@@ -99,7 +99,7 @@ log()
 #CALCULATE THE HASHES MAKING USE OF VERIFIER
 manifest_verify()
 {
-	cumulative_hash=$tmp_root/var/log/cumulative_hash.txt
+	cumulative_hash=$tmp_root/var/log/trustagent/measurement.sha1
 	echo "" > $cumulative_hash
 
 	log "TCB Verification - STARTED"
