@@ -31,7 +31,7 @@ Keywords in the Policy should match with those in this code.
 #include <ctype.h>
 
 #define MOUNTPATH_IMVM  "/tmp/mount"
-#define MOUNTPATH_HOST  "/tmp/root"
+#define MOUNTPATH_HOST  ""
 
 char fs_mount_path[1024];
 char hashType[10]; //SHA1 or SHA256
@@ -387,6 +387,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     if(strcmp(verificationType,"HOST") == 0)
     {
             sprintf(ma_result_path, "%s%s", MOUNTPATH_HOST, ma_result_path_default);
+            
     }
     else
     {
@@ -502,9 +503,18 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     fclose(fp);
     fclose(fq);
 
+   
+
     //strcat(hash_file,hashType);
-    strcat(hash_file,"sha256");
-	FILE *fc = fopen(hash_file,"w");
+     if(strcmp(verificationType,"HOST") == 0)
+    {
+         strcat(hash_file,"sha1");
+    }
+    else
+       strcat(hash_file,"sha256"); 
+
+
+    FILE *fc = fopen(hash_file,"w");
     
         char *ptr;
         if(strcmp(hashType, "sha256") == 0)
