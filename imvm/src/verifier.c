@@ -31,7 +31,7 @@ Keywords in the Policy should match with those in this code.
 #include <ctype.h>
 
 #define MOUNTPATH_IMVM  "/tmp/mount"
-#define MOUNTPATH_HOST  ""
+#define MOUNTPATH_HOST  "/tmp/root"
 
 char fs_mount_path[1024];
 char hashType[10]; //SHA1 or SHA256
