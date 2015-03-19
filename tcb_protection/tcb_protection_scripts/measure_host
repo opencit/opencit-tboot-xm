@@ -118,9 +118,7 @@ log()
 #CALCULATE THE HASHES MAKING USE OF VERIFIER
 manifest_verify()
 {
-	cumulative_hash=$tmp_root/var/log/trustagent/cumulative_hash.sha
-	echo "" > $cumulative_hash
-
+	cumulative_hash=$tmp_root/var/log/trustagent/measurement.sha
 	log "TCB Verification - STARTED"
 	#Grab the tcb-manifest file path from Grub Entry
 	manifest_path=$MANIFEST_PATH
@@ -129,7 +127,9 @@ manifest_verify()
 		unmount_partitions
         	exit 1
 	fi
-
+	
+	rm -f "$cumulative_hash"*
+	
 	#Run the Verifier and the check for its results
 	/bin/verifier $tmp_root/$manifest_path NA HOST >> $tcb_log_file 2>&1
 	if [ $? -ne 0 ]; then
@@ -145,6 +145,14 @@ manifest_verify()
 #EXTEND THE PCR 19 VALUE BY MAKING USE OF TPMEXTEND
 tpm_extend()
 {
+	log "hash file prefix : $cumulative_hash"
+	if [ -e "${cumulative_hash}1" ]
+        then
+                cumulative_hash="${cumulative_hash}1"
+        else
+                cumulative_hash="${cumulative_hash}256"
+        fi
+        log "cumulative hash file : $cumulative_hash"	
 	image_hash=""
 	
 	log "TPM Extend STARTED"
