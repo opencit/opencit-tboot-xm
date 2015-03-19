@@ -4,7 +4,7 @@ Intel Corp - CSS-DCG
 What it does: Creates Logs for files/Directories. Handles Incl/Excl case
                                                   Directory Hashes calculated differently as compared to TD (TD passes the file object to calculate(), here we pass file path instead)----> Discuss 
                                                   XML format agnostic. As long as the tag's there, it should rock. 												  
-What it doesn't : Handle the symbolic link issue yet. WIP 												  
+											  
 
 Keywords in the Policy should match with those in this code.
 */
@@ -45,6 +45,7 @@ unsigned char d1[SHA_DIGEST_LENGTH];
 unsigned char d2[SHA256_DIGEST_LENGTH];
 unsigned char c2[SHA256_DIGEST_LENGTH];
 char cH2[65];
+char hash_file[256];
 
 int process_started = 0;
 SHA256_CTX csha256;
@@ -376,11 +377,12 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     char exclude[100];
     size_t len = 0;
     char calc_hash[256];
-    
+   
 
     char ma_result_path[100];
-    char ma_result_path_default[100]="/var/log/trustagent/measurement-agent-log.xml";
-
+	memset(ma_result_path,'\0',strlen(ma_result_path));
+    char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
+   
 
     if(strcmp(verificationType,"HOST") == 0)
     {
@@ -388,13 +390,17 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     }
     else
     {
-        sprintf(ma_result_path, "%s", ma_result_path_default);
-    }
+        
+        sprintf(ma_result_path,"%s%s",hash_file,"xml");
 
+		
+    }
+    
+	
     fp=fopen(origManifestPath,"r");
     fq=fopen(ma_result_path,"w");
 
-
+   fprintf(fq,"<?xml version=\"1.0\"?>\n");
     
 
    //Open Manifest to get list of files to hash
@@ -403,19 +409,20 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
      strcpy(include,"");
      strcpy(exclude,"");
     
-          if(strstr(line,"<Whitelist DigestAlg=") != NULL){
+          if(strstr(line,"DigestAlg=") != NULL){
 		   /*Get the type of hash */	  
            tagEntry(line);
            strcpy(hashType,NodeValue);
-           fprintf(fq,"<measurements digestalg=%s>\n",hashType);
+		  
+		   fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n",hashType);
          }
 
 
      //File Hashes
           if(strstr(line,"<File Path=")!= NULL){
             tagEntry(line);
-            fprintf(fq,"<file path=\"%s\">",NodeValue);
-            fprintf(fq,"%s</file>\n",calculate(NodeValue,calc_hash,1));          
+            fprintf(fq,"<File Path=\"%s\">",NodeValue);
+            fprintf(fq,"%s</File>\n",calculate(NodeValue,calc_hash,1));          
           }
 
      //Directory Hashes
@@ -446,7 +453,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
             
 	    char *df = "Dirfiles.txt"; 
             /*df is used to hold the temporary file that stores the directory hash (after we get it using openssl) */
-            //printf("\n\n\nInclude = %s , Exclude = %s\n\n",include,exclude);
+            
             if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
                sprintf(Dir_Str,"find %s ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | openssl dgst -%s >%s",mDpath,include,exclude,hashType,df);  
             else if(strcmp(include,"") != 0)
@@ -474,7 +481,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
             dp++; /* Navigate until you reach the actual hash, after spaces */
             dhash = dp;
            
-            fprintf(fq,"<Dir path=\"%s\">",dir_path);
+            fprintf(fq,"<Dir Path=\"%s\">",dir_path);
             fprintf(fq,"%s</Dir>\n",dhash);//call directory hash function here
 			if(strcmp(hashType, "sha256") == 0)
 			   generate_cumulative_hash(Hex2Bin(dhash,0),0,1);
@@ -482,6 +489,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 			   generate_cumulative_hash(Hex2Bin(dhash,1),1,1);
             sprintf(Dir_Str,"rm -rf %s",df); //Remove the Directory file. 
             system(Dir_Str);
+			fclose(fy);
 
           }//Dir hash ends
 
@@ -490,9 +498,25 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 
     }//While ends
     
-    fprintf(fq,"</measurements>");
+    fprintf(fq,"</Measurements>");
     fclose(fp);
     fclose(fq);
+
+    //strcat(hash_file,hashType);
+    strcat(hash_file,"sha256");
+	FILE *fc = fopen(hash_file,"w");
+    
+        char *ptr;
+        if(strcmp(hashType, "sha256") == 0)
+           ptr = sha256_hash_string(d2,cH2);
+    else
+           ptr = sha1_hash_string(d1,cH2);
+
+    fprintf(fc,"%s",ptr);
+    fclose(fc);
+
+
+
 
 }
 
@@ -505,9 +529,9 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 int main(int argc, char **argv) {
 
    int imageMountingRequired = 0; //IMVM = 1 /HOST = 0
- 
+   char manifest_file[100];
    xmlDocPtr Doc;
-   char hash_file[256]="/var/log/trustagent/cumulative_hash.sha";	
+  
 
     if(argc != 4) {
         printf("Usage:\n%s <manifest_path> <disk_path> <IMVM/HOST>  \n", argv[0]);
@@ -517,20 +541,27 @@ int main(int argc, char **argv) {
 
     printf("MANIFEST-PATH : %s\n", argv[1]);
     printf("DISK-PATH : %s\n", argv[2]);
+	strcpy(manifest_file,argv[1]);
+	
     memset(cHash,0,strlen(cHash));
    if (strcmp(argv[3], "IMVM") == 0) {
         strcpy(fs_mount_path, MOUNTPATH_IMVM);
+        //strcpy(hash_file,"/var/log/trustagent/measurement.");
+		strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifest.xml"));
+        sprintf(hash_file,"%s%s",hash_file,"/measurement.");
+        
+
         imageMountingRequired = 1;
     } else if (strcmp(argv[3], "HOST") == 0) {
         strcpy(fs_mount_path, MOUNTPATH_HOST);
-        sprintf(hash_file, "%s/var/log/cumulative_hash.txt", fs_mount_path);
+        sprintf(hash_file, "%s/var/log/trustagent/measurement.", fs_mount_path);
         imageMountingRequired = 0;
     } else { 
         printf("Invalid verification_type.Valid options are IMVM/HOST\n");
         return EXIT_FAILURE;
     }
 
-    FILE *fc = fopen(hash_file,"w");//File for writing cumulative hash 
+  
     if (imageMountingRequired) {
             char command[512];
            
@@ -553,14 +584,6 @@ int main(int argc, char **argv) {
     
     generateLogs(argv[1], argv[2], argv[3]);
     
-	char *ptr;
-	if(strcmp(hashType, "sha256") == 0)
-	   ptr = sha256_hash_string(d2,cH2);
-    else
-	   ptr = sha1_hash_string(cHash,cH2);
-	
-    fprintf(fc,"%s",ptr);
-	fclose(fc);
 
 
     // Unmount the disk image after verification process completes Not sure about this
