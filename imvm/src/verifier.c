@@ -412,7 +412,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     
           if(strstr(line,"DigestAlg=") != NULL){
 		   /*Get the type of hash */	  
-           tagEntry(line);
+           tagEntry(strstr(line,"DigestAlg="));
            strcpy(hashType,NodeValue);
 		  
 		   fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n",hashType);
@@ -557,7 +557,7 @@ int main(int argc, char **argv) {
    if (strcmp(argv[3], "IMVM") == 0) {
         strcpy(fs_mount_path, MOUNTPATH_IMVM);
         //strcpy(hash_file,"/var/log/trustagent/measurement.");
-		strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifest.xml"));
+		strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
         sprintf(hash_file,"%s%s",hash_file,"/measurement.");
         
 
