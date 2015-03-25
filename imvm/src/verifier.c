@@ -541,8 +541,7 @@ int main(int argc, char **argv) {
    int imageMountingRequired = 0; //IMVM = 1 /HOST = 0
    char manifest_file[100];
    xmlDocPtr Doc;
-  
-
+	char* mount_script = "../../scripts/mount_vm_image.sh";
     if(argc != 4) {
         printf("Usage:\n%s <manifest_path> <disk_path> <IMVM/HOST>  \n", argv[0]);
         return EXIT_FAILURE;
@@ -575,7 +574,7 @@ int main(int argc, char **argv) {
     if (imageMountingRequired) {
             char command[512];
            
-            sprintf(command,"/root/mount_vm_image.sh %s", argv[2]);
+            sprintf(command,"%s %s", mount_script, argv[2]);
             int res = system(command);
             if (res !=0) {
                 printf("\nError in mounting the image!!!!\n");
@@ -598,7 +597,7 @@ int main(int argc, char **argv) {
 
     // Unmount the disk image after verification process completes Not sure about this
     if (strcmp(argv[3], "IMVM") == 0) 
-	   system("/root/mount_vm_image.sh");
+	   system(mount_script);
     
    
     return 0;
