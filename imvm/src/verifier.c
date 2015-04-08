@@ -30,7 +30,7 @@ Keywords in the Policy should match with those in this code.
 #include <openssl/sha.h>
 #include <ctype.h>
 
-#define MOUNTPATH_IMVM  "/tmp/mount"
+#define MOUNTPATH_IMVM  "/tmp/"
 #define MOUNTPATH_HOST  "/tmp/root"
 
 char fs_mount_path[1024];
@@ -540,6 +540,9 @@ int main(int argc, char **argv) {
 
    int imageMountingRequired = 0; //IMVM = 1 /HOST = 0
    char manifest_file[100];
+   pid_t pid = getpid();
+   char verifierpid[64] = {0};
+   sprintf(verifierpid,"%d",pid);
    xmlDocPtr Doc;
 	char* mount_script = "../../scripts/mount_vm_image.sh";
     if(argc != 4) {
@@ -555,6 +558,7 @@ int main(int argc, char **argv) {
     memset(cHash,0,strlen(cHash));
    if (strcmp(argv[3], "IMVM") == 0) {
         strcpy(fs_mount_path, MOUNTPATH_IMVM);
+	strcat(fs_mount_path,verifierpid);
         //strcpy(hash_file,"/var/log/trustagent/measurement.");
 		strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
         sprintf(hash_file,"%s%s",hash_file,"/measurement.");
@@ -573,13 +577,13 @@ int main(int argc, char **argv) {
   
     if (imageMountingRequired) {
             char command[512];
-           
-            sprintf(command,"%s %s", mount_script, argv[2]);
+            sprintf(command,"%s %s %s", mount_script, argv[2], fs_mount_path);
             int res = system(command);
             if (res !=0) {
                 printf("\nError in mounting the image!!!!\n");
                 exit(1);
             }
+	    strcat(fs_mount_path,"/mount");
     }
 
     Doc = xmlParseFile(argv[1]); 
@@ -596,10 +600,11 @@ int main(int argc, char **argv) {
 
 
     // Unmount the disk image after verification process completes Not sure about this
-    if (strcmp(argv[3], "IMVM") == 0) 
-	   system(mount_script);
-    
-   
+    if (strcmp(argv[3], "IMVM") == 0) {
+	   char command[512]={'\0'};
+	   sprintf(command,"%s %s",mount_script,fs_mount_path);  
+	   system(command);    
+    }   
     return 0;
 }
 
