@@ -7,6 +7,7 @@ INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
 MENUENTRY_FILE="$BASE_DIR/sample_menuentry"
 MENUENTRY_PREFIX="TCB-Protection"
 CREATE_MENU_ENTRY_SCRIPT="$BASE_DIR/create_menuentry.pl"
+UPDATE_MENU_ENTRY_SCRIPT="$BASE_DIR/update_menuentry.pl"
 GRUB_FILE=""
 
 
@@ -151,10 +152,19 @@ function generate_grub_entry()
 function update_grub()
 {
 	if [ "$GRUB_VERSION" == "0" ]; then
-                echo "WARNING: Not updating grub file"
-                echo "          Follow below mentioned steps to update grub manually:"
-                echo "          - Verify grub entry available in $MENUENTRY_FILE file and append it in $GRUB_FILE file manually."
-                echo ""
+		echo "$GRUB_FILE already contains an entry for TCB-Protection"
+		echo "Updating the $GRUB_FILE with newly generated entry"
+		perl $UPDATE_MENU_ENTRY_SCRIPT $MENUENTRY_FILE $GRUB_FILE $GRUB_VERSION $MENUENTRY_PREFIX
+		if [ $? -ne 0 ]
+		then
+			echo "Couldn't update the grub entry"
+			echo "Exiting ..."
+			exit
+		fi
+                #echo "WARNING: Not updating grub file"
+                #echo "          Follow below mentioned steps to update grub manually:"
+                #echo "          - Verify grub entry available in $MENUENTRY_FILE file and append it in $GRUB_FILE file manually."
+                #echo ""
 		exit
 	fi
 
@@ -162,16 +172,26 @@ function update_grub()
 
 	grep -c "menuentry '$MENUENTRY_PREFIX" /etc/grub.d/40_custom > /dev/null
 	if [ $? -eq 0 ]; then
-		echo "WARNING: Aborting update grub operation as /etc/grub.d/40_custom already contains grub entry for TCB-Protection"
-		echo "		Follow below mentioned steps to update grub manually:"
-		echo "		- Update menuenry in /etc/grub.d/40_custom file manually using grub entry available in $MENUENTRY_FILE file"
-		echo "		- After updating /etc/grub.d/40_custom execute 'update-grub' or 'grub2-mkconfig -o $GRUB_FILE' command."
-		echo ""
-		exit
+		# update the existing grub entry
+		echo "/etc/grub.d/40_custom already contains an entry for TCB-Protection"
+		echo "updating the /etc/grub.d/40_custom with new entry"
+		perl $UPDATE_MENU_ENTRY_SCRIPT $MENUENTRY_FILE /etc/grub.d/40_custom $GRUB_VERSION $MENUENTRY_PREFIX
+		if [ $? -ne 0 ]
+		then
+			echo "Couldn't update the entry in /etc/grub.d/40_custom"
+			echo "Exiting ..."
+			exit
+		fi
+		#echo "WARNING: Aborting update grub operation as /etc/grub.d/40_custom already contains grub entry for TCB-Protection"
+		#echo "		Follow below mentioned steps to update grub manually:"
+		#echo "		- Update menuenry in /etc/grub.d/40_custom file manually using grub entry available in $MENUENTRY_FILE file"
+		#echo "		- After updating /etc/grub.d/40_custom execute 'update-grub' or 'grub2-mkconfig -o $GRUB_FILE' command."
+		#echo ""
+		#exit
+	else
+		cat $MENUENTRY_FILE >> /etc/grub.d/40_custom
+		echo "Menuentry has been appended in /etc/grub.d/40_custom"
 	fi
-	cat $MENUENTRY_FILE >> /etc/grub.d/40_custom
-	echo "Menuentry has been appended in /etc/grub.d/40_custom"
-
 	if [ $os_version == "fedora" ] || [ $os_version == "suse" ]; then
 		grub2-mkconfig -o $GRUB_FILE
 		
