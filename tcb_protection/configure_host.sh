@@ -108,10 +108,16 @@ function which_grub() {
 	os_version=`which_flavour`
 	GRUB_VERSION=""
 	
-	if [ $os_version == "fedora" ] || [ $os_version == "suse" ]; then
+	if [ $os_version == "fedora" ] ; then
 		grub2-install --version | grep " 2."
 		GRUB_VERSION=2
 		return
+	elif [ $os_version == "suse" ] ; then
+		zypper info grub | grep -i version | grep " 0."
+		if [ $? -eq 0 ] ; then
+	                GRUB_VERSION=0
+	                return
+        	fi
 	fi
 
 	grub-install --version | grep " 2." 
@@ -192,7 +198,7 @@ function update_grub()
 		cat $MENUENTRY_FILE >> /etc/grub.d/40_custom
 		echo "Menuentry has been appended in /etc/grub.d/40_custom"
 	fi
-	if [ $os_version == "fedora" ] || [ $os_version == "suse" ]; then
+	if [ $os_version == "fedora" ]; then
 		grub2-mkconfig -o $GRUB_FILE
 		
 	else
@@ -225,7 +231,7 @@ function which_flavour()
 		flavour="suse"
 	fi
         if [ "$flavour" == "" ] ; then
-                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora and suse"
                 exit
         else
                 echo $flavour
@@ -251,7 +257,7 @@ function install_pkg()
         elif [ $os_flavour == "suse" ]
 	then
 	        zypper -n in tboot
-		grub2-mkconfig -o $GRUB_FILE
+	#	grub2-mkconfig -o $GRUB_FILE
         fi
 }
 
