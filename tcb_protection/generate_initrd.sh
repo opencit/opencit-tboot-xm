@@ -324,7 +324,7 @@ function prepare_mkinitrd()
         chmod +x /lib/mkinitrd/scripts/boot-measure_host.sh
 	dos2unix /lib/mkinitrd/scripts/boot-measure_host.sh
         set_os /lib/mkinitrd/scripts/boot-measure_host.sh "suse"
-	cp $TCB_SCRIPTS/setup-measure_host.sh /lib/mkinitrd/scripts/setup-measure_host.sh
+	cp $WORKING_DIR/mkinitrd_files/setup-measure_host.sh /lib/mkinitrd/scripts/setup-measure_host.sh
 	chmod +x /lib/mkinitrd/scripts/setup-measure_host.sh
 	dos2unix /lib/mkinitrd/scripts/setup-measure_host.sh
         # copy the binaries to location
