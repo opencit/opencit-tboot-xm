@@ -22,19 +22,29 @@ PREREQ=""
 if [ $os = "ubuntu" ]
 then
         ROOT_MOUNT_PATH=${ROOT}
+	CONFIG_FILE=${CONFIG_FILE_PATH}
 elif [ $os = "suse"  ]
 then
         source /config/mount.sh
         ROOT_MOUNT_PATH=${rootdev}
+	CONFIG_FILE=${CONFIG_FILE_PATH}
 else
         source /lib/dracut-lib.sh
         ROOT_MOUNT_PATH="$(getarg root=)"
-
         ROOT_MOUNT_PATH=`echo $ROOT_MOUNT_PATH | sed s/\"//g`
+	CONFIG_FILE="$(getarg CONFIG_FILE_PATH=)"
+fi
+
+log "CONFIG_FILE_PATH = $CONFIG_FILE"
+if [ ! $CONFIG_FILE ] || [ -z $CONFIG_FILE ]
+then
+	CONFIG_FILE="/measure_host.cfg"	
+	log "CONFIG_FILE_PATH = $CONFIG_FILE"
 fi
 
 log "ROOT_MOUNT_PATH = $ROOT_MOUNT_PATH"
-
+CONFIG_FILE=`echo $CONFIG_FILE | sed s/\"//g`	
+log "CONFIG_FILE_PATH = $CONFIG_FILE"
 load_configuration()
 {
 	log "Loading configuration"

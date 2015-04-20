@@ -6,15 +6,15 @@ print $ARGV[2]."\n";   # initrd name
 print $ARGV[3]."\n";	  # kernel arg
 print $ARGV[4]."\n";	  # Menuentry name prefix
 print $ARGV[5]."\n";	#GRUB File Path
-#print $ARGV[6]."\n";	#Grub Version
+print $ARGV[6]."\n";	#Grub Version
 
 $output_file = $ARGV[0];
 $kernel_version = $ARGV[1];
 $initrd_name = $ARGV[2];
-#kernel_arg = $ARGV[3];
-$menu_name = $ARGV[3];
-$grub_file = $ARGV[4];
-$grub_version = $ARGV[5];
+$kernel_arg = $ARGV[3];
+$menu_name = $ARGV[4];
+$grub_file = $ARGV[5];
+$grub_version = $ARGV[6];
 
 open(FH, $grub_file);
 open(OUT, ">>$output_file");
@@ -41,10 +41,10 @@ while(<FH>) {
 				$isTboot = 1;
 				$buffer .= $_ . "\n";
 	#		} elsif ( $_ =~ $kernel_version and !($_ =~ $kernel_arg ) )
-			} elsif ( $_ =~ /$kernel_version/ and $_ =~ /vmlinu[xz]-/ )
+			} elsif ( $_ =~ /$kernel_version/ and $_ =~ /vmlinu[xz]-/ and !($_ =~ $kernel_arg ) )
 			{
 				$isSameKernel = 1;
-				$buffer .= $_ ."\n";
+				$buffer .= $_ . " " . $kernel_arg . "\n";
 			}
 			else {
 				$buffer .= $_."\n";
@@ -94,14 +94,14 @@ elsif ( $grub_version == 0 )
 				{
 					$buffer .= "\tkernel /boot/tboot.gz logging=serial,vga,memory measure_nv=true\n";
 					$_ =~ s/kernel/module/;
-					$buffer .= $_. "\n";
+					$buffer .= $_. " " . $kernel_arg. "\n";
 					$isSameKernel = 1;
 				}
 				$isTboot = 1;
 			}
 			elsif ( $_ =~ /$kernel_version/ and $_ =~ /vmlinu[xz]/ )
 			{
-				$buffer .= $_. "\n";
+				$buffer .= $_. " " . $kernel_arg. "\n";
 				$isSameKernel = 1;
 			}
 			elsif( $_ =~ /title / )
