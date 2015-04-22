@@ -193,7 +193,7 @@ function which_flavour()
 		flavour="suse"
 	fi
         if [ "$flavour" == "" ] ; then
-                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora and suse"
                 exit
         else
                 echo $flavour
@@ -311,19 +311,69 @@ function generate_initrd_fedora()
 }
 ###################################################################################
 
+function revert_mkinitrd()
+{
+	rm -rf /bin/verifier /bin/tpmextend
+	rm -rf /lib/mkinitrd/scripts/boot-measure_host.sh
+	rm -rf /lib/mkinitrd/scripts/setup-measure_host.sh
+}
+
+function prepare_mkinitrd()
+{
+	cp $TCB_SCRIPTS/measure_host /lib/mkinitrd/scripts/boot-measure_host.sh
+        chmod +x /lib/mkinitrd/scripts/boot-measure_host.sh
+	dos2unix /lib/mkinitrd/scripts/boot-measure_host.sh
+        set_os /lib/mkinitrd/scripts/boot-measure_host.sh "suse"
+	cp $WORKING_DIR/mkinitrd_files/setup-measure_host.sh /lib/mkinitrd/scripts/setup-measure_host.sh
+	chmod +x /lib/mkinitrd/scripts/setup-measure_host.sh
+	dos2unix /lib/mkinitrd/scripts/setup-measure_host.sh
+        # copy the binaries to location
+	cp bin/verifier /bin/.
+	cp bin/tpmextend /bin/.
+	cp bin/rpmmio.ko /bin/.
+	chmod +x /bin/verifier /bin/tpmextend /bin/rpmmio.ko
+}
+
+function generate_initrd_suse()
+{
+	echo "This might take some time ... "	
+	MKINITRD=`which mkinitrd`
+	check_prerequisites
+	# update the measure host file into initrd
+	prepare_mkinitrd 
+	# execute the mkinitrd
+	# find the exising kernel file and create initrd file name
+	kernelRev=`uname -r`
+	kernel=`ls /boot/ | grep -i $kernelRev | grep -e "^vmlinuz"`
+	kernel=/boot/$kernel
+	initrdFname=$PWD/$PREGENERATED_FILES/initrd.img-$kernelRev-measurement
+	echo "Using kernel $kernel and initrd $initrdFname"
+	# Generate the initrd
+	mkinitrd -k $kernel -i $initrdFname > /tmp/mkinitrd.log 2>&1
+	if [ $? -eq 0 ]; then
+		echo "Initrd created successfully"
+	else
+		echo "Initrd creation failed, please see mkinitrd logs for more info"
+	fi
+	revert_mkinitrd
+}
+
 function main_function()
 {
 	os_flavour=`which_flavour`
+	echo "Creating initramfs image for $os_flavour..."
 	if [ $os_flavour == "ubuntu" ]
 	then
 		generate_initrd_ubuntu
 	elif [ $os_flavour == "rhel" ]
 	then
 		generate_initrd_redhat
-	elif [ $os_flavour == "fedora" ] || [ $os_flavour == "suse" ]
+	elif [ $os_flavour == "fedora" ]
 	then	
-		echo "Creating initramfs image for $os_flavour..."
 		generate_initrd_fedora
+        elif [ $os_flavour == "suse" ] 
+        then    
+                generate_initrd_suse
 	else
 		echo "ERROR!! : Does not support $os_flavour"
 	fi

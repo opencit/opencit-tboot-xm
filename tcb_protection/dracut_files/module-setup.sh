@@ -18,7 +18,10 @@ install()
 	inst /bin/date "/bin/date"
 	inst /bin/chmod "/bin/chmod"
 	inst /bin/bash "/bin/bash"
+	inst /bin/grep "/bin/grep"
 	inst /bin/vi "/bin/vi"
+	inst /usr/bin/wc "/bin/wc"
+	inst /usr/bin/expr "/bin/expr"
 	if [ -e /usr/sbin/insmod ]
 	then	
 		inst /usr/sbin/insmod "/bin/insmod"

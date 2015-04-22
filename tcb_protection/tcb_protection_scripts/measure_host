@@ -1,24 +1,79 @@
 #!/bin/sh
 # initramfs local-premount script for fixrtc
+#%stage: filesystem
+#%depends: resume
+#%programs: /bin/verifier /bin/tpmextend
+#%modules: tpm
 
+CONFIG_FILE="/measure_host.cfg"
+INITRD_LOG_FILE="/tmp/initrd.log"
+echo "" > $INITRD_LOG_FILE
+
+log()
+{
+	echo $1
+	echo $1 >> $INITRD_LOG_FILE
+}
+log "Log Creation Time: `date`"
 os=CUR_OS
 
 PREREQ=""
+
 if [ $os = "ubuntu" ]
 then
-	MANIFEST_PATH=${MANIFEST_PATH}
-	PARTITION_INFO=${PARTITION_INFO}
-	ROOT_MOUNT_PATH=${ROOT}
+        ROOT_MOUNT_PATH=${ROOT}
+	CONFIG_FILE=${CONFIG_FILE_PATH}
+elif [ $os = "suse"  ]
+then
+        source /config/mount.sh
+        ROOT_MOUNT_PATH=${rootdev}
+	CONFIG_FILE=${CONFIG_FILE_PATH}
 else
-	source /lib/dracut-lib.sh
-	MANIFEST_PATH="$(getarg MANIFEST_PATH=)"
-	PARTITION_INFO="$(getarg PARTITION_INFO=)"
-	ROOT_MOUNT_PATH="$(getarg root=)"
-
-	MANIFEST_PATH=`echo $MANIFEST_PATH | sed s/\"//g`
-	PARTITION_INFO=`echo $PARTITION_INFO | sed s/\"//g`
-	ROOT_MOUNT_PATH=`echo $ROOT_MOUNT_PATH | sed s/\"//g`
+        source /lib/dracut-lib.sh
+        ROOT_MOUNT_PATH="$(getarg root=)"
+        ROOT_MOUNT_PATH=`echo $ROOT_MOUNT_PATH | sed s/\"//g`
+	CONFIG_FILE="$(getarg CONFIG_FILE_PATH=)"
 fi
+
+log "CONFIG_FILE_PATH = $CONFIG_FILE"
+if [ ! $CONFIG_FILE ] || [ -z $CONFIG_FILE ]
+then
+	CONFIG_FILE="/measure_host.cfg"	
+	log "CONFIG_FILE_PATH = $CONFIG_FILE"
+fi
+
+log "ROOT_MOUNT_PATH = $ROOT_MOUNT_PATH"
+CONFIG_FILE=`echo $CONFIG_FILE | sed s/\"//g`	
+log "CONFIG_FILE_PATH = $CONFIG_FILE"
+load_configuration()
+{
+	log "Loading configuration"
+	if [ -e $tmp_root/$CONFIG_FILE ]
+	then
+		log "configuration file : $CONFIG_FILE exist"
+	else
+		log "Configuration file not found"
+		unmount_partitions
+		exit 1
+	fi
+	for key in `cat $tmp_root/$CONFIG_FILE | awk 'BEGIN {FS="="}{print $1}'`
+	do
+		log "key = $key"
+		keylen=`echo -n $key | wc -c`
+		log "keylen = $keylen"
+		keylen=`expr $keylen + 2`
+		log "keylen = $keylen"
+		value=`grep $key $tmp_root/$CONFIG_FILE | cut -c $keylen-`
+		log "`echo $value`"
+		log "`echo Exporting $key=$value`"
+		export $key=$value
+	done
+	MANIFEST_PATH=`echo $MANIFEST_PATH | sed s/\"//g`
+	log "MANIFEST_PATH=${MANIFEST_PATH}"
+	PARTITION_INFO=`echo $PARTITION_INFO | sed s/\"//g`
+	log "PARTITION_INFO=${PARTITION_INFO}"
+	log "Configuration loaded"
+}
 # Output pre-requisites
 prereqs()
 {
@@ -36,19 +91,20 @@ esac
 #LOADING - RPMMIO DRIVERS
 load_rpmmio_drivers()
 {
-	echo "RPMMIO Driver Load - STARTED"
-	echo "Load our own rpmmio driver, and create device rpmmio0, for direct TPM access"
+	log "RPMMIO Driver Load - STARTED"
+
+	log "Load our own rpmmio driver, and create device rpmmio0, for direct TPM access"
 	insmod /lib/modules/`uname -r`/kernel/drivers/char/tpm/rpmmio.ko
 	major=$(awk '$2 == "rpmmio" {print $1}' /proc/devices)
 	mknod /dev/rpmmio0 c $major 0
 	chmod 777 /dev/rpmmio0
-	echo "RPMMIO Driver Load - COMPLETE"
+	log "RPMMIO Driver Load - COMPLETE"
 }
 
 #MOUNT / IN /TMP/ROOT
 mount_root()
 {
-	echo "/ Mount STARTED"
+	log "/ Mount STARTED"
 	tmp_root=/tmp/root
 	mkdir -p $tmp_root
 	#echo -e "\nMount ${roflag} ${FSTYPE:+-t ${FSTYPE} }${ROOTFLAGS} ${ROOT} ${tmp_root}"
@@ -56,7 +112,12 @@ mount_root()
 	#root_mntDev=`echo $root | awk 'BEGIN{FS=":"}{print $2}'`
 	echo $ROOT_MOUNT_PATH
 	mount -t auto $ROOT_MOUNT_PATH $tmp_root
-	echo "/ Mount COMPLETED"
+	if [ $? -eq 0 ] ; then
+		log "Root mounted successfully"
+	else
+		log "Root mount failed, waiting for 15 seconds"
+	fi
+	log "/ Mount COMPLETED"
 }
 
 
@@ -65,22 +126,28 @@ mount_root()
 unmount_partitions()
 {
 	log "Unmount Partitions - STARTED"
+	cat $INITRD_LOG_FILE >> $tcb_log_file
 	for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' `
 	do
         	mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
         	mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
         	if [ $mntPoint = "/" ]
         	then
-                	echo "Skipping unmount /"
+                	log "Skipping unmount /"
         	else
                 	umount $tmp_root/$mntPoint
-                	rm -rf $tmp_root/$mntPoint
+                	#rm -rf $tmp_root/$mntPoint
         	fi
  	done
 
 	#Unmount Root Partition
 	umount $tmp_root
-	echo "Unmount Paritions - COMPLETE"
+	if [ $? = 0 ] ; then
+		log "Unmounted all sucessfully"
+	else
+		log "ERROR : Cound not unmount root partition"
+	fi
+	log "Unmount Paritions - COMPLETE"
 
 }
 #End of Unmount Fn
@@ -99,7 +166,7 @@ mount_partitions()
 	 	mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
 	 	if [ $mntPoint = "/" ] 
 	 	then 
-			echo "Skipping mount for / " 
+			log "Skipping mount for / "
 	 	else 
 			mkdir -p $tmp_root/$mntPoint
 			mount -t auto $mntDevice $tmp_root/$mntPoint 
@@ -107,13 +174,6 @@ mount_partitions()
 	done
 	log "Mount Partitions - COMPLETE"
 }
-
-log()
-{
-	echo $1
-	echo $1 >> $tcb_log_file	
-}
-
 
 #CALCULATE THE HASHES MAKING USE OF VERIFIER
 manifest_verify()
@@ -131,7 +191,7 @@ manifest_verify()
 	rm -f "$cumulative_hash"*
 	
 	#Run the Verifier and the check for its results
-	/bin/verifier $tmp_root/$manifest_path NA HOST >> $tcb_log_file 2>&1
+	/bin/verifier $tmp_root/$manifest_path NA HOST >> $INITRD_LOG_FILE 2>&1
 	if [ $? -ne 0 ]; then
 		log "TCB Verification FAILED"
 		unmount_partitions
@@ -169,7 +229,7 @@ tpm_extend()
 	log "Run TPM Extend for Extending PCR 19"
 	log "TPM Extend Log"
 	
-	/bin/tpmextend 19 $image_hash >> $tcb_log_file 2>&1
+	/bin/tpmextend 19 $image_hash >> $INITRD_LOG_FILE 2>&1
 	if [ $? -ne 0 ]; then
 		log "TPM extend failed."
 		unmount_partitions
@@ -184,7 +244,9 @@ load_rpmmio_drivers
 mount_root
 
 tcb_log_file=$tmp_root/var/log/tcb.log
-log "Log Creation Time: `date`"
+
+#load configuration 
+load_configuration
 
 #Step 3 - Mount Other Partitions
 mount_partitions
@@ -197,5 +259,6 @@ tpm_extend
 
 #Step 6 - Unmount all the Partitions that were mounted in the process
 unmount_partitions
-echo "END OF MEASUREMENT AGENT"
+log "END OF MEASUREMENT AGENT"
+
 

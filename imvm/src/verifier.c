@@ -30,7 +30,7 @@ Keywords in the Policy should match with those in this code.
 #include <openssl/sha.h>
 #include <ctype.h>
 
-#define MOUNTPATH_IMVM  "/tmp/mount"
+#define MOUNTPATH_IMVM  "/tmp/"
 #define MOUNTPATH_HOST  "/tmp/root"
 
 char fs_mount_path[1024];
@@ -146,9 +146,9 @@ unsigned char* Hex2Bin(char *HexString,int sha1){
   unsigned char *input_buffer = (unsigned char*)malloc(input_length);
   int retval = BN_bn2bin(input, input_buffer);
   char ob[65];
-  
-  return sha1_hash_string(input_buffer,ob); 
- 
+  if(sha1)  
+   return sha1_hash_string(input_buffer,ob); 
+  return sha256_hash_string(input_buffer,ob);
 }
 
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
@@ -212,7 +212,7 @@ void generate_cumulative_hash(char *hash,int sha_one, int type){
 	   SHA256_Update(&csha256,d2,SHA256_DIGEST_LENGTH);
 	   SHA256_Update(&csha256,hash,strlen(hash));
 	   SHA256_Final(d2, &csha256);
-	   process_started = 1;
+	   //process_started = 1;
 		   
 	   }
 	  
@@ -248,7 +248,7 @@ char* calculate(char *path, char output[65], int type) {
     strcpy(value, fs_mount_path);
     strcat(buf, path);
     strcat(value,path);//Value = Mount Path + Path in the image/disk
-    
+    printf("\nFile path is : %s\n",value);
     FILE* file = fopen(value, "rb");
     if(!file) return NULL;
    
@@ -423,6 +423,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
           if(strstr(line,"<File Path=")!= NULL){
             tagEntry(line);
             fprintf(fq,"<File Path=\"%s\">",NodeValue);
+           
             fprintf(fq,"%s</File>\n",calculate(NodeValue,calc_hash,1));          
           }
 
@@ -451,21 +452,27 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
             char mDpath[256];
             strcpy(mDpath,fs_mount_path);
             strcat(mDpath,dir_path);//path of dir in the VM
-            
+            strcat(mDpath,"\0");
 	    char *df = "Dirfiles.txt"; 
             /*df is used to hold the temporary file that stores the directory hash (after we get it using openssl) */
+            int slen = strlen(fs_mount_path); //to remove mount path from the find command output. 
             
             if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
-               sprintf(Dir_Str,"find %s ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | openssl dgst -%s >%s",mDpath,include,exclude,hashType,df);  
+               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | openssl dgst -%s >%s",mDpath,include,exclude,slen,hashType,df);  
             else if(strcmp(include,"") != 0)
-               sprintf(Dir_Str,"find %s ! -type d | grep -E  \"%s\" | openssl dgst -%s >%s",mDpath,include,hashType,df);
+               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -E  \"%s\"| sed -r 's/.{%d}//' | openssl dgst -%s >%s",mDpath,include,slen,hashType,df);
             else if(strcmp(exclude,"") != 0)
-               sprintf(Dir_Str,"find %s ! -type d | grep -vE \"%s\" | openssl dgst -%s >%s",mDpath,exclude,hashType,df);
+               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -vE \"%s\"| sed -r 's/.{%d}//' | openssl dgst -%s >%s",mDpath,exclude,slen,hashType,df);
             else
-               sprintf(Dir_Str,"find %s ! -type d | openssl dgst -%s >%s",mDpath,hashType,df);
+               sprintf(Dir_Str,"find \"%s\" ! -type d| sed -r 's/.{%d}//' | openssl dgst -%s >%s",mDpath,slen,hashType,df);
 
-          	
+            char ops[200];
+            sprintf(ops,"find \"%s\"/ ! -type d | sed -r 's/.{%d}//'",mDpath,slen);
+            
+            //printf("\n********mDpath is ---------- %s\n and command is %s *********\n",mDpath,Dir_Str);
+            //system(ops);	
             system(Dir_Str);
+           // system(ops);
 	        
 			/*Calculate the hash of the directory files using openssl and o/p the stdout to Dirfiles.txt file 
 			then read that value from the file. 
@@ -540,6 +547,9 @@ int main(int argc, char **argv) {
 
    int imageMountingRequired = 0; //IMVM = 1 /HOST = 0
    char manifest_file[100];
+   pid_t pid = getpid();
+   char verifierpid[64] = {0};
+   sprintf(verifierpid,"%d",pid);
    xmlDocPtr Doc;
 	char* mount_script = "../../scripts/mount_vm_image.sh";
     if(argc != 4) {
@@ -555,6 +565,7 @@ int main(int argc, char **argv) {
     memset(cHash,0,strlen(cHash));
    if (strcmp(argv[3], "IMVM") == 0) {
         strcpy(fs_mount_path, MOUNTPATH_IMVM);
+	strcat(fs_mount_path,verifierpid);
         //strcpy(hash_file,"/var/log/trustagent/measurement.");
 		strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
         sprintf(hash_file,"%s%s",hash_file,"/measurement.");
@@ -573,13 +584,13 @@ int main(int argc, char **argv) {
   
     if (imageMountingRequired) {
             char command[512];
-           
-            sprintf(command,"%s %s", mount_script, argv[2]);
+            sprintf(command,"%s %s %s", mount_script, argv[2], fs_mount_path);
             int res = system(command);
             if (res !=0) {
                 printf("\nError in mounting the image!!!!\n");
                 exit(1);
             }
+	    strcat(fs_mount_path,"/mount");
     }
 
     Doc = xmlParseFile(argv[1]); 
@@ -596,10 +607,11 @@ int main(int argc, char **argv) {
 
 
     // Unmount the disk image after verification process completes Not sure about this
-    if (strcmp(argv[3], "IMVM") == 0) 
-	   system(mount_script);
-    
-   
+    if (strcmp(argv[3], "IMVM") == 0) {
+	   char command[512]={'\0'};
+	   sprintf(command,"%s %s",mount_script,fs_mount_path);  
+	   system(command);    
+    }   
     return 0;
 }
 
