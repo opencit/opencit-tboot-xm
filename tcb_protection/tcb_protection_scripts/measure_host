@@ -136,7 +136,7 @@ unmount_partitions()
                 	log "Skipping unmount /"
         	else
                 	umount $tmp_root/$mntPoint
-                	rm -rf $tmp_root/$mntPoint
+                	#rm -rf $tmp_root/$mntPoint
         	fi
  	done
 
