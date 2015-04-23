@@ -5,7 +5,8 @@
 #%programs: /bin/verifier /bin/tpmextend
 #%modules: tpm
 
-CONFIG_FILE="/measure_host.cfg"
+TBOOTXM_REPOSITORY="/var/tbootxm"
+CONFIG_FILE="$TBOOTXM_REPOSITORY/measure_host.cfg"
 INITRD_LOG_FILE="/tmp/initrd.log"
 echo "" > $INITRD_LOG_FILE
 

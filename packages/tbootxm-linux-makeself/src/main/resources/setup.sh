@@ -150,4 +150,7 @@ cp $UTIL_SCRIPT_FILE $TBOOTXM_HOME/bin/functions.sh
 # set permissions
 chmod 700 $TBOOTXM_HOME/bin/*
 
+$TBOOTXM_BIN/generate_initrd.sh
+$TBOOTXM_BIN/configure_host.sh
+
 echo_success "Installation complete"

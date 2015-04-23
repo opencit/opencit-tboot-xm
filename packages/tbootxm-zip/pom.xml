@@ -57,10 +57,10 @@
                                 <copy file="../../tcb_protection/create_menuentry.pl" todir="${project.build.directory}/application/lib"/>
                                 <copy file="../../tcb_protection/update_menuentry.pl" todir="${project.build.directory}/application/lib"/>
                                 
-                                <copy todir="${project.build.directory}/application">
+                                <copy todir="${project.build.directory}/application/dracut_files">
                                     <fileset dir="../../tcb_protection/dracut_files"/>
                                 </copy>
-                                <copy todir="${project.build.directory}/application">
+                                <copy todir="${project.build.directory}/application/initrd_hooks">
                                     <fileset dir="../../tcb_protection/initrd_hooks"/>
                                 </copy>
                             </target>

@@ -6,11 +6,12 @@ TBOOTXM_REPOSITORY="/var/tbootxm"
 GENERATED_FILE_LOCATION="$TBOOTXM_REPOSITORY"  #"$BASE_DIR/generated_files"
 KERNEL_VERSION=`uname -r`
 INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
-MENUENTRY_FILE="$TBOOTXM_REPOSITORY"  #"$BASE_DIR/sample_menuentry"
+MENUENTRY_FILE="$TBOOTXM_REPOSITORY/sample_menuentry"  #"$BASE_DIR/sample_menuentry"
 MENUENTRY_PREFIX="TCB-Protection"
 CREATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/create_menuentry.pl"  #"$BASE_DIR/create_menuentry.pl"
 UPDATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/update_menuentry.pl"  #"$BASE_DIR/update_menuentry.pl"
-GRUB_FILE=""
+MANIFEST_PATH=${MANIFEST_PATH:-""}
+GRUB_FILE=${GRUB_FILE:-""}
 CONFIG_FILE_NAME="$TBOOTXM_REPOSITORY/measure_host.cfg"
 
 function help_instruction()
@@ -48,40 +49,40 @@ function validate_n_copy_initrd()
 
 function get_manifest_file_location()
 {
-	#Read the Manifest File Path
-	while :;
-	do
-		echo "Enter the manifest file path :"
-		read -e MANIFEST_PATH
-		if [ -f "$MANIFEST_PATH" ] ; then
-			echo "Found manifest file"
-			break
-		else
-			echo "ERROR: Invalid manifest path"
-			echo -e "\nPlease enter a valid path"
-		fi
-	done
+  #Read the Manifest File Path
+  if [ ! -f "$MANIFEST_PATH" ] ; then
+    while :;
+    do
+      echo "Enter the manifest file path :"
+      read -e MANIFEST_PATH
+      if [ -f "$MANIFEST_PATH" ] ; then
+        echo "Found manifest file"
+        break
+      else
+        echo "ERROR: Invalid manifest path"
+        echo -e "\nPlease enter a valid path"
+      fi
+    done
+  fi
 }
 
 function get_grub_file_location()
 {
-	if [ "$GRUB_FILE" != "" ]
-	then
-		return
-	fi
-        #Read the GRUB File Path
-        while :;
-        do
-                echo "Enter the GRUB config/menu.lst file path(e.g /boot/grub/grub.cfg ) :"
-                read -e GRUB_FILE
-                if [ -f "$GRUB_FILE" ] ; then
-                        echo "Found grub config file"
-                        break
-                else
-                        echo "ERROR: Invalid grub config file path"
-                        echo -e "\nPlease enter a valid path"
-                fi
-        done
+  if [ ! -f "$GRUB_FILE" ]; then
+    #Read the GRUB File Path
+    while :;
+    do
+      echo "Enter the GRUB config/menu.lst file path(e.g /boot/grub/grub.cfg ) :"
+      read -e GRUB_FILE
+      if [ -f "$GRUB_FILE" ] ; then
+        echo "Found grub config file"
+        break
+      else
+        echo "ERROR: Invalid grub config file path"
+        echo -e "\nPlease enter a valid path"
+      fi
+    done
+  fi
 }
 
 function get_partition_info()

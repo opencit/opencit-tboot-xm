@@ -7,8 +7,10 @@ TBOOTXM_LIB="/opt/tbootxm/lib"
 TBOOTXM_REPOSITORY="/var/tbootxm"
 INITRD_HOOKS_DIR="$TBOOTXM_HOME/initrd_hooks"
 DRACUT_DIR="$TBOOTXM_HOME/dracut_files"
-WORKING_DIR="$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
+WORKING_DIR="$TBOOTXM_HOME"  #"$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
 export WORKING_DIR
+export TBOOTXM_BIN
+export TBOOTXM_LIB
 #create Output Directory if it does not exist
 PREGENERATED_FILES="$TBOOTXM_REPOSITORY"  #generated_files
 if [ -e $PREGENERATED_FILES ]
