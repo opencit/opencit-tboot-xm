@@ -2,23 +2,19 @@
 
 # Measurement Agent install script
 # Outline:
-# 1. source the "functions.sh" file:  mtwilson-linux-util-3.0-SNAPSHOT.sh
-# 2. load existing environment configuration
-# 3. look for ~/tbootxm.env and source it if it's there
-# 4. prompt for installation variables if they are not provided
-# 5. determine if we are installing as root or non-root user; set paths
-# 6. detect java
-# 7. if java not installed, and we have it bundled, install it
-# 8. unzip tbootxm archive tbootxm-zip-0.1-SNAPSHOT.zip into /opt/tbootxm, overwrite if any files already exist
-# 9. link /usr/local/bin/tbootxm -> /opt/tbootxm/bin/tbootxm, if not already there
-# 10. add tbootxm to startup services
-# 11. look for TBOOTXM_PASSWORD environment variable; if not present print help message and exit:
-#     Measurement Agent requires a master password
-#     to generate a password run "export TBOOTXM_PASSWORD=$(tbootxm generate-password) && echo TBOOTXM_PASSWORD=$TBOOTXM_PASSWORD"
-#     you must store this password in a safe place
-#     losing the master password will result in data loss
-# 12. tbootxm setup
-# 13. tbootxm start
+# 1.  load existing environment configuration
+# 2.  source the "functions.sh" file:  mtwilson-linux-util-*.sh
+# 3.  look for ~/tbootxm.env and source it if it's there
+# 4.  force root user installation
+# 5.  define application directory layout 
+# 6.  backup current configuration and data, if they exist
+# 7.  create application directories and set folder permissions
+# 8.  store directory layout in env file
+# 9.  install prerequisites
+# 10. unzip tbootxm archive tbootxm-zip-*.zip into TBOOTXM_HOME, overwrite if any files already exist
+# 11. copy utilities script file to application folder
+# 12. set additional permissions
+# 13. run additional setup tasks
 
 #####
 
