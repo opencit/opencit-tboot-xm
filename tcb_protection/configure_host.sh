@@ -1,8 +1,8 @@
 #!/bin/bash
 
 BASE_DIR="$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
-TBOOTXM_LIB="/opt/tbootxm/lib"
-TBOOTXM_REPOSITORY="/var/tbootxm"
+TBOOTXM_LIB="${TBOOTXM_LIB:-/opt/tbootxm/lib}"
+TBOOTXM_REPOSITORY="/var/tbootxm"  #"${TBOOTXM_REPOSITORY:-/var/tbootxm}"
 GENERATED_FILE_LOCATION="$TBOOTXM_REPOSITORY"  #"$BASE_DIR/generated_files"
 KERNEL_VERSION=`uname -r`
 INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement

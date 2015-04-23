@@ -1,10 +1,10 @@
 #!/bin/bash +x
 LOG_FILE="outfile"
 
-TBOOTXM_HOME="/opt/tbootxm"
-TBOOTXM_BIN="/opt/tbootxm/bin"
-TBOOTXM_LIB="/opt/tbootxm/lib"
-TBOOTXM_REPOSITORY="/var/tbootxm"
+TBOOTXM_HOME="${TBOOTXM_HOME:-/opt/tbootxm}"
+TBOOTXM_BIN="${TBOOTXM_BIN:-/opt/tbootxm/bin}"
+TBOOTXM_LIB="${TBOOTXM_LIB:-/opt/tbootxm/lib}"
+TBOOTXM_REPOSITORY="/var/tbootxm"  #"${TBOOTXM_REPOSITORY:-/var/tbootxm}"
 INITRD_HOOKS_DIR="$TBOOTXM_HOME/initrd_hooks"
 DRACUT_DIR="$TBOOTXM_HOME/dracut_files"
 WORKING_DIR="$TBOOTXM_HOME"  #"$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
