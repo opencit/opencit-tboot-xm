@@ -1,15 +1,17 @@
 #!/bin/bash
 
 BASE_DIR="$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
-GENERATED_FILE_LOCATION="$BASE_DIR/generated_files"
+TBOOTXM_LIB="/opt/tbootxm/lib"
+TBOOTXM_REPOSITORY="/var/tbootxm"
+GENERATED_FILE_LOCATION="$TBOOTXM_REPOSITORY"  #"$BASE_DIR/generated_files"
 KERNEL_VERSION=`uname -r`
 INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
-MENUENTRY_FILE="$BASE_DIR/sample_menuentry"
+MENUENTRY_FILE="$TBOOTXM_REPOSITORY"  #"$BASE_DIR/sample_menuentry"
 MENUENTRY_PREFIX="TCB-Protection"
-CREATE_MENU_ENTRY_SCRIPT="$BASE_DIR/create_menuentry.pl"
-UPDATE_MENU_ENTRY_SCRIPT="$BASE_DIR/update_menuentry.pl"
+CREATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/create_menuentry.pl"  #"$BASE_DIR/create_menuentry.pl"
+UPDATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/update_menuentry.pl"  #"$BASE_DIR/update_menuentry.pl"
 GRUB_FILE=""
-CONFIG_FILE_NAME="/measure_host.cfg"
+CONFIG_FILE_NAME="$TBOOTXM_REPOSITORY/measure_host.cfg"
 
 function help_instruction()
 {

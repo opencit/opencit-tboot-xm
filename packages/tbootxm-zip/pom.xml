@@ -44,9 +44,25 @@
                         </goals>
                         <configuration>
                             <target>
-                                <copy file="../../rpmmio/src/rpmmio.ko" todir="${project.build.directory}/application/bin"/>
+                                <!-- application/bin -->
                                 <copy file="../../tpmextend/bin/debug/tpmextend" todir="${project.build.directory}/application/bin"/>
                                 <copy file="../../imvm/bin/verifier" todir="${project.build.directory}/application/bin"/>
+                                <copy file="../../tcb_protection/configure_host.sh" todir="${project.build.directory}/application/bin"/>
+                                <copy file="../../tcb_protection/generate_initrd.sh" todir="${project.build.directory}/application/bin"/>
+                                <copy file="../../tcb_protection/tcb_protection_scripts/measure_host" todir="${project.build.directory}/application/bin"/>
+                                <copy file="../../tcb_protection/mkinitrd_files/setup-measure_host.sh" todir="${project.build.directory}/application/bin"/>
+                                
+                                <!-- application/lib -->
+                                <copy file="../../rpmmio/src/rpmmio.ko" todir="${project.build.directory}/application/lib"/>
+                                <copy file="../../tcb_protection/create_menuentry.pl" todir="${project.build.directory}/application/lib"/>
+                                <copy file="../../tcb_protection/update_menuentry.pl" todir="${project.build.directory}/application/lib"/>
+                                
+                                <copy todir="${project.build.directory}/application">
+                                    <fileset dir="../../tcb_protection/dracut_files"/>
+                                </copy>
+                                <copy todir="${project.build.directory}/application">
+                                    <fileset dir="../../tcb_protection/initrd_hooks"/>
+                                </copy>
                             </target>
                         </configuration>
                     </execution>
