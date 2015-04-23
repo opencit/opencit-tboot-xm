@@ -49,6 +49,9 @@
 		<fail message="Cannot clean project packages" status="${mavenExitCleanPackages}">
 			<condition><not><equals arg1="${mavenExitCleanPackages}" arg2="0"/></not></condition>
 		</fail>
+		
+		<delete dir="tpmextend/bin"/>
+		<delete dir="imvm/bin"/>
 	</target>
 	
 	<target name="build" depends="init">
@@ -60,6 +63,12 @@
 		<fail message="Cannot build project" status="${mavenExitInstall}">
 			<condition><not><equals arg1="${mavenExitInstall}" arg2="0"/></not></condition>
 		</fail>
+		
+		<!-- run the build script -->
+		<exec executable="/bin/bash" failonerror="true">
+			<arg value="-c"/>
+			<arg value="./build_components.sh"/>
+		</exec>
 	</target>
 
 	<target name="packages" depends="init">
