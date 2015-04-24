@@ -107,7 +107,7 @@ if [ -d $TBOOTXM_CONFIGURATION ]; then
 fi
 
 # create application directories (chown will be repeated near end of this script, after setup)
-for directory in $TBOOTXM_HOME $TBOOTXM_CONFIGURATION $TBOOTXM_ENV $TBOOTXM_REPOSITORY $TBOOTXM_LOGS; do
+for directory in $TBOOTXM_HOME $TBOOTXM_CONFIGURATION $TBOOTXM_REPOSITORY $TBOOTXM_JAVA $TBOOTXM_BIN $TBOOTXM_LOGS $TBOOTXM_ENV; do
   mkdir -p $directory
   chmod 700 $directory
 done
