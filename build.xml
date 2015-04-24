@@ -52,6 +52,7 @@
 		
 		<delete dir="tpmextend/bin"/>
 		<delete dir="imvm/bin"/>
+		<delete file="rpmmio/src/rpmmio.ko"/>
 	</target>
 	
 	<target name="build" depends="init">
