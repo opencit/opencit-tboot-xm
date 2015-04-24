@@ -132,7 +132,7 @@ if [ $? -ne 0 ]; then echo_failure "Failed to install prerequisites through pack
 # delete existing java files, to prevent a situation where the installer copies
 # a newer file but the older file is also there
 if [ -d $TBOOTXM_HOME/java ]; then
-  rm $TBOOTXM_HOME/java/*.jar
+  rm $TBOOTXM_HOME/java/*.jar 2>/dev/null
 fi
 
 # extract tbootxm  (tbootxm-zip-0.1-SNAPSHOT.zip)
