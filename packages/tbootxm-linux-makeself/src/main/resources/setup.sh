@@ -149,4 +149,4 @@ chmod 700 $TBOOTXM_HOME/bin/*
 $TBOOTXM_BIN/generate_initrd.sh
 $TBOOTXM_BIN/configure_host.sh
 
-echo_success "Installation complete"
+echo_success "Measurement Agent Installation complete"
