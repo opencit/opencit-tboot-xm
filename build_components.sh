@@ -140,7 +140,7 @@ function main()
 	make_imvm
 	make_rpmmio
 	make_tpmextend
-	cp_binaries
+	#cp_binaries
 }
 if [ $# -gt 1 ]
 then

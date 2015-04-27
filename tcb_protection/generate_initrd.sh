@@ -1,17 +1,25 @@
 #!/bin/bash +x
 LOG_FILE="outfile"
 
-WORKING_DIR="$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
+TBOOTXM_HOME="${TBOOTXM_HOME:-/opt/tbootxm}"
+TBOOTXM_BIN="${TBOOTXM_BIN:-/opt/tbootxm/bin}"
+TBOOTXM_LIB="${TBOOTXM_LIB:-/opt/tbootxm/lib}"
+TBOOTXM_REPOSITORY="/var/tbootxm"  #"${TBOOTXM_REPOSITORY:-/var/tbootxm}"
+INITRD_HOOKS_DIR="$TBOOTXM_HOME/initrd_hooks"
+DRACUT_DIR="$TBOOTXM_HOME/dracut_files"
+WORKING_DIR="$TBOOTXM_HOME"  #"$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
 export WORKING_DIR
+export TBOOTXM_BIN
+export TBOOTXM_LIB
 #create Output Directory if it does not exist
-PREGENERATED_FILES=generated_files
-if [ -e $WORKING_DIR/$PREGENERATED_FILES ]
+PREGENERATED_FILES="$TBOOTXM_REPOSITORY"  #generated_files
+if [ -e $PREGENERATED_FILES ]
 then
-	rm -rf $WORKING_DIR/$PREGENERATED_FILES
+	rm -rf $PREGENERATED_FILES
 fi
-mkdir -p $WORKING_DIR/$PREGENERATED_FILES
+mkdir -p $PREGENERATED_FILES
 DRACUT_MODULE_DIR=89tcbprotection
-TCB_SCRIPTS=$WORKING_DIR/tcb_protection_scripts
+#TCB_SCRIPTS=$WORKING_DIR/tcb_protection_scripts
 KERNEL_VERSION=`uname -r`
 INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
 
@@ -44,9 +52,9 @@ change_permissions() {
     	chmod 755 $INITRAMFS_SCRIPTS_DIR/local-premount/measure_host
     	dos2unix $INITRAMFS_SCRIPTS_DIR/local-premount/measure_host
 	
-	chmod 755 $WORKING_DIR/bin/verifier
-	chmod 755 $WORKING_DIR/bin/tpmextend
-	chmod 755 $WORKING_DIR/bin/rpmmio.ko
+	chmod 755 $TBOOTXM_BIN/verifier
+	chmod 700 $TBOOTXM_BIN/tpmextend
+	chmod 755 $TBOOTXM_LIB/rpmmio.ko
 }
 
 restore_config() {
@@ -74,7 +82,7 @@ function check_prerequisites()
 {
 	#Copy the binaries - Check for their existence at the same time
         #Check for TPMExtend
-        if [ ! -e "$WORKING_DIR/bin/tpmextend" ]; then
+        if [ ! -e "$TBOOTXM_BIN/tpmextend" ]; then
                 echo "TPMExtend File Not Found"
 		if [ $os_flavour == "ubuntu" ]
 		then
@@ -85,7 +93,7 @@ function check_prerequisites()
 
 
         #Check for RPMMIO Driver
-        if [ ! -e "$WORKING_DIR/bin/rpmmio.ko" ]; then
+        if [ ! -e "$TBOOTXM_LIB/rpmmio.ko" ]; then
                 echo "RPMMIO.ko File Not Found"
                	if [ $os_flavour == "ubuntu" ]
                 then
@@ -97,7 +105,7 @@ function check_prerequisites()
 
 
         #Check for Verifier
-        if [ ! -e "$WORKING_DIR/bin/verifier" ]; then
+        if [ ! -e "$TBOOTXM_BIN/verifier" ]; then
                 echo "Verifier File Not Found"
                 if [ $os_flavour == "ubuntu" ]
                 then
@@ -107,7 +115,7 @@ function check_prerequisites()
         fi
 
 	#Check for Measure_Host script
-        if [ ! -e "$TCB_SCRIPTS/measure_host" ]; then
+        if [ ! -e "$TBOOTXM_BIN/measure_host" ]; then
                 echo "Measure_Host File Not Found"
 		if  [ $os_flavour == "ubuntu" ]
                 then
@@ -141,12 +149,12 @@ function generate_initrd_ubuntu()
 	check_prerequisites
 	
 	#copy the measure_host script to INITRAMFS DIR
-        cp -f $TCB_SCRIPTS/measure_host $INITRAMFS_SCRIPTS_DIR/local-premount/
+        cp -f $TBOOTXM_BIN/measure_host $INITRAMFS_SCRIPTS_DIR/local-premount/
 	#inject the os in measure_host script
 	set_os $INITRAMFS_SCRIPTS_DIR/local-premount/measure_host `which_flavour`
 	#Check for TCB Script	 
-	if [ -e "$WORKING_DIR/initrd_hooks/tcb" ]; then
-		cp -f $WORKING_DIR/initrd_hooks/tcb $INITRAMFS_HOOKS_DIR
+	if [ -e "$INITRD_HOOKS_DIR/tcb" ]; then
+		cp -f $INITRD_HOOKS_DIR/tcb $INITRAMFS_HOOKS_DIR
 	else
         	echo "TCB file does not exist in initrd_hooks directory"
 	        restore_config
@@ -158,14 +166,14 @@ function generate_initrd_ubuntu()
 	echo "this might take some time ..."
 
 	#Run the GENERATE_INITRD Command
-	$MKINITRAMFS -o $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME $KERNEL_VERSION &> $OUTPUT_LOG
+	$MKINITRAMFS -o $PREGENERATED_FILES/$INITRD_NAME $KERNEL_VERSION &> $OUTPUT_LOG
 	if [ $? -ne 0 ];then
 	    echo "INITRD Generation failed. Please check logs at $OUTPUT_LOG"
 	    restore_config
 	    exit 1
 	fi
 
-	echo "********> Generated initrd at $WORKING_DIR/$PREGENERATED_FILES/$INITRD_NAME <**********"
+	echo "********> Generated initrd at $PREGENERATED_FILES/$INITRD_NAME <**********"
 	restore_config
 
 }
@@ -210,10 +218,10 @@ function generate_initrd_redhat()
 	redhat_mod_dir=/usr/share/dracut/modules.d/
 	check_prerequisites
 	mkdir -p $redhat_mod_dir/$DRACUT_MODULE_DIR
-	#cp $WORKING_DIR/dracut_files/* $redhat_mod_dir/$DRACUT_MODULE_DIR
-	if [ -e $WORKING_DIR/dracut_files/module-setup.sh ]
+	#cp $DRACUT_DIR/* $redhat_mod_dir/$DRACUT_MODULE_DIR
+	if [ -e $DRACUT_DIR/module-setup.sh ]
         then
-                cp $WORKING_DIR/dracut_files/module-setup.sh $redhat_mod_dir/$DRACUT_MODULE_DIR
+                cp $DRACUT_DIR/module-setup.sh $redhat_mod_dir/$DRACUT_MODULE_DIR
         else
                 echo "module-setup.sh is missing"
                 echo "fatal error can't proceed further"
@@ -223,9 +231,9 @@ function generate_initrd_redhat()
                 exit
         fi
 	
-	if [ -e $WORKING_DIR/dracut_files/check ]
+	if [ -e $DRACUT_DIR/check ]
 	then
-		cp $WORKING_DIR/dracut_files/check $redhat_mod_dir/$DRACUT_MODULE_DIR
+		cp $DRACUT_DIR/check $redhat_mod_dir/$DRACUT_MODULE_DIR
 	else
 		echo "check is missing"
                 echo "fatal error can't proceed further"
@@ -235,9 +243,9 @@ function generate_initrd_redhat()
                 exit
 	fi
 	
-	if [ -e $WORKING_DIR/dracut_files/install ]
+	if [ -e $DRACUT_DIR/install ]
 	then
-		cp $WORKING_DIR/dracut_files/install $redhat_mod_dir/$DRACUT_MODULE_DIR
+		cp $DRACUT_DIR/install $redhat_mod_dir/$DRACUT_MODULE_DIR
 	else
 		echo "install is missing"
                 echo "fatal error can't proceed further"
@@ -248,11 +256,11 @@ function generate_initrd_redhat()
 	fi
 	
 	#copy the measure_host script to dracut module
-	cp $TCB_SCRIPTS/measure_host $redhat_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+	cp $TBOOTXM_BIN/measure_host $redhat_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
 	#inject the os in measure_host script
 	set_os $redhat_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh `which_flavour`
 	#copy the binaries to dracut module
-	cp -r $WORKING_DIR/bin $redhat_mod_dir/$DRACUT_MODULE_DIR
+	cp -r $TBOOTXM_BIN $redhat_mod_dir/$DRACUT_MODULE_DIR
 	#change the premission of files in dracut module
 	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/check
 	dos2unix $redhat_mod_dir/$DRACUT_MODULE_DIR/check
@@ -264,7 +272,7 @@ function generate_initrd_redhat()
 	dos2unix $redhat_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
 	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/bin/*
 
-        cd $WORKING_DIR/$PREGENERATED_FILES
+        cd $PREGENERATED_FILES
         dracut -f -v $INITRD_NAME >> $LOG_FILE 2>&1
         rm -rf $redhat_mod_dir/$DRACUT_MODULE_DIR
 	echo "Finished creating initramfs image"
@@ -279,10 +287,10 @@ function generate_initrd_fedora()
 	fedora_mod_dir=/usr/lib/dracut/modules.d/
 	check_prerequisites
 	mkdir -p $fedora_mod_dir/$DRACUT_MODULE_DIR
-	#cp $WORKING_DIR/dracut_files/* $fedora_mod_dir/$DRACUT_MODULE_DIR
-	if [ -e $WORKING_DIR/dracut_files/module-setup.sh ]
+	#cp $DRACUT_DIR/* $fedora_mod_dir/$DRACUT_MODULE_DIR
+	if [ -e $DRACUT_DIR/module-setup.sh ]
 	then    
-		cp $WORKING_DIR/dracut_files/module-setup.sh $fedora_mod_dir/$DRACUT_MODULE_DIR
+		cp $DRACUT_DIR/module-setup.sh $fedora_mod_dir/$DRACUT_MODULE_DIR
 	else
                 echo "module-setup.sh is missing"
                 echo "fatal error can't proceed further"
@@ -292,11 +300,11 @@ function generate_initrd_fedora()
                 exit
         fi
 	#copy the measure_host script to dracut module
-        cp $TCB_SCRIPTS/measure_host $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+        cp $TBOOTXM_BIN/measure_host $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
 	#inject the os in measure_host script
 	set_os $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh `which_flavour`
         #copy the binaries to dracut module
-        cp -r $WORKING_DIR/bin $fedora_mod_dir/$DRACUT_MODULE_DIR
+        cp -r $TBOOTXM_BIN $fedora_mod_dir/$DRACUT_MODULE_DIR
         #change the premission of files in dracut module
 	chmod 777 $fedora_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
 	dos2unix $fedora_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
@@ -304,7 +312,7 @@ function generate_initrd_fedora()
 	dos2unix $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
 	chmod 777 $fedora_mod_dir/$DRACUT_MODULE_DIR/bin/*
 
-	cd $WORKING_DIR/$PREGENERATED_FILES
+	cd $PREGENERATED_FILES
 	dracut -f -v $INITRD_NAME >> $LOG_FILE 2>&1
 	rm -rf $fedora_mod_dir/89tcbprotection
 	echo "Finished creating the initramfs image"
@@ -320,11 +328,11 @@ function revert_mkinitrd()
 
 function prepare_mkinitrd()
 {
-	cp $TCB_SCRIPTS/measure_host /lib/mkinitrd/scripts/boot-measure_host.sh
+	cp $TBOOTXM_BIN/measure_host /lib/mkinitrd/scripts/boot-measure_host.sh
         chmod +x /lib/mkinitrd/scripts/boot-measure_host.sh
 	dos2unix /lib/mkinitrd/scripts/boot-measure_host.sh
         set_os /lib/mkinitrd/scripts/boot-measure_host.sh "suse"
-	cp $WORKING_DIR/mkinitrd_files/setup-measure_host.sh /lib/mkinitrd/scripts/setup-measure_host.sh
+	cp $TBOOTXM_BIN/setup-measure_host.sh /lib/mkinitrd/scripts/setup-measure_host.sh
 	chmod +x /lib/mkinitrd/scripts/setup-measure_host.sh
 	dos2unix /lib/mkinitrd/scripts/setup-measure_host.sh
         # copy the binaries to location
@@ -346,7 +354,7 @@ function generate_initrd_suse()
 	kernelRev=`uname -r`
 	kernel=`ls /boot/ | grep -i $kernelRev | grep -e "^vmlinuz"`
 	kernel=/boot/$kernel
-	initrdFname=$PWD/$PREGENERATED_FILES/initrd.img-$kernelRev-measurement
+	initrdFname=$PREGENERATED_FILES/initrd.img-$kernelRev-measurement
 	echo "Using kernel $kernel and initrd $initrdFname"
 	# Generate the initrd
 	mkinitrd -k $kernel -i $initrdFname > /tmp/mkinitrd.log 2>&1

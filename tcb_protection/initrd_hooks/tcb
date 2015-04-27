@@ -17,7 +17,6 @@ esac
 
 
 
-
 #copy_exec /bin/tar /bin/
 #copy_exec /sbin/mkfs.ext4 /sbin/
 #copy_exec /bin/gzip /sbin/
@@ -30,8 +29,9 @@ copy_exec /lib/x86_64-linux-gnu/libcrypto.so.1.0.0 /lib/x86_64-linux-gnu/
 copy_exec /usr/lib/x86_64-linux-gnu/libxml2.so.2 /lib/x86_64-linux-gnu/
 #copy_exec /sbin/cryptsetup /sbin/
 #copy_exec /lib/modules/`uname -r`/kernel/drivers/md/dm-crypt.ko /lib/modules/`uname -r`/kernel/drivers/md/dm-crypt.ko
-copy_exec $WORKING_DIR/bin/tpmextend /bin/
-copy_exec $WORKING_DIR/bin/rpmmio.ko /lib/modules/`uname -r`/kernel/drivers/char/tpm/
-copy_exec $WORKING_DIR/bin/verifier /bin/
+
+copy_exec $TBOOTXM_BIN/tpmextend /bin/
+copy_exec $TBOOTXM_LIB/rpmmio.ko /lib/modules/`uname -r`/kernel/drivers/char/tpm/
+copy_exec $TBOOTXM_BIN/verifier /bin/
 
 exit 0
