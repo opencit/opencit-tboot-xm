@@ -22,6 +22,9 @@ install()
 	inst /bin/vi "/bin/vi"
 	inst /usr/bin/wc "/bin/wc"
 	inst /usr/bin/expr "/bin/expr"
+	inst /usr/bin/openssl "/bin/openssl"
+	inst /bin/find "/bin/find"
+	inst /etc/pki/tls/openssl.cnf "/etc/pki/tls/openssl.cnf"
 	if [ -e /usr/sbin/insmod ]
 	then	
 		inst /usr/sbin/insmod "/bin/insmod"

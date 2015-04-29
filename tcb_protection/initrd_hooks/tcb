@@ -27,6 +27,8 @@ copy_exec /usr/bin/base64 /bin/
 copy_exec /bin/sed /bin/
 copy_exec /lib/x86_64-linux-gnu/libcrypto.so.1.0.0 /lib/x86_64-linux-gnu/
 copy_exec /usr/lib/x86_64-linux-gnu/libxml2.so.2 /lib/x86_64-linux-gnu/
+copy_exec /usr/bin/openssl /bin/
+copy_exec /usr/lib/ssl/openssl.cnf /usr/lib/ssl/openssl.cnf
 #copy_exec /sbin/cryptsetup /sbin/
 #copy_exec /lib/modules/`uname -r`/kernel/drivers/md/dm-crypt.ko /lib/modules/`uname -r`/kernel/drivers/md/dm-crypt.ko
 
