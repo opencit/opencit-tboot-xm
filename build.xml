@@ -68,7 +68,7 @@
 		<!-- run the build script -->
 		<exec executable="/bin/bash" failonerror="true">
 			<arg value="-c"/>
-			<arg value="./build_components.sh"/>
+			<arg value="./build_components.sh --installpkg"/>
 		</exec>
 	</target>
 
