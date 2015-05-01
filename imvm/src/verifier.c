@@ -456,15 +456,16 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 	    char *df = "Dirfiles.txt"; 
             /*df is used to hold the temporary file that stores the directory hash (after we get it using openssl) */
             int slen = strlen(fs_mount_path); //to remove mount path from the find command output. 
-            
+            char hash_algo[15] = {'\0'};
+	    sprintf(hash_algo,"%ssum",hashType); 
             if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
-               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | openssl dgst -%s >%s",mDpath,include,exclude,slen,hashType,df);  
+               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | %s >%s",mDpath,include,exclude,slen,hash_algo,df);  
             else if(strcmp(include,"") != 0)
-               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -E  \"%s\"| sed -r 's/.{%d}//' | openssl dgst -%s >%s",mDpath,include,slen,hashType,df);
+               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -E  \"%s\"| sed -r 's/.{%d}//' | %s >%s",mDpath,include,slen,hash_algo,df);
             else if(strcmp(exclude,"") != 0)
-               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -vE \"%s\"| sed -r 's/.{%d}//' | openssl dgst -%s >%s",mDpath,exclude,slen,hashType,df);
+               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -vE \"%s\"| sed -r 's/.{%d}//' | %s >%s",mDpath,exclude,slen,hash_algo,df);
             else
-               sprintf(Dir_Str,"find \"%s\" ! -type d| sed -r 's/.{%d}//' | openssl dgst -%s >%s",mDpath,slen,hashType,df);
+               sprintf(Dir_Str,"find \"%s\" ! -type d| sed -r 's/.{%d}//' | %s >%s",mDpath,slen,hash_algo,df);
 
             char ops[200];
             sprintf(ops,"find \"%s\"/ ! -type d | sed -r 's/.{%d}//'",mDpath,slen);
@@ -484,11 +485,11 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
             fy=fopen(df,"r");
             char *dhash = NULL;
             getline(&dhash, &len, fy);
-            char *dp = strstr(dhash,"= ");
+            /*char *dp = strstr(dhash,"= ");
             dp++;
-            dp++; /* Navigate until you reach the actual hash, after spaces */
-            dhash = dp;
-           
+            dp++; Navigate until you reach the actual hash, after spaces 
+            dhash = dp;*/
+	    strtok(dhash," ");
             fprintf(fq,"<Dir Path=\"%s\">",dir_path);
             fprintf(fq,"%s</Dir>\n",dhash);//call directory hash function here
 			if(strcmp(hashType, "sha256") == 0)

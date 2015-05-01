@@ -2,7 +2,7 @@
 # initramfs local-premount script for fixrtc
 #%stage: filesystem
 #%depends: resume
-#%programs: /bin/verifier /bin/tpmextend
+#%programs: /bin/verifier /bin/tpmextend /usr/bin/sha1sum /usr/bin/sha256sum 
 #%modules: tpm
 
 TBOOTXM_REPOSITORY="/var/tbootxm"
