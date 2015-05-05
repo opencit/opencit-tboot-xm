@@ -12,7 +12,8 @@ CREATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/create_menuentry.pl"  #"$BASE_DIR/create_
 UPDATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/update_menuentry.pl"  #"$BASE_DIR/update_menuentry.pl"
 MANIFEST_PATH=${MANIFEST_PATH:-""}
 GRUB_FILE=${GRUB_FILE:-""}
-CONFIG_FILE_NAME="$TBOOTXM_REPOSITORY/measure_host.cfg"
+#CONFIG_FILE_NAME="$TBOOTXM_REPOSITORY/measure_host.cfg"
+CONFIG_FILE_NAME="/tbootxm.conf"
 
 function help_instruction()
 {
@@ -53,17 +54,26 @@ function get_manifest_file_location()
   if [ ! -f "$MANIFEST_PATH" ] ; then
     while :;
     do
-      echo "Enter the manifest file path :"
-      read -e MANIFEST_PATH
+      if [ -z "$MANIFEST_PATH" ]; then
+		echo "Manifest path not exported in env file"
+  	        echo "Enter the manifest file path :"
+	        read -e MANIFEST_PATH
+      else
+	 	echo "Using MANIFEST FILE : $MANIFEST_PATH"
+      fi
       if [ -f "$MANIFEST_PATH" ] ; then
         echo "Found manifest file"
         break
       else
         echo "ERROR: Invalid manifest path"
         echo -e "\nPlease enter a valid path"
+	unset MANIFEST_PATH
       fi
     done
   fi
+  mkdir -p /boot/trust
+  cp $MANIFEST_PATH /boot/trust/manifest.xml
+  export MANIFEST_PATH=/boot/trust/manifest.xml
 }
 
 function get_grub_file_location()
@@ -103,7 +113,10 @@ function generate_kernel_args()
 	echo "Following kernel argument will be used in grub menuentry for TCB Protection: "
 	KERNEL_ARGS="MANIFEST_PATH=\"`readlink -e $MANIFEST_PATH`\"\nPARTITION_INFO=\"$PARTITION_INFO\""
 	echo $KERNEL_ARGS
+	chattr -i $CONFIG_FILE_NAME > /dev/null 2>&1
+	rm -rf $CONFIG_FILE_NAME
 	echo -e $KERNEL_ARGS > $CONFIG_FILE_NAME
+	chattr +i $CONFIG_FILE_NAME
 	echo ""
 }
 
