@@ -65,6 +65,9 @@
 			<condition><not><equals arg1="${mavenExitInstall}" arg2="0"/></not></condition>
 		</fail>
 		
+		<!-- permissions -->
+		<chmod file="build_components.sh" perm="700"/>
+		
 		<!-- run the build script -->
 		<exec executable="/bin/bash" failonerror="true">
 			<arg value="-c"/>
