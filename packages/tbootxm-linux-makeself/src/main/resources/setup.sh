@@ -84,6 +84,7 @@ tbootxm_backup_configuration() {
   if [ -n "$TBOOTXM_CONFIGURATION" ] && [ -d "$TBOOTXM_CONFIGURATION" ]; then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/tbootxm.configuration.$datestr
+    mkdir -p "$backupdir"
     cp -r $TBOOTXM_CONFIGURATION $backupdir
   fi
 }
@@ -92,6 +93,7 @@ tbootxm_backup_repository() {
   if [ -n "$TBOOTXM_REPOSITORY" ] && [ -d "$TBOOTXM_REPOSITORY" ]; then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/tbootxm.repository.$datestr
+    mkdir -p "$backupdir"
     cp -r $TBOOTXM_REPOSITORY $backupdir
   fi
 }
