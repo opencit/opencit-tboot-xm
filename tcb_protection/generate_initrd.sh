@@ -261,6 +261,7 @@ function generate_initrd_redhat()
 	set_os $redhat_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh `which_flavour`
 	#copy the binaries to dracut module
 	cp -r $TBOOTXM_BIN $redhat_mod_dir/$DRACUT_MODULE_DIR
+	cp -r $TBOOTXM_LIB $redhat_mod_dir/$DRACUT_MODULE_DIR
 	#change the premission of files in dracut module
 	chmod 777 $redhat_mod_dir/$DRACUT_MODULE_DIR/check
 	dos2unix $redhat_mod_dir/$DRACUT_MODULE_DIR/check
@@ -305,6 +306,7 @@ function generate_initrd_fedora()
 	set_os $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh `which_flavour`
         #copy the binaries to dracut module
         cp -r $TBOOTXM_BIN $fedora_mod_dir/$DRACUT_MODULE_DIR
+        cp -r $TBOOTXM_LIB $fedora_mod_dir/$DRACUT_MODULE_DIR
         #change the premission of files in dracut module
 	chmod 777 $fedora_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
 	dos2unix $fedora_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
@@ -336,9 +338,9 @@ function prepare_mkinitrd()
 	chmod +x /lib/mkinitrd/scripts/setup-measure_host.sh
 	dos2unix /lib/mkinitrd/scripts/setup-measure_host.sh
         # copy the binaries to location
-	cp bin/verifier /bin/.
-	cp bin/tpmextend /bin/.
-	cp bin/rpmmio.ko /bin/.
+	cp $TBOOTXM_BIN/verifier /bin/.
+	cp  $TBOOTXM_BIN/tpmextend /bin/.
+	cp  $TBOOTXM_LIB/rpmmio.ko /bin/.
 	chmod +x /bin/verifier /bin/tpmextend /bin/rpmmio.ko
 }
 

@@ -34,7 +34,7 @@ install()
 		inst /sbin/insmod "/bin/insmod"
 	fi
 	inst "$moddir"/bin/verifier "/bin/verifier"
-	inst "$moddir"/bin/rpmmio.ko "/lib/modules/`uname -r`/kernel/drivers/char/tpm/rpmmio.ko"
+	inst "$moddir"/lib/rpmmio.ko "/lib/modules/`uname -r`/kernel/drivers/char/tpm/rpmmio.ko"
 	inst "$moddir"/bin/tpmextend "/bin/tpmextend"
 
 	#installing the hook

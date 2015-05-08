@@ -9,6 +9,7 @@
  #cp /usr/bin/openssl bin/.
  cp /usr/bin/cut bin/.
  cp /usr/bin/find bin/.
+ cp /sbin/lvm bin/.
  #mkdir -p etc/ssl
  #cp /etc/ssl/openssl.cnf etc/ssl/openssl.cnf
  #cp /usr/local/ssl/openssl.cnf usr/local/ssl/openssl.cnf
