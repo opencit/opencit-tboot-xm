@@ -245,6 +245,9 @@ load_rpmmio_drivers
 mount_root
 
 tcb_log_file=$tmp_root/var/log/tcb.log
+log "Activate all logical volumes"
+log "`lvm vgchange -ay`"
+
 
 #load configuration 
 load_configuration
