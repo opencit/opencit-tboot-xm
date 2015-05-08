@@ -81,7 +81,8 @@ export TBOOTXM_JAVA=$TBOOTXM_HOME/java
 export TBOOTXM_ENV=$TBOOTXM_HOME/env
 
 tbootxm_backup_configuration() {
-  if [ -n "$TBOOTXM_CONFIGURATION" ] && [ -d "$TBOOTXM_CONFIGURATION" ]; then
+  if [ -n "$TBOOTXM_CONFIGURATION" ] && [ -d "$TBOOTXM_CONFIGURATION" ] &&
+    (find "$TBOOTXM_CONFIGURATION" -mindepth 1 -print -quit | grep -q .); then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/tbootxm.configuration.$datestr
     mkdir -p "$backupdir"
@@ -90,7 +91,8 @@ tbootxm_backup_configuration() {
 }
 
 tbootxm_backup_repository() {
-  if [ -n "$TBOOTXM_REPOSITORY" ] && [ -d "$TBOOTXM_REPOSITORY" ]; then
+  if [ -n "$TBOOTXM_REPOSITORY" ] && [ -d "$TBOOTXM_REPOSITORY" ] &&
+    (find "$TBOOTXM_REPOSITORY" -mindepth 1 -print -quit | grep -q .); then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/tbootxm.repository.$datestr
     mkdir -p "$backupdir"
