@@ -44,6 +44,9 @@
                         </goals>
                         <configuration>
                             <target>
+                                <!-- kernel.version -->
+                                <copy file="../../kernel_required_version" todir="${project.build.directory}/application/configuration"/>
+                                
                                 <!-- application/bin -->
                                 <copy file="../../tpmextend/bin/debug/tpmextend" todir="${project.build.directory}/application/bin"/>
                                 <copy file="../../imvm/bin/verifier" todir="${project.build.directory}/application/bin"/>

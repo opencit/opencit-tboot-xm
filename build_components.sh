@@ -137,6 +137,7 @@ function cp_binaries()
 
 function main()
 {
+    uname -r > kernel_required_version
 	make_imvm
 	make_rpmmio
 	make_tpmextend

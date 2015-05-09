@@ -14,7 +14,8 @@
 # 10. unzip tbootxm archive tbootxm-zip-*.zip into TBOOTXM_HOME, overwrite if any files already exist
 # 11. copy utilities script file to application folder
 # 12. set additional permissions
-# 13. run additional setup tasks
+# 13. validate correct kernel version
+# 14. run additional setup tasks
 
 #####
 
@@ -149,6 +150,19 @@ cp $UTIL_SCRIPT_FILE $TBOOTXM_HOME/bin/functions.sh
 
 # set permissions
 chmod 700 $TBOOTXM_HOME/bin/*
+
+# validate correct kernel version
+kernelRequiredVersionFile="$TBOOTXM_CONFIGURATION/kernel_required_version"
+if [ ! -f "$kernelRequiredVersionFile" ]; then
+  echo_failure "Kernel required version file does not exist"
+  exit -1
+fi
+kernelRequiredVersion=$(cat "$kernelRequiredVersionFile")
+kernelCurrentVersion=$(uname -r)
+if [ "$kernelRequiredVersion" != "$kernelCurrentVersion" ]; then
+  echo_failure "Incorrect kernel version"
+  exit -1
+fi
 
 $TBOOTXM_BIN/generate_initrd.sh
 $TBOOTXM_BIN/configure_host.sh
