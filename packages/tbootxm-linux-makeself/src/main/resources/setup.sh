@@ -105,12 +105,6 @@ tbootxm_backup_repository() {
 tbootxm_backup_configuration
 tbootxm_backup_repository
 
-if [ -d $TBOOTXM_CONFIGURATION ]; then
-  backup_conf_dir=$TBOOTXM_REPOSITORY/backup/configuration.$(date +"%Y%m%d.%H%M")
-  mkdir -p $backup_conf_dir
-  cp -R $TBOOTXM_CONFIGURATION/* $backup_conf_dir
-fi
-
 # create application directories (chown will be repeated near end of this script, after setup)
 for directory in $TBOOTXM_HOME $TBOOTXM_CONFIGURATION $TBOOTXM_REPOSITORY $TBOOTXM_JAVA $TBOOTXM_BIN $TBOOTXM_LOGS $TBOOTXM_ENV; do
   mkdir -p $directory
