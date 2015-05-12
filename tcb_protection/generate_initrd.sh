@@ -316,14 +316,14 @@ function generate_initrd_fedora()
 
 	cd $PREGENERATED_FILES
 	dracut -f -v $INITRD_NAME >> $LOG_FILE 2>&1
-	rm -rf $fedora_mod_dir/89tcbprotection
+	rm -rf $fedora_mod_dir/$DRACUT_MODULE_DIR
 	echo "Finished creating the initramfs image"
 }
 ###################################################################################
 
 function revert_mkinitrd()
 {
-	rm -rf /bin/verifier /bin/tpmextend
+	rm -rf /bin/verifier /bin/tpmextend /bin/rpmmio.ko
 	rm -rf /lib/mkinitrd/scripts/boot-measure_host.sh
 	rm -rf /lib/mkinitrd/scripts/setup-measure_host.sh
 }
