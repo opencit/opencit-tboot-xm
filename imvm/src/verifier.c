@@ -35,7 +35,6 @@ Keywords in the Policy should match with those in this code.
 
 char fs_mount_path[1024];
 char hashType[10]; //SHA1 or SHA256
-char value[512];
 char NodeValue[500]; //XML Tag value
 
 
@@ -57,44 +56,42 @@ SHA_CTX csha1;
  *
  * Returns the actual value for the symbolic link provided as input
  */
-void getSymLinkValue(char *path) {
+
+int getSymLinkValue(char *path) {
     struct stat p_statbuf;
-    char actualpath [512];
     char symlinkpath[512];
+
     if (lstat(path, &p_statbuf) < 0) {  /* if error occured */
+        printf("Not valid path - %s \n", path);
+        return -1;
     }
 
-	// Check if the file path is a symbolic link
+        // Check if the file path is a symbolic link
     if (S_ISLNK(p_statbuf.st_mode) ==1) {
             // If symbolic link doesn't exists read the path its pointing to
             int len = readlink(path, symlinkpath, sizeof(symlinkpath));
             if (len != -1) {
                 symlinkpath[len] = '\0';
             }
-
+            printf("Symlink '%s' points to '%s' \n", path, symlinkpath);
+            char sympathroot[512];
             // If the path is starting with "/" and 'fs_mount_path' is not appended
             if(((strstr(symlinkpath, "/") - symlinkpath) == 0) && (strstr(symlinkpath,fs_mount_path) == NULL)) {
-                char sympathroot[512];
                 snprintf(sympathroot, sizeof sympathroot, "%s%s", fs_mount_path, symlinkpath);
-                getSymLinkValue(sympathroot);
+                printf("Absolute symlink path '%s' points to '%s'\n", symlinkpath, sympathroot);
             }
-            else if(((strstr(symlinkpath, ".") - symlinkpath) == 0) || ((strstr(symlinkpath, "..") - symlinkpath) == 0) || ((strstr(symlinkpath, "/") - symlinkpath) != 0)){
-                char sympathroot[512];
-                char* last_backslash = strrchr(path, '/'); 
+            else {
+                char* last_backslash = strrchr(path, '/');
                 if (last_backslash) {
                     *last_backslash = '\0';
                 }
                 snprintf(sympathroot, sizeof sympathroot, "%s%s%s", path, "/", symlinkpath);
-                getSymLinkValue(sympathroot);
+                printf("Relative symlink path '%s' point to '%s'\n", symlinkpath, sympathroot);
             }
-            else {
-                strcpy(value,"NOT EXIST");
-            }
+            strcpy(path, sympathroot);
+            return getSymLinkValue(path);
     }
-    else {
-        // Copy the new path, which the symbolic link is actually referring to
-        strcpy(value, path);		
-    }       
+    return 0;
 }
 
 
@@ -237,20 +234,24 @@ void generate_cumulative_hash(char *hash,int sha_one, int type){
  */
 char* calculate(char *path, char output[65], int type) {
     
-    char buf[512];
     char hash_in[65];
+    char value[512];
     /*We append the mount path before the filepath first, 
 	 and then pass that address to calculate the hash */
-    
-   // getSymLinkValue(path);
 
-    strcpy(buf, fs_mount_path);
     strcpy(value, fs_mount_path);
-    strcat(buf, path);
     strcat(value,path);//Value = Mount Path + Path in the image/disk
-    printf("\nFile path is : %s\n",value);
+    int retval = getSymLinkValue(value);
+    if(retval != 0) {
+        printf("File %s doesn't exist", path);
+        return NULL;
+    }
+    printf("\nMounted file path for file '%s' is '%s'\n",path, value);
     FILE* file = fopen(value, "rb");
-    if(!file) return NULL;
+    if(!file) {
+        printf("File not found - %s", value);
+        return NULL;
+    }
    
    /*How the process works: 
    1. Open the file pointed by value
