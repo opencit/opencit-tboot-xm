@@ -158,7 +158,8 @@ void generate_cumulative_hash(char *hash,int sha_one, int type){
 	
 	
 	//char *ptr;
-	char ob[65];
+	char ob[65],ob2[65];
+	printf("\nIn cumulative hash function: Hash to be extended is %s\n",hash);
     if(sha_one){
 	/*process_started tells us whether to initialize the SHA st. or not */	
 	 
@@ -168,7 +169,7 @@ void generate_cumulative_hash(char *hash,int sha_one, int type){
 	   SHA1_Update(&csha1,hash,strlen(hash));
 	   SHA1_Final(d1,&csha1);
 	   process_started = 1;
-	   
+	   printf("\nFirst hash. Cumulative Hash So far: %s",sha1_hash_string(d1,ob2));
 	   }
 	   
 	   else{
@@ -177,7 +178,7 @@ void generate_cumulative_hash(char *hash,int sha_one, int type){
 	   SHA1_Update(&csha1,d1,SHA_DIGEST_LENGTH);
 	   SHA1_Update(&csha1,hash,strlen(hash));
 	   SHA1_Final(d1,&csha1);
-		   
+		printf("\nCumulative Hash So far: %s",sha1_hash_string(d1,ob2));   
 	   }
        
 	   
@@ -202,7 +203,7 @@ void generate_cumulative_hash(char *hash,int sha_one, int type){
 	   SHA256_Update(&csha256,hash,strlen(hash));
 	   SHA256_Final(d2, &csha256);
 	   process_started = 1;
-	   
+	   printf("\nCumulative Hash So far: %s",sha256_hash_string(d2,ob2));
 	   }
 	   else {
 		   SHA256_Init(&csha256);
@@ -210,7 +211,7 @@ void generate_cumulative_hash(char *hash,int sha_one, int type){
 	   SHA256_Update(&csha256,hash,strlen(hash));
 	   SHA256_Final(d2, &csha256);
 	   //process_started = 1;
-		   
+		printf("\nCumulative Hash So far: %s",sha256_hash_string(d2,ob2));   
 	   }
 	  
        
@@ -388,26 +389,26 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     if(strcmp(verificationType,"HOST") == 0)
     {
             sprintf(ma_result_path, "%s%s", MOUNTPATH_HOST, ma_result_path_default);
-            
+            printf("\n HOST verification type \n")
     }
     else
     {
         
         sprintf(ma_result_path,"%s%s",hash_file,"xml");
-
+        printf("\nIMVM else condition\n");
 		
     }
-    
-	
+    printf("\n1\n");
+	printf("\nHash File is %s\n",hash_file);
     fp=fopen(origManifestPath,"r");
     fq=fopen(ma_result_path,"w");
-
+    printf("\nFiles opened..\n");
    fprintf(fq,"<?xml version=\"1.0\"?>\n");
-    
+    printf("\nFirst line printed\n");
 
    //Open Manifest to get list of files to hash
     while (getline(&line, &len, fp) != -1) { 
-   
+     printf("\nGet line : %s\n",line);
      strcpy(include,"");
      strcpy(exclude,"");
     
@@ -417,15 +418,19 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
            strcpy(hashType,NodeValue);
 		  
 		   fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n",hashType);
+		   printf("\nHash is %s\n",hashType);
          }
 
 
      //File Hashes
           if(strstr(line,"<File Path=")!= NULL){
             tagEntry(line);
-            fprintf(fq,"<File Path=\"%s\">",NodeValue);
-           
-            fprintf(fq,"%s</File>\n",calculate(NodeValue,calc_hash,1));          
+            printf("\nFile path is  :%s\n",NodeValue);
+			fprintf(fq,"<File Path=\"%s\">",NodeValue);
+                          
+            fprintf(fq,"%s</File>\n",calculate(NodeValue,calc_hash,1));
+			
+            //generate_cumulative_hash(Hex2Bin(dhash,0),0,1);			
           }
 
      //Directory Hashes
@@ -471,7 +476,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
             char ops[200];
             sprintf(ops,"find \"%s\"/ ! -type d | sed -r 's/.{%d}//'",mDpath,slen);
             
-            //printf("\n********mDpath is ---------- %s\n and command is %s *********\n",mDpath,Dir_Str);
+            printf("\n********mDpath is ---------- %s\n and command is %s *********\n",mDpath,Dir_Str);
             //system(ops);	
             system(Dir_Str);
            // system(ops);
@@ -503,7 +508,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 
           }//Dir hash ends
 
-
+    
 
 
     }//While ends
@@ -567,8 +572,8 @@ int main(int argc, char **argv) {
     memset(cHash,0,strlen(cHash));
    if (strcmp(argv[3], "IMVM") == 0) {
         strcpy(fs_mount_path, MOUNTPATH_IMVM);
-	strcat(fs_mount_path,verifierpid);
-        //strcpy(hash_file,"/var/log/trustagent/measurement.");
+	    strcat(fs_mount_path,verifierpid);
+        strcpy(hash_file,"/var/log/trustagent/measurement.");
 		strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
         sprintf(hash_file,"%s%s",hash_file,"/measurement.");
         
@@ -587,23 +592,26 @@ int main(int argc, char **argv) {
     if (imageMountingRequired) {
             char command[512];
             sprintf(command,"%s %s %s", mount_script, argv[2], fs_mount_path);
+			printf("Mounting command is %s\n",fs_mount_path);
             int res = system(command);
             if (res !=0) {
                 printf("\nError in mounting the image!!!!\n");
                 exit(1);
             }
+	    printf("\nbefore strcat\n\n");		
 	    strcat(fs_mount_path,"/mount");
     }
-
-    Doc = xmlParseFile(argv[1]); 
+    printf("\nAfter Mount!!\n");
 	
+    Doc = xmlParseFile(argv[1]); 
+	printf("\nAfter parse file\n");
 	/*This will save the XML file in a correct format, as desired by our parser. 
 	We dont use libxml tools to parse but our own pointer legerdemain for the time being
 	Main advantage is simplicity and speed ~O(n) provided space isn't an issue */
 	
     xmlSaveFormatFile (argv[1], Doc, 1); /*This would render even inline XML perfect for line by line parsing*/  
     xmlFreeDoc(Doc);  
-    
+    printf("\nbefore gen logs\n");
     generateLogs(argv[1], argv[2], argv[3]);
     
 
