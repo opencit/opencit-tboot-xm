@@ -553,7 +553,7 @@ int main(int argc, char **argv) {
    char verifierpid[64] = {0};
    sprintf(verifierpid,"%d",pid);
    xmlDocPtr Doc;
-	char* mount_script = "../../scripts/mount_vm_image.sh";
+	char* mount_script = "../scripts/mount_vm_image.sh";
     if(argc != 4) {
         printf("Usage:\n%s <manifest_path> <disk_path> <IMVM/HOST>  \n", argv[0]);
         return EXIT_FAILURE;
