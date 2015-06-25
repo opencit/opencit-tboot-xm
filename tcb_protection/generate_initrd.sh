@@ -7,6 +7,7 @@ TBOOTXM_LIB="${TBOOTXM_LIB:-/opt/tbootxm/lib}"
 TBOOTXM_REPOSITORY="/var/tbootxm"  #"${TBOOTXM_REPOSITORY:-/var/tbootxm}"
 INITRD_HOOKS_DIR="$TBOOTXM_HOME/initrd_hooks"
 DRACUT_DIR="$TBOOTXM_HOME/dracut_files"
+MKINITRD_DIR="$TBOOTXM_HOME/mkinitrd_files"
 WORKING_DIR="$TBOOTXM_HOME"  #"$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
 export WORKING_DIR
 export TBOOTXM_BIN
@@ -334,7 +335,7 @@ function prepare_mkinitrd()
         chmod +x /lib/mkinitrd/scripts/boot-measure_host.sh
 	dos2unix /lib/mkinitrd/scripts/boot-measure_host.sh
         set_os /lib/mkinitrd/scripts/boot-measure_host.sh "suse"
-	cp $TBOOTXM_BIN/setup-measure_host.sh /lib/mkinitrd/scripts/setup-measure_host.sh
+	cp $MKINITRD_DIR/setup-measure_host.sh /lib/mkinitrd/scripts/setup-measure_host.sh
 	chmod +x /lib/mkinitrd/scripts/setup-measure_host.sh
 	dos2unix /lib/mkinitrd/scripts/setup-measure_host.sh
         # copy the binaries to location
