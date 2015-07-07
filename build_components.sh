@@ -103,7 +103,7 @@ function make_rpmmio()
 	if [ `echo $?` -ne 0 ]
 	then
 	        echo "ERROR: Could not make rpmmio"
-        	exit
+        	exit 1
 	fi
 }
 
@@ -116,14 +116,14 @@ function make_tpmextend()
 	if [ `echo $?` -ne 0 ]
 	then
 	        echo "ERROR: Could not clean tpmextend"
-	        exit
+	        exit 1
 	fi
 	echo "Building tpmextend"
 	make -f tpmextend-g.mak >> $LOG_FILE 2>&1
 	if [ `echo $?` -ne 0 ]
 	then
 	        echo "ERROR: Could not make tpmextend"
-	        exit
+	        exit 1
 	fi
 }
 
