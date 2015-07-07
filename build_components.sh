@@ -9,25 +9,28 @@ function which_flavour()
 {
         flavour=""
         grep -c -i ubuntu /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ]; then
                 flavour="ubuntu"
         fi
         grep -c -i "red hat" /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ]; then
                 flavour="rhel"
         fi
         grep -c -i fedora /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ]; then
                 flavour="fedora"
         fi
-	grep -c -i SuSE /etc/*-release > /dev/null
-	if [ $? -eq 0 ]
-	then
-		flavour="suse"
-	fi
-        if [ "$flavour" == "" ] ; then
-                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
-                exit
+        grep -c -i SuSE /etc/*-release > /dev/null
+        if [ $? -eq 0 ]; then
+                flavour="suse"
+        fi
+		grep -c -i centos /etc/*-release > /dev/null
+        if [ $? -eq 0 ]; then
+                flavour="centos"
+        fi
+        if [ "$flavour" == "" ]; then
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora, centos"
+                exit 1
         else
                 echo $flavour
         fi
@@ -41,7 +44,7 @@ function install_pkg()
 	then
 		apt-get update
 		apt-get --force-yes -y install make gcc g++ libxml2-dev libssl-dev "linux-headers-`uname -r`" dos2unix
-	elif [ $os_flavour == "rhel" ] || [ $os_flavour == "fedora" ]
+	elif [ $os_flavour == "rhel" ] || [ $os_flavour == "fedora" ] || [ $os_flavour == "centos" ]
 	then
 		yum -y install make libgcc gcc-c++ libxml2-devel openssl-devel "kernel-devel-uname-r == $(uname -r)" dos2unix
 	elif [ $os_flavour == "suse" ]
