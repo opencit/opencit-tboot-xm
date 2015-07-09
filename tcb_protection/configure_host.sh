@@ -228,65 +228,64 @@ function update_grub()
 # check the flavour of OS
 function which_flavour()
 {
-        flavour=""
-        grep -c -i ubuntu /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
-                flavour="ubuntu"
-        fi
-        grep -c -i "red hat" /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
-                flavour="rhel"
-        fi
-        grep -c -i fedora /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
-                flavour="fedora"
-        fi
-	grep -c -i SuSE /etc/*-release > /dev/null
-	if [ $? -eq 0 ]
-	then
-		flavour="suse"
-	fi
-        if [ "$flavour" == "" ] ; then
-                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora and suse"
-                exit
-        else
-                echo $flavour
-        fi
+    flavour=""
+    grep -c -i ubuntu /etc/*-release > /dev/null
+    if [ $? -eq 0 ]; then
+            flavour="ubuntu"
+    fi
+    grep -c -i "red hat" /etc/*-release > /dev/null
+    if [ $? -eq 0 ]; then
+            flavour="rhel"
+    fi
+    grep -c -i fedora /etc/*-release > /dev/null
+    if [ $? -eq 0 ]; then
+            flavour="fedora"
+    fi
+    grep -c -i "SuSE" /etc/*-release > /dev/null
+    if [ $? -eq 0 ]; then
+            flavour="suse"
+    fi
+    grep -c -i centos /etc/*-release > /dev/null
+    if [ $? -eq 0 ]; then
+            flavour="centos"
+    fi
+    if [ "$flavour" == "" ]; then
+            echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora, centos and suse"
+            exit 1
+    else
+            echo $flavour
+    fi
 }
 
 function install_pkg()
 {
-        os_flavour=`which_flavour`
+    os_flavour=`which_flavour`
 	get_grub_file_location
-        echo "installing required packages $os_flavour ..."
-        if [ $os_flavour == "ubuntu" ]
-        then
-                apt-get update
-                apt-get --force-yes -y install tboot
-        elif [ $os_flavour == "rhel" ]
-	then 
-                yum -y install tboot
-	elif [ $os_flavour == "fedora" ]
-        then
-                yum -y install tboot
-		grub2-mkconfig -o $GRUB_FILE 
-        elif [ $os_flavour == "suse" ]
-	then
-	        zypper -n in tboot
-	#	grub2-mkconfig -o $GRUB_FILE
-        fi
+    echo "installing required packages $os_flavour ..."
+    if [ $os_flavour == "ubuntu" ]; then
+        apt-get update
+        apt-get --force-yes -y install tboot
+    elif [ $os_flavour == "rhel" ] || [ $os_flavour == "centos" ]; then
+        yum -y install tboot
+    elif [ $os_flavour == "fedora" ]; then
+        yum -y install tboot
+        grub2-mkconfig -o $GRUB_FILE 
+    elif [ $os_flavour == "suse" ]; then
+        zypper -n in tboot
+        #	grub2-mkconfig -o $GRUB_FILE
+    fi
 }
 
 function main()
 {
-        echo "Configuring Host"
-	mkdir -p "/var/log/trustagent"
-        validate_n_copy_initrd
-        get_manifest_file_location
-        get_partition_info
-        generate_kernel_args
-        generate_grub_entry
-        update_grub
+    echo "Configuring Host"
+    mkdir -p "/var/log/trustagent"
+    validate_n_copy_initrd
+    get_manifest_file_location
+    get_partition_info
+    generate_kernel_args
+    generate_grub_entry
+    update_grub
 }
 
 if [ $# -gt 1 ]

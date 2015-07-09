@@ -185,25 +185,28 @@ function which_flavour()
 {
 	flavour=""
         grep -c -i ubuntu /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ]; then
                 flavour="ubuntu"
         fi
         grep -c -i "red hat" /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ]; then
                 flavour="rhel"
         fi
         grep -c -i fedora /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ]; then
                 flavour="fedora"
         fi
-	grep -c -i "SuSE" /etc/*-release > /dev/null
-	if [ $? -eq 0 ]
-	then
-		flavour="suse"
-	fi
-        if [ "$flavour" == "" ] ; then
-                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora and suse"
-                exit
+        grep -c -i "SuSE" /etc/*-release > /dev/null
+        if [ $? -eq 0 ]; then
+                flavour="suse"
+        fi
+        grep -c -i centos /etc/*-release > /dev/null
+        if [ $? -eq 0 ]; then
+                flavour="centos"
+        fi
+        if [ "$flavour" == "" ]; then
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora, centos and suse"
+                exit 1
         else
                 echo $flavour
         fi
@@ -229,7 +232,7 @@ function generate_initrd_redhat()
                 echo "exiting..."
                 #remove the inserted module
                 rm -rf $redhat_mod_dir/$DRACUT_MODULE_DIR
-                exit
+                exit 1
         fi
 	
 	if [ -e $DRACUT_DIR/check ]
@@ -241,7 +244,7 @@ function generate_initrd_redhat()
                 echo "exiting..."
                 #remove the inserted module
                 rm -rf $redhat_mod_dir/$DRACUT_MODULE_DIR
-                exit
+                exit 1
 	fi
 	
 	if [ -e $DRACUT_DIR/install ]
@@ -253,7 +256,7 @@ function generate_initrd_redhat()
                 echo "exiting..."
                 #remove the inserted module
                 rm -rf $redhat_mod_dir/$DRACUT_MODULE_DIR
-                exit
+                exit 1
 	fi
 	
 	#copy the measure_host script to dracut module
@@ -299,7 +302,7 @@ function generate_initrd_fedora()
                 echo "exiting..."
 		#remove the inserted module
 		rm -rf $fedora_mod_dir/$DRACUT_MODULE_DIR
-                exit
+                exit 1
         fi
 	#copy the measure_host script to dracut module
         cp $TBOOTXM_BIN/measure_host $fedora_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
@@ -319,6 +322,74 @@ function generate_initrd_fedora()
 	dracut -f -v $INITRD_NAME >> $LOG_FILE 2>&1
 	rm -rf $fedora_mod_dir/$DRACUT_MODULE_DIR
 	echo "Finished creating the initramfs image"
+}
+
+function generate_initrd_centos()
+{
+	echo "Creating initramfs image for CentOS..."
+	echo "this might take some time..."
+	centos_mod_dir=/usr/share/dracut/modules.d/
+	check_prerequisites
+	mkdir -p $centos_mod_dir/$DRACUT_MODULE_DIR
+	#cp $DRACUT_DIR/* $centos_mod_dir/$DRACUT_MODULE_DIR
+	if [ -e $DRACUT_DIR/module-setup.sh ]
+        then
+                cp $DRACUT_DIR/module-setup.sh $centos_mod_dir/$DRACUT_MODULE_DIR
+        else
+                echo "module-setup.sh is missing"
+                echo "fatal error can't proceed further"
+                echo "exiting..."
+                #remove the inserted module
+                rm -rf $centos_mod_dir/$DRACUT_MODULE_DIR
+                exit 1
+        fi
+	
+	if [ -e $DRACUT_DIR/check ]
+	then
+		cp $DRACUT_DIR/check $centos_mod_dir/$DRACUT_MODULE_DIR
+	else
+		echo "check is missing"
+                echo "fatal error can't proceed further"
+                echo "exiting..."
+                #remove the inserted module
+                rm -rf $centos_mod_dir/$DRACUT_MODULE_DIR
+                exit 1
+	fi
+	
+	if [ -e $DRACUT_DIR/install ]
+	then
+		cp $DRACUT_DIR/install $centos_mod_dir/$DRACUT_MODULE_DIR
+	else
+		echo "install is missing"
+                echo "fatal error can't proceed further"
+                echo "exiting..."
+                #remove the inserted module
+                rm -rf $centos_mod_dir/$DRACUT_MODULE_DIR
+                exit 1
+	fi
+	
+	#copy the measure_host script to dracut module
+	cp $TBOOTXM_BIN/measure_host $centos_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+	#inject the os in measure_host script
+	set_os $centos_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh `which_flavour`
+	#copy the binaries to dracut module
+	cp -r $TBOOTXM_BIN $centos_mod_dir/$DRACUT_MODULE_DIR
+	cp -r $TBOOTXM_LIB $centos_mod_dir/$DRACUT_MODULE_DIR
+	#change the premission of files in dracut module
+	chmod 777 $centos_mod_dir/$DRACUT_MODULE_DIR/check
+	dos2unix $centos_mod_dir/$DRACUT_MODULE_DIR/check
+	chmod 777 $centos_mod_dir/$DRACUT_MODULE_DIR/install
+	dos2unix $centos_mod_dir/$DRACUT_MODULE_DIR/install
+	chmod 777 $centos_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
+	dos2unix $centos_mod_dir/$DRACUT_MODULE_DIR/module-setup.sh
+	chmod 777 $centos_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+	dos2unix $centos_mod_dir/$DRACUT_MODULE_DIR/measure_host.sh
+	chmod 777 $centos_mod_dir/$DRACUT_MODULE_DIR/bin/*
+
+        cd $PREGENERATED_FILES
+        dracut -f -v $INITRD_NAME >> $LOG_FILE 2>&1
+        rm -rf $centos_mod_dir/$DRACUT_MODULE_DIR
+	echo "Finished creating initramfs image"
 }
 ###################################################################################
 
@@ -373,18 +444,16 @@ function main_function()
 {
 	os_flavour=`which_flavour`
 	echo "Creating initramfs image for $os_flavour..."
-	if [ $os_flavour == "ubuntu" ]
-	then
+	if [ $os_flavour == "ubuntu" ]; then
 		generate_initrd_ubuntu
-	elif [ $os_flavour == "rhel" ]
-	then
+	elif [ $os_flavour == "rhel" ]; then
 		generate_initrd_redhat
-	elif [ $os_flavour == "fedora" ]
-	then	
+	elif [ $os_flavour == "fedora" ]; then
 		generate_initrd_fedora
-        elif [ $os_flavour == "suse" ] 
-        then    
-                generate_initrd_suse
+    elif [ $os_flavour == "suse" ]; then
+        generate_initrd_suse
+    elif [ $os_flavour == "centos" ]; then
+        generate_initrd_centos
 	else
 		echo "ERROR!! : Does not support $os_flavour"
 	fi

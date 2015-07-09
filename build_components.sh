@@ -29,7 +29,7 @@ function which_flavour()
                 flavour="centos"
         fi
         if [ "$flavour" == "" ]; then
-                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora, centos"
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora, centos and suse"
                 exit 1
         else
                 echo $flavour
