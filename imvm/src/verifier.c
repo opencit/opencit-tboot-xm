@@ -40,7 +40,7 @@ char NodeValue[500]; //XML Tag value
 
 /*These global variables are required for calculating the cumulative hash */
 unsigned char cHash[SHA_DIGEST_LENGTH]; //Cumulative hash
-unsigned char d1[SHA_DIGEST_LENGTH];
+unsigned char d1[SHA_DIGEST_LENGTH]={0};
 unsigned char d2[SHA256_DIGEST_LENGTH];
 unsigned char c2[SHA256_DIGEST_LENGTH];
 char cH2[65];
@@ -161,24 +161,27 @@ void generate_cumulative_hash(char *hash,int sha_one, int type){
 	char ob[65];
     if(sha_one){
 	/*process_started tells us whether to initialize the SHA st. or not */	
-	 
+/*	 
 	   if(!process_started){
 	   
+	  // char init_hash[20]={'0'}; 
+	 //  memset(init_hash, 0, 20); 
 	   SHA1_Init(&csha1);
+	  // SHA1_Update(&csha1,init_hash, strlen(hash));
 	   SHA1_Update(&csha1,hash,strlen(hash));
 	   SHA1_Final(d1,&csha1);
 	   process_started = 1;
 	   
 	   }
 	   
-	   else{
+	   else{ */
 		  
 		   SHA1_Init(&csha1);
 	   SHA1_Update(&csha1,d1,SHA_DIGEST_LENGTH);
 	   SHA1_Update(&csha1,hash,strlen(hash));
 	   SHA1_Final(d1,&csha1);
 		   
-	   }
+//	   }
        
 	   
 	   
@@ -195,23 +198,25 @@ void generate_cumulative_hash(char *hash,int sha_one, int type){
 	else{
 	   
 	  
-	   if(!process_started){
+/*	   if(!process_started){
+	   char init_hash[32]={'0'}; 
 	   
 	   SHA256_Init(&csha256);
+	   SHA256_Update(&csha256,init_hash, strlen(hash));
 	   
 	   SHA256_Update(&csha256,hash,strlen(hash));
 	   SHA256_Final(d2, &csha256);
 	   process_started = 1;
 	   
 	   }
-	   else {
+	   else {*/
 		   SHA256_Init(&csha256);
 	   SHA256_Update(&csha256,d2,SHA256_DIGEST_LENGTH);
 	   SHA256_Update(&csha256,hash,strlen(hash));
 	   SHA256_Final(d2, &csha256);
 	   //process_started = 1;
 		   
-	   }
+	   //}
 	  
        
 	   memset(ob,'0',strlen(ob));
@@ -419,7 +424,20 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 		   fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n",hashType);
          }
 
-
+// TEST Code
+ /*
+			if(strcmp(hashType, "sha256") == 0){
+			  char init_hash[32]={0}; 
+	   			memset(init_hash,'0', 32); 
+			  generate_cumulative_hash(init_hash,0,1);
+				}
+		    else{
+			  char init_hash[20]={0}; 
+	   			memset(init_hash,'0', 20); 
+			   generate_cumulative_hash(init_hash,1,1);
+			}
+       */
+//
      //File Hashes
           if(strstr(line,"<File Path=")!= NULL){
             tagEntry(line);
@@ -553,7 +571,7 @@ int main(int argc, char **argv) {
    char verifierpid[64] = {0};
    sprintf(verifierpid,"%d",pid);
    xmlDocPtr Doc;
-	char* mount_script = "../../scripts/mount_vm_image.sh";
+	char* mount_script = "../scripts/mount_vm_image.sh";
     if(argc != 4) {
         printf("Usage:\n%s <manifest_path> <disk_path> <IMVM/HOST>  \n", argv[0]);
         return EXIT_FAILURE;
