@@ -442,7 +442,8 @@ int main(int argc, char **argv) {
     
 	sprintf(verifierpid,"%d",pid);
     xmlDocPtr Doc;
-	char* mount_script = "/root/mount_vm_image.sh";
+//	char* mount_script = "/root/mount_vm_image.sh";
+    char* mount_script = "../scripts/mount_vm_image.sh";
     if(argc != 4) {
         ERROR_LOG("\n%s %s %s","Usage:",argv[0]," <manifest_path> <disk_path> <IMVM/HOST>");
         return EXIT_FAILURE;
