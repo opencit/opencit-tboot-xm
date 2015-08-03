@@ -86,27 +86,6 @@ function make_imvm()
 	fi
 }
 
-#Make the rpmmio
-function make_rpmmio()
-{
-	cd $CUR_DIR/rpmmio/src
-	echo "Clean rpmmio "
-	make clean >> $LOG_FILE 2>&1
-	if [ `echo $?` -ne 0 ]
-	then
-        	echo "ERROR: Could not clean rpmmio"
-	        exit 1
-	fi
-
-	echo "Building rpmmio.ko"
-	make >> $LOG_FILE 2>&1
-	if [ `echo $?` -ne 0 ]
-	then
-	        echo "ERROR: Could not make rpmmio"
-        	exit 1
-	fi
-}
-
 #Make tcb_protection
 function make_tpmextend()
 {
@@ -140,9 +119,7 @@ function cp_binaries()
 
 function main()
 {
-    uname -r > kernel_required_version
 	make_imvm
-	make_rpmmio
 	make_tpmextend
 	#cp_binaries
 }
