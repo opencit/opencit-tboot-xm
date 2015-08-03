@@ -26,6 +26,12 @@
             <version>0.1-SNAPSHOT</version>
             <type>zip</type>
         </dependency>
+         <dependency>
+            <groupId>com.intel.mtwilson.tbootxm.packages</groupId>
+            <artifactId>tbootxm-rpmmio-linux-makeself</artifactId>
+            <version>0.1-SNAPSHOT</version>
+            <type>bin</type>
+        </dependency>
         <dependency>
             <groupId>com.intel.mtwilson.linux</groupId>
             <artifactId>mtwilson-linux-util</artifactId>
@@ -33,6 +39,5 @@
             <type>sh</type>
         </dependency>
     </dependencies>
-
 
 </project>
