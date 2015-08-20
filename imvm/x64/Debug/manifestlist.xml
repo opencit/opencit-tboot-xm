@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<Whitelist DigestAlg="sha1">
+  <File Path="\home\cirros\links\hardlink"/>  
+  <File Path="\home\cirros\links\relative_hardlink"/> 
+  <File Path="\home\cirros\links\symlink"/>
+  <File Path="\home\cirros\links\relative_symlink"/>
+</Whitelist>
