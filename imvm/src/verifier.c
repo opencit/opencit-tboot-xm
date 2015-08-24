@@ -27,8 +27,9 @@ Keywords in the Policy should match with those in this code : DigestAlg, File Pa
 
 #define MOUNTPATH_IMVM  "/tmp/"
 #define MOUNTPATH_HOST  "/tmp/root"
-#define DEBUG_LOG(fmt, args...) fprintf(stdout, fmt, ##args);
-#define ERROR_LOG(fmt, args...) fprintf(stderr, fmt, ##args);
+#define DEBUG_LOG(fmt, args...) fprintf(stdout, fmt, ##args)
+#define ERROR_LOG(fmt, args...) fprintf(stderr, fmt, ##args)
+#define byte unsigned char
 
 char fs_mount_path[1024];
 char hashType[10]; //SHA1 or SHA256
@@ -43,6 +44,27 @@ char hash_file[256];
 int process_started = 0;
 SHA256_CTX csha256;
 SHA_CTX csha1;
+
+/**
+ *hex_to_string:
+ *hex_str : string of hex chars, hex_str_len : length of hex string, byte * output string
+ *return : size of output string
+ */
+int hexstr_to_asciistr(char *hex_str, int hex_str_len, byte* out_str) {
+	int i = 0;
+	int buff = 0 & 0xFF;
+	int scanerr;
+	for (i = 0 ; i < (hex_str_len + 1) /2 ; i ++) {
+		scanerr = sscanf(hex_str+ (i*2), "%02x", &buff);
+		if (scanerr == EOF && scanerr != 1) {
+			ERROR_LOG("\nError while converting...");
+			return -1;
+		}
+		out_str[i] = buff;
+	}
+	out_str[i] = '\0';
+	return i;
+}
 
 /*
  * sha256_hash_string:
@@ -77,13 +99,18 @@ void generate_cumulative_hash(char *hash,int sha_one){
     DEBUG_LOG("\nIncoming Hash : %s\n",hash);
 	char ob[65];
     if(sha_one){
-	   
+    	char cur_hash[SHA_DIGEST_LENGTH + 1] = {'\0'};
 	   strncpy(cHash,d1,SHA_DIGEST_LENGTH);
        DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha1_hash_string(cHash,ob));
 		  
 	   SHA1_Init(&csha1);
 	   SHA1_Update(&csha1,d1,SHA_DIGEST_LENGTH);
-	   SHA1_Update(&csha1,hash,strlen(hash));
+	   if (SHA_DIGEST_LENGTH == hexstr_to_asciistr(hash, strlen(hash), cur_hash)) {
+		   SHA1_Update(&csha1,cur_hash, SHA_DIGEST_LENGTH);
+	   }
+	   else {
+		   DEBUG_LOG("\n length of string converted from hex is not equal to SHA1 digest length");
+	   }
 	   SHA1_Final(d1,&csha1);
 		   
 	   strncpy(cHash,d1,SHA_DIGEST_LENGTH);
@@ -95,13 +122,18 @@ void generate_cumulative_hash(char *hash,int sha_one){
 	}
 	
 	else{
-	   
+		char cur_hash[SHA256_DIGEST_LENGTH + 1] = {'\0'};
 	   strncpy(cHash2,d2,SHA256_DIGEST_LENGTH);
        DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha256_hash_string(cHash2,ob));
 	   
 	   SHA256_Init(&csha256);
 	   SHA256_Update(&csha256,d2,SHA256_DIGEST_LENGTH);
-	   SHA256_Update(&csha256,hash,strlen(hash));
+	   if (SHA256_DIGEST_LENGTH == hexstr_to_asciistr(hash, strlen(hash), cur_hash)) {
+		   SHA256_Update(&csha256,cur_hash, SHA256_DIGEST_LENGTH);
+	   }
+	   else {
+		   DEBUG_LOG("\n length of string converted from hex is not equal to SHA256 digest length");
+	   }
 	   SHA256_Final(d2, &csha256);
 	  
 	   strncpy(cHash2,d2,SHA256_DIGEST_LENGTH);
