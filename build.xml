@@ -42,8 +42,6 @@
 			<arg value="./build_components.sh --installpkg-only"/>
 		</exec>
 	</target>
-
-		</target>
 	
 	<target name="clean" depends="init">
 		<!-- the root pom and all projects -->
