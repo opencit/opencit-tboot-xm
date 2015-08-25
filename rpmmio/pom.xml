@@ -39,7 +39,7 @@
                 <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>generate-patches-policy-agent</id>
+                        <id>build-rpmmio-modules</id>
                         <phase>generate-resources</phase>
                         <goals>
                             <goal>run</goal>
