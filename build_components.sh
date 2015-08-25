@@ -63,7 +63,7 @@ function help_instruction()
 	echo ""
 	echo "Options available : "
 	echo '--help'
-	echo '--installpkg'	
+	echo '--installpkg-only'	
 }
 #Make the imvm
 function make_imvm()
@@ -127,16 +127,17 @@ if [ $# -gt 1 ]
 then
 	echo "extra arguments"
 	help_instruction
+        exit 1
 elif [ $# -eq 1 ] && [ $1 == "--help" ]
 then
         help_instruction
-elif [ $# -eq 1 ] && [ $1 == "--installpkg" ]
+elif [ $# -eq 1 ] && [ $1 == "--installpkg-only" ]
 then
         install_pkg
-	main
 elif [ $# -eq 0 ]
 then
 	main
 else
         help_instruction
+        exit 1
 fi
