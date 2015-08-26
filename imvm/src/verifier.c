@@ -25,8 +25,8 @@ Keywords in the Policy should match with those in this code : DigestAlg, File Pa
 #include <openssl/sha.h>
 #include <ctype.h>
 
-#define MOUNTPATH_IMVM  "/tmp/"
-#define MOUNTPATH_HOST  "/tmp/root"
+//#define MOUNTPATH_IMVM  "/tmp/"
+//#define MOUNTPATH_HOST  "/tmp/root"
 #define DEBUG_LOG(fmt, args...) fprintf(stdout, fmt, ##args)
 #define ERROR_LOG(fmt, args...) fprintf(stderr, fmt, ##args)
 #define byte unsigned char
@@ -340,7 +340,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     int digest_check  = 0;
 
     if(strcmp(verificationType,"HOST") == 0)
-      sprintf(ma_result_path, "%s%s", MOUNTPATH_HOST, ma_result_path_default);
+      sprintf(ma_result_path, "%s%s", fs_mount_path, ma_result_path_default);
     else
       sprintf(ma_result_path,"%s%s",hash_file,"xml");
 
@@ -467,50 +467,28 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
  */
 int main(int argc, char **argv) {
 
-    int imageMountingRequired = 0; //IMVM = 1 /HOST = 0
     char manifest_file[100];
-    pid_t pid = getpid();
-    char verifierpid[64] = {0};
-    
-	sprintf(verifierpid,"%d",pid);
     xmlDocPtr Doc;
-//	char* mount_script = "/root/mount_vm_image.sh";
-    char* mount_script = "../scripts/mount_vm_image.sh";
     if(argc != 4) {
-        ERROR_LOG("\n%s %s %s","Usage:",argv[0]," <manifest_path> <disk_path> <IMVM/HOST>");
+        ERROR_LOG("\n%s %s %s","Usage:",argv[0]," <manifest_path> <mounted_path> <IMVM/HOST>");
         return EXIT_FAILURE;
     }
     DEBUG_LOG("\n%s %s","MANIFEST-PATH :", argv[1]);
-    DEBUG_LOG("TEST DEBUG LOG ARGS %s %s\n",argv[1],argv[2]);
-	DEBUG_LOG("\n%s %s","DISK-PATH :", argv[2]);
+	DEBUG_LOG("\n%s %s","MOUNTED-PATH :", argv[2]);
+	DEBUG_LOG("\n MODE : %s", argv[3]);
   
 	strcpy(manifest_file,argv[1]);
-	
+	strcpy(fs_mount_path, argv[2]);
+	strcat(fs_mount_path, "/");
     memset(cHash,0,strlen(cHash));
     if (strcmp(argv[3], "IMVM") == 0) {
-        strcpy(fs_mount_path, MOUNTPATH_IMVM);
-	    strcat(fs_mount_path,verifierpid);
         strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
         sprintf(hash_file,"%s%s",hash_file,"/measurement.");
-        imageMountingRequired = 1;
     } else if (strcmp(argv[3], "HOST") == 0) {
-        strcpy(fs_mount_path, MOUNTPATH_HOST);
         sprintf(hash_file, "%s/var/log/trustagent/measurement.", fs_mount_path);
-        imageMountingRequired = 0;
     } else { 
         ERROR_LOG("\n%s","Invalid verification_type.Valid options are IMVM/HOST\n");
         return EXIT_FAILURE;
-    }
-
-    if (imageMountingRequired) {
-            char *command = (char*)malloc((strlen(mount_script)+strlen(argv[2])+strlen(fs_mount_path)+2)*sizeof(char));
-            sprintf(command,"%s %s %s", mount_script, argv[2], fs_mount_path);
-            int res = system(command);
-            if (res !=0) {
-                ERROR_LOG("\n%s","Error in mounting the image!!!!");
-                exit(1);
-            }
-	    strcat(fs_mount_path,"/mount");
     }
 
     Doc = xmlParseFile(argv[1]); 
@@ -522,11 +500,6 @@ int main(int argc, char **argv) {
     xmlFreeDoc(Doc);  
     generateLogs(argv[1], argv[2], argv[3]);
     
-	if (strcmp(argv[3], "IMVM") == 0) {
-	   char command[512]={'\0'};
-	   sprintf(command,"%s %s",mount_script,fs_mount_path);  
-	   system(command);    
-    }   
     return 0;
 }
 
