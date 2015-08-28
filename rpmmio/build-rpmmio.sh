@@ -42,7 +42,7 @@ FLAVOUR=`getFlavour`
 
 if [ $FLAVOUR == "fedora" -o $FLAVOUR == "rhel" ]
 then
-	MODULE_DIR="/usr/lib/modules"
+	MODULE_DIR="/lib/modules"
 #	INSTALLED_DEVEL_HEADERS=`ls /usr/src/kernels/ | grep -v debug`
 elif [ $FLAVOUR == "ubuntu" ]
 then
