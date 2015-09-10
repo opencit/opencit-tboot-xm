@@ -63,7 +63,7 @@ function help_instruction()
 	echo ""
 	echo "Options available : "
 	echo '--help'
-	echo '--installpkg'	
+	echo '--installpkg-only'	
 }
 #Make the imvm
 function make_imvm()
@@ -83,27 +83,6 @@ function make_imvm()
 	then
         	echo "ERROR: Could not build verifier"
 		exit 1
-	fi
-}
-
-#Make the rpmmio
-function make_rpmmio()
-{
-	cd $CUR_DIR/rpmmio/src
-	echo "Clean rpmmio "
-	make clean >> $LOG_FILE 2>&1
-	if [ `echo $?` -ne 0 ]
-	then
-        	echo "ERROR: Could not clean rpmmio"
-	        exit 1
-	fi
-
-	echo "Building rpmmio.ko"
-	make >> $LOG_FILE 2>&1
-	if [ `echo $?` -ne 0 ]
-	then
-	        echo "ERROR: Could not make rpmmio"
-        	exit 1
 	fi
 }
 
@@ -140,9 +119,7 @@ function cp_binaries()
 
 function main()
 {
-    uname -r > kernel_required_version
 	make_imvm
-	make_rpmmio
 	make_tpmextend
 	#cp_binaries
 }
@@ -150,16 +127,17 @@ if [ $# -gt 1 ]
 then
 	echo "extra arguments"
 	help_instruction
+        exit 1
 elif [ $# -eq 1 ] && [ $1 == "--help" ]
 then
         help_instruction
-elif [ $# -eq 1 ] && [ $1 == "--installpkg" ]
+elif [ $# -eq 1 ] && [ $1 == "--installpkg-only" ]
 then
         install_pkg
-	main
 elif [ $# -eq 0 ]
 then
 	main
 else
         help_instruction
+        exit 1
 fi

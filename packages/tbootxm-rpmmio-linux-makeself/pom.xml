@@ -2,10 +2,10 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>com.intel.mtwilson.tbootxm.packages</groupId>
-    <artifactId>tbootxm-linux-makeself</artifactId>
+    <artifactId>tbootxm-rpmmio-linux-makeself</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <description>Self-extracting executable that installs the Measurement Agent</description>
+    <description>Self-extracting executable which contains multiple rpmmio binaries build against different kernel versions</description>
 
     <parent>
         <groupId>com.intel.mtwilson.maven</groupId>
@@ -16,21 +16,15 @@
   
     <properties>
         <!-- this becomes the installer filename, like ${makeself.name}.bin -->
-        <makeself.name>tbootxm-${project.version}</makeself.name>
+        <makeself.name>tbootxm-rpmmio-${project.version}</makeself.name>
     </properties>
   
     <dependencies>
         <dependency>
             <groupId>com.intel.mtwilson.tbootxm.packages</groupId>
-            <artifactId>tbootxm-zip</artifactId>
+            <artifactId>tbootxm-rpmmio</artifactId>
             <version>0.1-SNAPSHOT</version>
             <type>zip</type>
-        </dependency>
-         <dependency>
-            <groupId>com.intel.mtwilson.tbootxm.packages</groupId>
-            <artifactId>tbootxm-rpmmio-linux-makeself</artifactId>
-            <version>0.1-SNAPSHOT</version>
-            <type>bin</type>
         </dependency>
         <dependency>
             <groupId>com.intel.mtwilson.linux</groupId>
@@ -39,5 +33,6 @@
             <type>sh</type>
         </dependency>
     </dependencies>
+
 
 </project>

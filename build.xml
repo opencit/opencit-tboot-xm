@@ -32,6 +32,15 @@
 		</fail>
 		<!-- the maven archetypes depend on root pom -->
 		<!-- the root pom -->
+
+		<!-- permissions -->
+		<chmod file="build_components.sh" perm="700"/>
+		
+		<!-- run the build script to install prerequisite packages -->
+		<exec executable="/bin/bash" failonerror="true">
+			<arg value="-c"/>
+			<arg value="./build_components.sh --installpkg-only"/>
+		</exec>
 	</target>
 	
 	<target name="clean" depends="init">
@@ -52,7 +61,6 @@
 		
 		<delete dir="tpmextend/bin"/>
 		<delete dir="imvm/bin"/>
-		<delete file="rpmmio/src/rpmmio.ko"/>
 	</target>
 	
 	<target name="build" depends="init">
@@ -65,13 +73,10 @@
 			<condition><not><equals arg1="${mavenExitInstall}" arg2="0"/></not></condition>
 		</fail>
 		
-		<!-- permissions -->
-		<chmod file="build_components.sh" perm="700"/>
-		
 		<!-- run the build script -->
 		<exec executable="/bin/bash" failonerror="true">
 			<arg value="-c"/>
-			<arg value="./build_components.sh --installpkg"/>
+			<arg value="./build_components.sh"/>
 		</exec>
 	</target>
 

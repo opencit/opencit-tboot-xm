@@ -8,6 +8,7 @@
     <packaging>pom</packaging>
     
     <modules>
+        <module>tbootxm-rpmmio-linux-makeself</module>
         <module>tbootxm-linux-makeself</module>
         <module>tbootxm-zip</module>
     </modules>
