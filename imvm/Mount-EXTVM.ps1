@@ -8,15 +8,15 @@ The path of the image you want to mount/ummount.
 .PARAMETER DriveLetter
 The drive letter to be assigned to the image.
 .EXAMPLE
-Mount-EXTVM -Mount -Path ./Cirros.vhd -DriveLetter Z:
-Mount-EXTVM -Path ./Cirros.vhd
+Mount-EXTVM -Path ./Cirros.vhd -DriveLetter Z: -Mount 
+Mount-EXTVM -Path ./Cirros.vhd -DriveLetter Z: -Umount 
 #>
 
 Param(
-[Parameter(Mandatory=$True)]
 [string]$Path,
-
-[string]$DriveLetter
+[string]$DriveLetter,
+[switch]$Mount,
+[switch]$Umount
 )
 
 $Ext2DsdDriver='C:\Program Files\Ext2Fsd\Mount.exe'
@@ -31,7 +31,7 @@ Function MountImage ($Path, $DriveLetter)
 		If($?)
 		{
 			$DiskNumber = [Convert]::ToUInt32($Output.Substring(25+1))
-			Write-Host "\ndisknumber : $DiskNumber"
+			Write-Host "disknumber : $DiskNumber"
 			$GpOutput = Get-Partition -DiskNumber $DiskNumber | fl PartitionNumber | findstr "Number"
 			#Exit
 			#$Output = $Output | fl PartitionNumber
@@ -41,14 +41,15 @@ Function MountImage ($Path, $DriveLetter)
 			#$PartitionNumber = 1
 			if( [string]::IsNullOrEmpty($PartitionNumber) ) {
 				Write-Host "couldn't get Partition number"
-				UnmountImage($Path)
+				UnmountImage $Path $DriveLetter
 				Exit
 			}			
 			else {
 				Write-Host "partition number : $PartitionNumber :"
 			}
+
 			Start-Sleep -s 2
-			& $Ext2DsdDriver $DiskNumber $PartitionNumber $DriveLetter | Out-Null
+			& $Ext2DsdDriver $DiskNumber $PartitionNumber $DriveLetter
 			If($?)
 			{
 				"Mounted Successfully on drive " + $DriveLetter
@@ -56,33 +57,42 @@ Function MountImage ($Path, $DriveLetter)
 			Else
 			{
 				"Unable to assign drive letter"
-				UnmountImage $Path
+				UnmountImage $Path $DriveLetter
 			}
 		}
 		Else
 		{
 			"Unable to get the image info"
-			UnmountImage $Path
-		}
-		
+			UnmountImage $Path $DriveLetter
+		}	
 	}
 	Else
 	{
 		"Unable to mount the image"
-	}
-	
+	}	
 }
 
-Function UnmountImage($Path)
+Function UnmountImage ($Path, $DriveLetter)
 {
+	Start-Sleep -s 2
+	& $Ext2DsdDriver /umount $DriveLetter
 	Dismount-VHD -Path $Path
 }
 
-If([bool]$DriveLetter)
+Function Usage()
+{
+	Write-Host "Usage: Mount-EXTVM.ps1 <Path> <DriveLetter> <Mount or Umount>"
+}
+
+If($Mount)
 {
 	MountImage $Path $DriveLetter
 }
+Elseif($Umount)
+{
+	UnmountImage $Path $DriveLetter
+}
 Else
 {
-	UnmountImage $Path
+	Usage
 }
