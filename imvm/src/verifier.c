@@ -482,7 +482,9 @@ int main(int argc, char **argv) {
 	strcat(fs_mount_path, "/");
     memset(cHash,0,strlen(cHash));
     if (strcmp(argv[3], "IMVM") == 0) {
-        strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
+    	char* last_oblique_ptr = strrchr(manifest_file, '/');
+        //strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
+    	strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen(last_oblique_ptr + 1));
         sprintf(hash_file,"%s%s",hash_file,"/measurement.");
     } else if (strcmp(argv[3], "HOST") == 0) {
         sprintf(hash_file, "%s/var/log/trustagent/measurement.", fs_mount_path);
