@@ -25,10 +25,11 @@ Keywords in the Policy should match with those in this code : DigestAlg, File Pa
 #include <openssl/sha.h>
 #include <ctype.h>
 
-#define MOUNTPATH_IMVM  "/tmp/"
-#define MOUNTPATH_HOST  "/tmp/root"
-#define DEBUG_LOG(fmt, args...) fprintf(stdout, fmt, ##args);
-#define ERROR_LOG(fmt, args...) fprintf(stderr, fmt, ##args);
+//#define MOUNTPATH_IMVM  "/tmp/"
+//#define MOUNTPATH_HOST  "/tmp/root"
+#define DEBUG_LOG(fmt, args...) fprintf(stdout, fmt, ##args)
+#define ERROR_LOG(fmt, args...) fprintf(stderr, fmt, ##args)
+#define byte unsigned char
 
 char fs_mount_path[1024];
 char hashType[10]; //SHA1 or SHA256
@@ -43,6 +44,27 @@ char hash_file[256];
 int process_started = 0;
 SHA256_CTX csha256;
 SHA_CTX csha1;
+
+/**
+ *hex_to_string:
+ *hex_str : string of hex chars, hex_str_len : length of hex string, byte * output string
+ *return : size of output string
+ */
+int hexstr_to_asciistr(char *hex_str, int hex_str_len, byte* out_str) {
+	int i = 0;
+	int buff = 0 & 0xFF;
+	int scanerr;
+	for (i = 0 ; i < (hex_str_len + 1) /2 ; i ++) {
+		scanerr = sscanf(hex_str+ (i*2), "%02x", &buff);
+		if (scanerr == EOF && scanerr != 1) {
+			ERROR_LOG("\nError while converting...");
+			return -1;
+		}
+		out_str[i] = buff;
+	}
+	out_str[i] = '\0';
+	return i;
+}
 
 /*
  * sha256_hash_string:
@@ -77,13 +99,18 @@ void generate_cumulative_hash(char *hash,int sha_one){
     DEBUG_LOG("\nIncoming Hash : %s\n",hash);
 	char ob[65];
     if(sha_one){
-	   
+    	char cur_hash[SHA_DIGEST_LENGTH + 1] = {'\0'};
 	   strncpy(cHash,d1,SHA_DIGEST_LENGTH);
        DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha1_hash_string(cHash,ob));
 		  
 	   SHA1_Init(&csha1);
 	   SHA1_Update(&csha1,d1,SHA_DIGEST_LENGTH);
-	   SHA1_Update(&csha1,hash,strlen(hash));
+	   if (SHA_DIGEST_LENGTH == hexstr_to_asciistr(hash, strlen(hash), cur_hash)) {
+		   SHA1_Update(&csha1,cur_hash, SHA_DIGEST_LENGTH);
+	   }
+	   else {
+		   DEBUG_LOG("\n length of string converted from hex is not equal to SHA1 digest length");
+	   }
 	   SHA1_Final(d1,&csha1);
 		   
 	   strncpy(cHash,d1,SHA_DIGEST_LENGTH);
@@ -95,13 +122,18 @@ void generate_cumulative_hash(char *hash,int sha_one){
 	}
 	
 	else{
-	   
+		char cur_hash[SHA256_DIGEST_LENGTH + 1] = {'\0'};
 	   strncpy(cHash2,d2,SHA256_DIGEST_LENGTH);
        DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha256_hash_string(cHash2,ob));
 	   
 	   SHA256_Init(&csha256);
 	   SHA256_Update(&csha256,d2,SHA256_DIGEST_LENGTH);
-	   SHA256_Update(&csha256,hash,strlen(hash));
+	   if (SHA256_DIGEST_LENGTH == hexstr_to_asciistr(hash, strlen(hash), cur_hash)) {
+		   SHA256_Update(&csha256,cur_hash, SHA256_DIGEST_LENGTH);
+	   }
+	   else {
+		   DEBUG_LOG("\n length of string converted from hex is not equal to SHA256 digest length");
+	   }
 	   SHA256_Final(d2, &csha256);
 	  
 	   strncpy(cHash2,d2,SHA256_DIGEST_LENGTH);
@@ -308,7 +340,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     int digest_check  = 0;
 
     if(strcmp(verificationType,"HOST") == 0)
-      sprintf(ma_result_path, "%s%s", MOUNTPATH_HOST, ma_result_path_default);
+      sprintf(ma_result_path, "%s%s", fs_mount_path, ma_result_path_default);
     else
       sprintf(ma_result_path,"%s%s",hash_file,"xml");
 
@@ -435,50 +467,30 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
  */
 int main(int argc, char **argv) {
 
-    int imageMountingRequired = 0; //IMVM = 1 /HOST = 0
     char manifest_file[100];
-    pid_t pid = getpid();
-    char verifierpid[64] = {0};
-    
-	sprintf(verifierpid,"%d",pid);
     xmlDocPtr Doc;
-//	char* mount_script = "/root/mount_vm_image.sh";
-    char* mount_script = "../scripts/mount_vm_image.sh";
     if(argc != 4) {
-        ERROR_LOG("\n%s %s %s","Usage:",argv[0]," <manifest_path> <disk_path> <IMVM/HOST>");
+        ERROR_LOG("\n%s %s %s","Usage:",argv[0]," <manifest_path> <mounted_path> <IMVM/HOST>");
         return EXIT_FAILURE;
     }
     DEBUG_LOG("\n%s %s","MANIFEST-PATH :", argv[1]);
-    DEBUG_LOG("TEST DEBUG LOG ARGS %s %s\n",argv[1],argv[2]);
-	DEBUG_LOG("\n%s %s","DISK-PATH :", argv[2]);
+	DEBUG_LOG("\n%s %s","MOUNTED-PATH :", argv[2]);
+	DEBUG_LOG("\n MODE : %s", argv[3]);
   
 	strcpy(manifest_file,argv[1]);
-	
+	strcpy(fs_mount_path, argv[2]);
+	strcat(fs_mount_path, "/");
     memset(cHash,0,strlen(cHash));
     if (strcmp(argv[3], "IMVM") == 0) {
-        strcpy(fs_mount_path, MOUNTPATH_IMVM);
-	    strcat(fs_mount_path,verifierpid);
-        strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
+    	char* last_oblique_ptr = strrchr(manifest_file, '/');
+        //strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
+    	strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen(last_oblique_ptr + 1));
         sprintf(hash_file,"%s%s",hash_file,"/measurement.");
-        imageMountingRequired = 1;
     } else if (strcmp(argv[3], "HOST") == 0) {
-        strcpy(fs_mount_path, MOUNTPATH_HOST);
         sprintf(hash_file, "%s/var/log/trustagent/measurement.", fs_mount_path);
-        imageMountingRequired = 0;
     } else { 
         ERROR_LOG("\n%s","Invalid verification_type.Valid options are IMVM/HOST\n");
         return EXIT_FAILURE;
-    }
-
-    if (imageMountingRequired) {
-            char *command = (char*)malloc((strlen(mount_script)+strlen(argv[2])+strlen(fs_mount_path)+2)*sizeof(char));
-            sprintf(command,"%s %s %s", mount_script, argv[2], fs_mount_path);
-            int res = system(command);
-            if (res !=0) {
-                ERROR_LOG("\n%s","Error in mounting the image!!!!");
-                exit(1);
-            }
-	    strcat(fs_mount_path,"/mount");
     }
 
     Doc = xmlParseFile(argv[1]); 
@@ -490,11 +502,6 @@ int main(int argc, char **argv) {
     xmlFreeDoc(Doc);  
     generateLogs(argv[1], argv[2], argv[3]);
     
-	if (strcmp(argv[3], "IMVM") == 0) {
-	   char command[512]={'\0'};
-	   sprintf(command,"%s %s",mount_script,fs_mount_path);  
-	   system(command);    
-    }   
     return 0;
 }
 
