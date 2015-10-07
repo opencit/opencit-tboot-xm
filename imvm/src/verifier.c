@@ -475,6 +475,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 		}
 		else{
 			ERROR_LOG("Can not open file: %s to write the measurement", ma_result_path);
+			fclose(fp);
 			return;
 		}
 		fclose(fp);
