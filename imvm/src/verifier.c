@@ -52,7 +52,7 @@ SHA_CTX csha1;
  */
 int hexstr_to_asciistr(char *hex_str, int hex_str_len, byte* out_str) {
 	int i = 0;
-	int buff = 0 & 0xFF;
+	unsigned int buff = 0 & 0xFF;
 	int scanerr;
 	for (i = 0 ; i < (hex_str_len + 1) /2 ; i ++) {
 		scanerr = sscanf(hex_str+ (i*2), "%02x", &buff);
@@ -98,8 +98,9 @@ char* sha1_hash_string (unsigned char hash[SHA_DIGEST_LENGTH], char outputBuffer
 void generate_cumulative_hash(char *hash,int sha_one){
     DEBUG_LOG("\nIncoming Hash : %s\n",hash);
 	char ob[65];
+	char cur_hash[SHA256_DIGEST_LENGTH + 1] = {'\0'};
     if(sha_one){
-    	char cur_hash[SHA_DIGEST_LENGTH + 1] = {'\0'};
+    	//char cur_hash[SHA_DIGEST_LENGTH + 1] = {'\0'};
 	   strncpy(cHash,d1,SHA_DIGEST_LENGTH);
        DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha1_hash_string(cHash,ob));
 		  
@@ -122,7 +123,6 @@ void generate_cumulative_hash(char *hash,int sha_one){
 	}
 	
 	else{
-		char cur_hash[SHA256_DIGEST_LENGTH + 1] = {'\0'};
 	   strncpy(cHash2,d2,SHA256_DIGEST_LENGTH);
        DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha256_hash_string(cHash2,ob));
 	   
@@ -199,7 +199,7 @@ int getSymLinkValue(char *path) {
 char* calculate(char *path, char output[65]) {
     
     char hash_in[65];
-    char value[512];
+    char value[1056] = {'\0'};
     /*We append the mount path before the filepath first, 
 	 and then pass that address to calculate the hash */
 
@@ -232,7 +232,10 @@ char* calculate(char *path, char output[65]) {
         char *buffer = malloc(bufSize);
        
         int bytesRead = 0;
-        if(!buffer) return NULL;
+        if(!buffer) {
+        	fclose(file);
+        	return NULL;
+        }
         while((bytesRead = fread(buffer, 1, bufSize, file))) {
              
               SHA256_Update(&sha256, buffer, bytesRead);
@@ -252,7 +255,10 @@ char* calculate(char *path, char output[65]) {
         const int bufSize = 32768;
         char *buffer = malloc(bufSize);
         int bytesRead = 0;
-        if(!buffer) return NULL;
+        if(!buffer) {
+        	fclose(file);
+        	return NULL;
+        }
         while((bytesRead = fread(buffer, 1, bufSize, file))) {
             SHA1_Update(&sha1, buffer, bytesRead);
         }
@@ -330,38 +336,47 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
   
     FILE *fp, *fq, *fd; 
     char * line = NULL;
-    char include[50];
-    char exclude[100];
+    char include[128] = {'\0'};
+    char exclude[128] = { '\0'};
     size_t len = 0;
-    char calc_hash[256];
-    char ma_result_path[100];
-	memset(ma_result_path,'\0',strlen(ma_result_path));
+    char calc_hash[65] = {'\0'};
+    char ma_result_path[100] = {'\0'};
+	//memset(ma_result_path,'\0',strlen(ma_result_path));
     char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
     int digest_check  = 0;
 
     if(strcmp(verificationType,"HOST") == 0)
-      sprintf(ma_result_path, "%s%s", fs_mount_path, ma_result_path_default);
+      snprintf(ma_result_path, sizeof(ma_result_path), "%s%s", fs_mount_path, ma_result_path_default);
     else
-      sprintf(ma_result_path,"%s%s",hash_file,"xml");
+      snprintf(ma_result_path, sizeof(ma_result_path), "%s%s",hash_file,"xml");
 
     
 	DEBUG_LOG("%s %s","Manifest Path",origManifestPath);
     fp=fopen(origManifestPath,"r");
+    if (fp == NULL) {
+    	ERROR_LOG("Can not open Manifest file: %s", origManifestPath);
+    	return;
+    }
     fq=fopen(ma_result_path,"w");
-
+    if (fp == NULL) {
+    	ERROR_LOG("Can not open file: %s to write the measurement", ma_result_path);
+    	fclose(fp);
+    	return;
+    }
     fprintf(fq,"<?xml version=\"1.0\"?>\n");
     
-
+    char * temp_ptr = NULL;
    //Open Manifest to get list of files to hash
     while (getline(&line, &len, fp) != -1) { 
    
      strcpy(include,"");
      strcpy(exclude,"");
-    
-          if(strstr(line,"DigestAlg=") != NULL){
+     	  temp_ptr = NULL;
+     	  temp_ptr = strstr(line,"DigestAlg=");
+          if(temp_ptr != NULL){
 		   /*Get the type of hash */	  
-           tagEntry(strstr(line,"DigestAlg="));
-           strcpy(hashType,NodeValue);
+           tagEntry(temp_ptr);
+           strncpy(hashType,NodeValue, sizeof(hashType));
 		   digest_check = 1;
 		   DEBUG_LOG("\n%s %s","Type of Hash used :",hashType);
 		   fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n",hashType);
@@ -372,60 +387,73 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
           if(strstr(line,"<File Path=")!= NULL && digest_check){
             tagEntry(line);
             fprintf(fq,"<File Path=\"%s\">",NodeValue);
-           
-            fprintf(fq,"%s</File>\n",calculate(NodeValue,calc_hash));    
+            temp_ptr = calculate(NodeValue,calc_hash);
+            if (temp_ptr != NULL) {
+            	fprintf(fq,"%s</File>\n", temp_ptr);
+            }
             DEBUG_LOG("\n%s %s %s %s","File :",NodeValue,"Hash Measured:",calc_hash);			
           }
 
      //Directory Hashes
-   
           if(strstr(line,"<Dir ")!= NULL && digest_check){
-                
-                tagEntry(strstr(line,"Path="));
-                char dir_path[500];
-                strcpy(dir_path,NodeValue); 
+        	  	temp_ptr = NULL;
+        	  	temp_ptr = strstr(line, "Path=");
+				char dir_path[500] = {'\0'};
+        	  	if (temp_ptr != NULL ) {
+        	  		tagEntry(temp_ptr);
+					strcpy(dir_path,NodeValue);
+        	  	}
                 DEBUG_LOG("\n%s %s","Directory :",NodeValue);
-			    if(strstr(line,"Include=")!= NULL){
-                         tagEntry(strstr(line,"Include="));
-                         strcpy(include,NodeValue);
-                         DEBUG_LOG("\n%s %s","Include type :",NodeValue);
+                temp_ptr = NULL;
+                temp_ptr = strstr(line, "Include=");
+                if (temp_ptr != NULL) {
+                    tagEntry(temp_ptr);
+                    strncpy(include,NodeValue, sizeof(include));
+                    DEBUG_LOG("\n%s %s","Include type :",NodeValue);
+                }
+                temp_ptr = NULL;
+                temp_ptr = strstr(line,"Exclude=");
+                if ( temp_ptr != NULL ) {
+                    tagEntry(temp_ptr);
+                    strncpy(exclude,NodeValue, sizeof(exclude));
+                    DEBUG_LOG("\n%s %s","Exclude type :",NodeValue);
                 }
 
-                if(strstr(line,"Exclude=") != NULL){
-                         tagEntry(strstr(line,"Exclude="));
-                         strcpy(exclude,NodeValue);
-                         DEBUG_LOG("\n%s %s","Exclude type :",NodeValue);
-                }
             
 	        char Dir_Str[256];
             
-            char mDpath[256];
-            strcpy(mDpath,fs_mount_path);
-            strcat(mDpath,dir_path);//path of dir in the VM
+            char mDpath[256] = {'\0'};
+            strncpy(mDpath,fs_mount_path, sizeof(mDpath));
+            strncat(mDpath,dir_path, sizeof(mDpath));//path of dir in the VM
             strcat(mDpath,"\0");
 	       
             int slen = strlen(fs_mount_path); //to remove mount path from the find command output. 
             char hash_algo[15] = {'\0'};
 	        sprintf(hash_algo,"%ssum",hashType); 
             if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
-               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | %s",mDpath,include,exclude,slen,hash_algo);  
+               snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | %s",mDpath,include,exclude,slen,hash_algo);
             else if(strcmp(include,"") != 0)
-               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -E  \"%s\"| sed -r 's/.{%d}//' | %s",mDpath,include,slen,hash_algo);
+               snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d | grep -E  \"%s\"| sed -r 's/.{%d}//' | %s",mDpath,include,slen,hash_algo);
             else if(strcmp(exclude,"") != 0)
-               sprintf(Dir_Str,"find \"%s\" ! -type d | grep -vE \"%s\"| sed -r 's/.{%d}//' | %s",mDpath,exclude,slen,hash_algo);
+               snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d | grep -vE \"%s\"| sed -r 's/.{%d}//' | %s",mDpath,exclude,slen,hash_algo);
             else
-               sprintf(Dir_Str,"find \"%s\" ! -type d| sed -r 's/.{%d}//' | %s",mDpath,slen,hash_algo);
+               snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d| sed -r 's/.{%d}//' | %s",mDpath,slen,hash_algo);
 
-            char ops[200];
-            sprintf(ops,"find \"%s\"/ ! -type d | sed -r 's/.{%d}//'",mDpath,slen);
+            /*char ops[200];
+            sprintf(ops,"find \"%s\"/ ! -type d | sed -r 's/.{%d}//'",mDpath,slen);*/
             
             DEBUG_LOG("\n%s %s %s %s","********mDpath is ----------",mDpath," and command is ",Dir_Str);
  
 		    FILE *dir_file = popen(Dir_Str,"r");
             char *dhash = NULL;
-            getline(&dhash, &len, dir_file);
+            if (dir_file != NULL ) {
+            	getline(&dhash, &len, dir_file);
+            	strtok(dhash," ");
+            }
+            else {
+            	dhash = "\0";
+            }
             
-	        strtok(dhash," ");
             fprintf(fq,"<Dir Path=\"%s\">",dir_path);
             fprintf(fq,"%s</Dir>\n",dhash);
 			char outputBuffer[65];
@@ -433,8 +461,10 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 			   generate_cumulative_hash(dhash,0);
 		    else
 			   generate_cumulative_hash(dhash,1);
-            
-			pclose(dir_file);
+
+			if (dir_file != NULL) {
+            	pclose(dir_file);
+            }
 
           }//Dir hash ends
 
@@ -451,6 +481,10 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     strcat(hash_file,hashType);
     /*Write the Cumulative Hash calculated to the file*/
     FILE *fc = fopen(hash_file,"w");
+    if (fc == NULL ) {
+    	ERROR_LOG("Can not open file: %s, to write cumulative hash", hash_file);
+    	return;
+    }
     char *ptr;
     if(strcmp(hashType, "sha256") == 0)
            ptr = sha256_hash_string(d2,cH2);
@@ -467,7 +501,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
  */
 int main(int argc, char **argv) {
 
-    char manifest_file[100];
+    char manifest_file[100] = {'\0'};
     xmlDocPtr Doc;
     if(argc != 4) {
         ERROR_LOG("\n%s %s %s","Usage:",argv[0]," <manifest_path> <mounted_path> <IMVM/HOST>");
@@ -477,15 +511,15 @@ int main(int argc, char **argv) {
 	DEBUG_LOG("\n%s %s","MOUNTED-PATH :", argv[2]);
 	DEBUG_LOG("\n MODE : %s", argv[3]);
   
-	strcpy(manifest_file,argv[1]);
-	strcpy(fs_mount_path, argv[2]);
+	strncpy(manifest_file,argv[1], sizeof(manifest_file));
+	strncpy(fs_mount_path, argv[2], sizeof(fs_mount_path));
 	strcat(fs_mount_path, "/");
     memset(cHash,0,strlen(cHash));
     if (strcmp(argv[3], "IMVM") == 0) {
     	char* last_oblique_ptr = strrchr(manifest_file, '/');
         //strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
     	strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen(last_oblique_ptr + 1));
-        sprintf(hash_file,"%s%s",hash_file,"/measurement.");
+        snprintf(hash_file, sizeof(hash_file), "%s%s",hash_file,"/measurement.");
     } else if (strcmp(argv[3], "HOST") == 0) {
         sprintf(hash_file, "%s/var/log/trustagent/measurement.", fs_mount_path);
     } else { 
