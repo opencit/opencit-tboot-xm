@@ -418,7 +418,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					char mDpath[256] = {'\0'};
 					strncpy(mDpath,fs_mount_path, sizeof(mDpath));
 					mDpath[sizeof(mDpath) - 1 ] = '\0';
-					strncat(mDpath,dir_path, sizeof(mDpath)- strlen(mDpath) - 1);//path of dir in the VM
+					strncat(mDpath,dir_path, (sizeof(mDpath)- strlen(mDpath) - 1));//path of dir in the VM
 					mDpath[sizeof(mDpath) - 1] = '\0';
 					//strcat(mDpath,"\0");
 
@@ -475,7 +475,6 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 		}
 		else{
 			ERROR_LOG("Can not open file: %s to write the measurement", ma_result_path);
-			fclose(fp);
 			return;
 		}
 		fclose(fp);
@@ -522,7 +521,8 @@ int main(int argc, char **argv) {
 	manifest_file[sizeof(manifest_file) - 1] = '\0';
 	strncpy(fs_mount_path, argv[2], sizeof(fs_mount_path) - 1);
 	fs_mount_path[ sizeof(fs_mount_path) - 1] = '\0';
-	strcat(fs_mount_path, "/");
+	strncat(fs_mount_path, "/", ( sizeof(fs_mount_path) - strlen(fs_mount_path) - 1 ));
+	fs_mount_path[ sizeof(fs_mount_path) - 1] = '\0';
     memset(cHash,0,strlen(cHash));
     if (strcmp(argv[3], "IMVM") == 0) {
     	char* last_oblique_ptr = strrchr(manifest_file, '/');
