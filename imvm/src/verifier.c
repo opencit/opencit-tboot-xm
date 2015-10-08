@@ -528,8 +528,10 @@ int main(int argc, char **argv) {
     if (strcmp(argv[3], "IMVM") == 0) {
     	char* last_oblique_ptr = strrchr(manifest_file, '/');
         //strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
-    	strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen(last_oblique_ptr + 1));
-        snprintf(hash_file, sizeof(hash_file), "%s%s",hash_file,"/measurement.");
+    	strncpy(hash_file,manifest_file,strlen(manifest_file)-strlen(last_oblique_ptr + 1) - 1);
+    	hash_file[ sizeof(hash_file) - 1] = '\0';
+    	strncat(hash_file, "/measurement.", (sizeof(hash_file) - strlen(hash_file) - 1));
+    	hash_file[ sizeof(hash_file) - 1] = '\0';
     } else if (strcmp(argv[3], "HOST") == 0) {
         snprintf(hash_file, sizeof(hash_file), "%s/var/log/trustagent/measurement.", fs_mount_path);
     } else { 
