@@ -371,10 +371,22 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
      //File Hashes
           if(strstr(line,"<File Path=")!= NULL && digest_check){
             tagEntry(line);
-            fprintf(fq,"<File Path=\"%s\">",NodeValue);
-           
-            fprintf(fq,"%s</File>\n",calculate(NodeValue,calc_hash));    
-            DEBUG_LOG("\n%s %s %s %s","File :",NodeValue,"Hash Measured:",calc_hash);			
+	    char file_name_buff[1024] = {'\0'};
+	    //strncpy(file_name_buff,fs_mount_path, sizeof(file_name_buff) - 1);
+	    snprintf(file_name_buff, sizeof(file_name_buff), "%s/%s", fs_mount_path, NodeValue);
+	    DEBUG_LOG("\nfile path : %s\n", file_name_buff);
+	    int retval = getSymLinkValue(file_name_buff);
+	    if ( retval == 0 )
+	    {
+		//file exist
+		fprintf(fq,"<File Path=\"%s\">",NodeValue);
+
+                fprintf(fq,"%s</File>\n",calculate(NodeValue,calc_hash));
+                DEBUG_LOG("\n%s %s %s %s","File :",NodeValue,"Hash Measured:",calc_hash);
+	    }
+	    else {
+		continue;
+	    }
           }
 
      //Directory Hashes
