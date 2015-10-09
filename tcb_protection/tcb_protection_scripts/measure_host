@@ -39,7 +39,8 @@ fi
 log "CONFIG_FILE_PATH = $CONFIG_FILE"
 if [ ! $CONFIG_FILE ] || [ -z $CONFIG_FILE ]
 then
-	CONFIG_FILE="/measure_host.cfg"	
+	#CONFIG_FILE="/measure_host.cfg"	
+	CONFIG_FILE="/tbootxm.conf"
 	log "CONFIG_FILE_PATH = $CONFIG_FILE"
 fi
 
@@ -55,7 +56,7 @@ load_configuration()
 	else
 		log "Configuration file not found"
 		unmount_partitions
-		exit 1
+		exit 0
 	fi
 	for key in `cat $tmp_root/$CONFIG_FILE | awk 'BEGIN {FS="="}{print $1}'`
 	do
@@ -186,17 +187,18 @@ manifest_verify()
 	if [ ! -e "$tmp_root/$manifest_path" ]; then
         	log "Manifest Path INCORRECT.File not Found at $tmp_root/$manifest_path"
 		unmount_partitions
-        	exit 1
+        	exit 0
 	fi
 	
 	rm -f "$cumulative_hash"*
 	
 	#Run the Verifier and the check for its results
+	mkdir -p ${tmp_root}/var/log/trustagent/
 	/bin/verifier $tmp_root/$manifest_path $tmp_root/ HOST >> $INITRD_LOG_FILE 2>&1
 	if [ $? -ne 0 ]; then
 		log "TCB Verification FAILED"
 		unmount_partitions
-		exit 1
+		exit 0
 	else
 		log "TCB Verification COMPLETE"
 	fi
@@ -225,7 +227,7 @@ tpm_extend()
 	then
 		log "No cumulative hash to extend"
 		unmount_partitions
-		exit 1
+		exit 0
 	fi
 	log "Run TPM Extend for Extending PCR 19"
 	log "TPM Extend Log"
@@ -234,7 +236,7 @@ tpm_extend()
 	if [ $? -ne 0 ]; then
 		log "TPM extend failed."
 		unmount_partitions
-		exit 1
+		exit 0
 	fi
 }
 
