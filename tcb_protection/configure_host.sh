@@ -163,7 +163,7 @@ function generate_grub_entry()
 	echo > $MENUENTRY_FILE
 	which_grub
 	get_grub_file_location
-	perl $CREATE_MENU_ENTRY_SCRIPT $MENUENTRY_FILE $(uname -r) "$INITRD_NAME" "CONFIG_FILE_PATH=\"$CONFIG_FILE_NAME\"" "$MENUENTRY_PREFIX" "$GRUB_FILE" $GRUB_VERSION 
+	perl $CREATE_MENU_ENTRY_SCRIPT $MENUENTRY_FILE $(uname -r) "$INITRD_NAME" "CONFIG_FILE_PATH=\"$CONFIG_FILE_NAME\" measure_nv=true" "$MENUENTRY_PREFIX" "$GRUB_FILE" $GRUB_VERSION 
 	if [ $? -ne 0 ]; then
 		echo "ERROR: Not able to get appropriate grub entry from $GRUB_FILE file for kernel version $KERNEL_VERSION ."
 		echo "For Ubuntu OS make sure that tboot is available on the host and for current kernel tboot entry is populated in $GRUB_FILE file."
