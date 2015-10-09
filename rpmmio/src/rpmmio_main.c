@@ -114,7 +114,7 @@ static ssize_t device_read(struct file *fp, char *buff, size_t size, loff_t *ppo
   */
   tpm_pcr_value_t out= {{0,}};
   tpm_pcr_read(g_locality, g_pcr, &out);
-  copy_to_user(buff, out.digest, size);
+  copy_to_user(buff, out.digest, TPM_DIGEST_SIZE );
   printk(KERN_ALERT "rpmmio: read, size %d\n", size);
   return size;
 
