@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>com.intel.mtwilson.tbootxm.packages</groupId>
-    <artifactId>tbootxm-linux-makeself</artifactId>
+    <artifactId>tbootxm</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <description>Self-extracting executable that installs the Measurement Agent</description>
@@ -16,7 +16,7 @@
   
     <properties>
         <!-- this becomes the installer filename, like ${makeself.name}.bin -->
-        <makeself.name>tbootxm-${project.version}</makeself.name>
+        <makeself.name>${project.artifactId}-${project.version}</makeself.name>
     </properties>
   
     <dependencies>
@@ -28,7 +28,7 @@
         </dependency>
          <dependency>
             <groupId>com.intel.mtwilson.tbootxm.packages</groupId>
-            <artifactId>tbootxm-rpmmio-linux-makeself</artifactId>
+            <artifactId>tbootxm-rpmmio</artifactId>
             <version>0.1-SNAPSHOT</version>
             <type>bin</type>
         </dependency>

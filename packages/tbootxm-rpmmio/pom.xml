@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>com.intel.mtwilson.tbootxm.packages</groupId>
-    <artifactId>tbootxm-rpmmio-linux-makeself</artifactId>
+    <artifactId>tbootxm-rpmmio</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <description>Self-extracting executable which contains multiple rpmmio binaries build against different kernel versions</description>
@@ -16,12 +16,12 @@
   
     <properties>
         <!-- this becomes the installer filename, like ${makeself.name}.bin -->
-        <makeself.name>tbootxm-rpmmio-${project.version}</makeself.name>
+        <makeself.name>${project.artifactId}-${project.version}</makeself.name>
     </properties>
   
     <dependencies>
         <dependency>
-            <groupId>com.intel.mtwilson.tbootxm.packages</groupId>
+            <groupId>com.intel.mtwilson.tbootxm</groupId>
             <artifactId>tbootxm-rpmmio</artifactId>
             <version>0.1-SNAPSHOT</version>
             <type>zip</type>
