@@ -149,7 +149,7 @@ chmod 700 $TBOOTXM_HOME/bin/*
 
 ### INSTALL RPMMIO MODULES 
 echo "Installing rpmmio modules..."
-MTWILSON_RPMMIO_PACKAGE=`ls -1 tbootxm-rpmmio-linux-makeself-*.bin 2>/dev/null | tail -n 1`
+MTWILSON_RPMMIO_PACKAGE=`ls -1 tbootxm-rpmmio-*.bin 2>/dev/null | tail -n 1`
 if [ -z "$MTWILSON_RPMMIO_PACKAGE" ]; then
   echo_failure "Failed to find rpmmio module package"
   exit -1
