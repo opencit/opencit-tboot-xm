@@ -56,7 +56,7 @@ load_configuration()
 	else
 		log "Configuration file not found"
 		unmount_partitions
-		exit 0
+		return 1
 	fi
 	for key in `cat $tmp_root/$CONFIG_FILE | awk 'BEGIN {FS="="}{print $1}'`
 	do
@@ -75,6 +75,7 @@ load_configuration()
 	PARTITION_INFO=`echo $PARTITION_INFO | sed s/\"//g`
 	log "PARTITION_INFO=${PARTITION_INFO}"
 	log "Configuration loaded"
+	return 0
 }
 # Output pre-requisites
 prereqs()
@@ -254,17 +255,21 @@ log "`lvm vgchange -ay`"
 #load configuration 
 load_configuration
 
-#Step 3 - Mount Other Partitions
-mount_partitions
+if [ $? -eq 0 ]
+then
 
-#Step 4 - Measurement - Verifier
-manifest_verify
+	#Step 3 - Mount Other Partitions
+	mount_partitions
 
-#Step 5 - Extend PCR 19 using TPM Extend
-tpm_extend
+	#Step 4 - Measurement - Verifier
+	manifest_verify
 
-#Step 6 - Unmount all the Partitions that were mounted in the process
-unmount_partitions
-log "END OF MEASUREMENT AGENT"
+	#Step 5 - Extend PCR 19 using TPM Extend
+	tpm_extend
+
+	#Step 6 - Unmount all the Partitions that were mounted in the process
+	unmount_partitions
+fi
+#log "END OF MEASUREMENT AGENT"
 
 
