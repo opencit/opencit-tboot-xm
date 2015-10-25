@@ -222,7 +222,7 @@ function update_grub()
 		cat $MENUENTRY_FILE >> /etc/grub.d/40_custom
 		echo "Menuentry has been appended in /etc/grub.d/40_custom"
 	fi
-	if [ $os_version == "fedora" ]; then
+	if [ $os_version == "fedora" ] || [ $os_version == "rhel" ]; then
 		grub2-mkconfig -o $GRUB_FILE
 		
 	else
