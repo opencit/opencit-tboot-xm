@@ -188,7 +188,7 @@ manifest_verify()
 	if [ ! -e "$tmp_root/$manifest_path" ]; then
         	log "Manifest Path INCORRECT.File not Found at $tmp_root/$manifest_path"
 		unmount_partitions
-        	exit 0
+        	return 1
 	fi
 	
 	rm -f "$cumulative_hash"*
@@ -199,9 +199,10 @@ manifest_verify()
 	if [ $? -ne 0 ]; then
 		log "TCB Verification FAILED"
 		unmount_partitions
-		exit 0
+		return 1 
 	else
 		log "TCB Verification COMPLETE"
+		return 0
 	fi
 }
 
@@ -228,7 +229,7 @@ tpm_extend()
 	then
 		log "No cumulative hash to extend"
 		unmount_partitions
-		exit 0
+		return 1
 	fi
 	log "Run TPM Extend for Extending PCR 19"
 	log "TPM Extend Log"
@@ -237,8 +238,9 @@ tpm_extend()
 	if [ $? -ne 0 ]; then
 		log "TPM extend failed."
 		unmount_partitions
-		exit 0
+		return 1 
 	fi
+	return 0
 }
 
 #Step 1 - Load the RPMMIO Drivers
@@ -264,11 +266,16 @@ then
 	#Step 4 - Measurement - Verifier
 	manifest_verify
 
-	#Step 5 - Extend PCR 19 using TPM Extend
-	tpm_extend
-
-	#Step 6 - Unmount all the Partitions that were mounted in the process
-	unmount_partitions
+	if [ $? -eq 0 ]
+	then
+		#Step 5 - Extend PCR 19 using TPM Extend
+		tpm_extend
+		if [ $? -eq 0 ]
+		then
+			#Step 6 - Unmount all the Partitions that were mounted in the process
+			unmount_partitions
+		fi
+	fi
 fi
 #log "END OF MEASUREMENT AGENT"
 

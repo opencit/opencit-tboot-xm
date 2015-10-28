@@ -10,7 +10,8 @@ MENUENTRY_FILE="$TBOOTXM_REPOSITORY/sample_menuentry"  #"$BASE_DIR/sample_menuen
 MENUENTRY_PREFIX="TCB-Protection"
 CREATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/create_menuentry.pl"  #"$BASE_DIR/create_menuentry.pl"
 UPDATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/update_menuentry.pl"  #"$BASE_DIR/update_menuentry.pl"
-MANIFEST_PATH=${MANIFEST_PATH:-""}
+#MANIFEST_PATH=${MANIFEST_PATH:-""}
+MANIFEST_PATH="/boot/trust/manifest.xml"
 GRUB_FILE=${GRUB_FILE:-""}
 #CONFIG_FILE_NAME="$TBOOTXM_REPOSITORY/measure_host.cfg"
 CONFIG_FILE_NAME="/tbootxm.conf"
@@ -115,7 +116,7 @@ function get_partition_info()
 function generate_kernel_args()
 {
 	echo "Following kernel argument will be used in grub menuentry for TCB Protection: "
-	KERNEL_ARGS="MANIFEST_PATH=\"`readlink -e $MANIFEST_PATH`\"\nPARTITION_INFO=\"$PARTITION_INFO\""
+	KERNEL_ARGS="MANIFEST_PATH=\"$MANIFEST_PATH\"\nPARTITION_INFO=\"$PARTITION_INFO\""
 	echo $KERNEL_ARGS
 	chattr -i $CONFIG_FILE_NAME > /dev/null 2>&1
 	rm -rf $CONFIG_FILE_NAME
@@ -289,7 +290,7 @@ function main()
     echo "Configuring Host"
     mkdir -p "/var/log/trustagent"
     validate_n_copy_initrd
-    get_manifest_file_location
+    #get_manifest_file_location
     get_partition_info
     generate_kernel_args
     generate_grub_entry
