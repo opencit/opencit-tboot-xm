@@ -117,6 +117,11 @@ elsif ( $grub_version == 0 )
 					$isSameKernel = 0;
 				}
 			}
+			elsif( $_ =~ /\s*initrd / )
+			{
+				$_ =~ s/initrd /module /;
+				$buffer .= $_."\n";
+			}
 			else {
 				$buffer .= $_."\n";
 			}
