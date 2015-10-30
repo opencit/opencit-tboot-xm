@@ -10,7 +10,8 @@ MENUENTRY_FILE="$TBOOTXM_REPOSITORY/sample_menuentry"  #"$BASE_DIR/sample_menuen
 MENUENTRY_PREFIX="TCB-Protection"
 CREATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/create_menuentry.pl"  #"$BASE_DIR/create_menuentry.pl"
 UPDATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/update_menuentry.pl"  #"$BASE_DIR/update_menuentry.pl"
-MANIFEST_PATH=${MANIFEST_PATH:-""}
+#MANIFEST_PATH=${MANIFEST_PATH:-""}
+MANIFEST_PATH="/boot/trust/manifest.xml"
 GRUB_FILE=${GRUB_FILE:-""}
 #CONFIG_FILE_NAME="$TBOOTXM_REPOSITORY/measure_host.cfg"
 CONFIG_FILE_NAME="/tbootxm.conf"
@@ -99,10 +100,14 @@ function get_partition_info()
 {
 	# Get partition information for current OS
 	PARTITION_INFO="" 
-	for val in `df -P -t ext4 -t ext3 -t ext2 | grep -i -v Filesystem | awk '{ print $1 ":" $6}'`
-	do 
-		PARTITION_INFO="${PARTITION_INFO},${val}" 
-	done 
+	#take all the filesystem types supported and find partition for those
+	for fs_type in `cat /proc/filesystems | grep -v "nodev" | awk '{print $1}'`
+	do
+		for val in `df -P -t $fs_type 2> /dev/null | grep -i -v Filesystem | awk '{ print $1 ":" $6}'`
+		do 
+			PARTITION_INFO="${PARTITION_INFO},${val}" 
+		done 
+	done
 	PARTITION_INFO=`echo $PARTITION_INFO | cut -c2-`
 	PARTITION_INFO="{"$PARTITION_INFO"}"
 	echo "Partitions available and its mount points: $PARTITION_INFO"
@@ -111,7 +116,7 @@ function get_partition_info()
 function generate_kernel_args()
 {
 	echo "Following kernel argument will be used in grub menuentry for TCB Protection: "
-	KERNEL_ARGS="MANIFEST_PATH=\"`readlink -e $MANIFEST_PATH`\"\nPARTITION_INFO=\"$PARTITION_INFO\""
+	KERNEL_ARGS="MANIFEST_PATH=\"$MANIFEST_PATH\"\nPARTITION_INFO=\"$PARTITION_INFO\""
 	echo $KERNEL_ARGS
 	chattr -i $CONFIG_FILE_NAME > /dev/null 2>&1
 	rm -rf $CONFIG_FILE_NAME
@@ -135,6 +140,10 @@ function which_grub() {
 	                GRUB_VERSION=0
 	                return
         	fi
+	elif [ $os_version == "rhel" ] && [ -n "`which grub2-install 2>/dev/null`" ] ; then
+		grub2-install --version | grep " 2."
+                GRUB_VERSION=2
+                return		
 	fi
 
 	grub-install --version | grep " 2." 
@@ -163,7 +172,7 @@ function generate_grub_entry()
 	echo > $MENUENTRY_FILE
 	which_grub
 	get_grub_file_location
-	perl $CREATE_MENU_ENTRY_SCRIPT $MENUENTRY_FILE $(uname -r) "$INITRD_NAME" "CONFIG_FILE_PATH=\"$CONFIG_FILE_NAME\" measure_nv=true" "$MENUENTRY_PREFIX" "$GRUB_FILE" $GRUB_VERSION 
+	perl $CREATE_MENU_ENTRY_SCRIPT $MENUENTRY_FILE $(uname -r) "$INITRD_NAME" "CONFIG_FILE_PATH=\"$CONFIG_FILE_NAME\"" "$MENUENTRY_PREFIX" "$GRUB_FILE" $GRUB_VERSION 
 	if [ $? -ne 0 ]; then
 		echo "ERROR: Not able to get appropriate grub entry from $GRUB_FILE file for kernel version $KERNEL_VERSION ."
 		echo "For Ubuntu OS make sure that tboot is available on the host and for current kernel tboot entry is populated in $GRUB_FILE file."
@@ -214,7 +223,7 @@ function update_grub()
 		cat $MENUENTRY_FILE >> /etc/grub.d/40_custom
 		echo "Menuentry has been appended in /etc/grub.d/40_custom"
 	fi
-	if [ $os_version == "fedora" ]; then
+	if [ $os_version == "fedora" ] || [ $os_version == "rhel" ]; then
 		grub2-mkconfig -o $GRUB_FILE
 		
 	else
@@ -238,7 +247,7 @@ function which_flavour()
             flavour="rhel"
     fi
     grep -c -i fedora /etc/*-release > /dev/null
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 ] && [ $flavour == "" ]; then
             flavour="fedora"
     fi
     grep -c -i "SuSE" /etc/*-release > /dev/null
@@ -281,7 +290,7 @@ function main()
     echo "Configuring Host"
     mkdir -p "/var/log/trustagent"
     validate_n_copy_initrd
-    get_manifest_file_location
+    #get_manifest_file_location
     get_partition_info
     generate_kernel_args
     generate_grub_entry

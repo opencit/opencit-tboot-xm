@@ -338,6 +338,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     char * line = NULL;
     char include[128] = {'\0'};
     char exclude[128] = { '\0'};
+	char recursive[16] = {'\0'};
     size_t len = 0;
     char calc_hash[65] = {'\0'};
     char ma_result_path[100] = {'\0'};
@@ -363,6 +364,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 
 			 strcpy(include,"");
 			 strcpy(exclude,"");
+			strcpy(recursive,"");
 				  temp_ptr = NULL;
 				  temp_ptr = strstr(line,"DigestAlg=");
 				  if(temp_ptr != NULL){
@@ -423,7 +425,13 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 							strncpy(exclude,NodeValue, sizeof(exclude));
 							DEBUG_LOG("\n%s %s","Exclude type :",NodeValue);
 						}
-
+						temp_ptr=NULL;
+						temp_ptr=strstr(line, "Recursive=");
+						if ( temp_ptr != NULL ) {
+							tagEntry(temp_ptr);
+							strncpy(recursive, NodeValue, sizeof(recursive));
+							DEBUG_LOG("\nRecursive : %s", NodeValue);
+						}
 
 					char Dir_Str[256];
 
@@ -438,7 +446,12 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					char hash_algo[15] = {'\0'};
 					sprintf(hash_algo,"%ssum",hashType);
 					if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
-					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | %s",mDpath,include,exclude,slen,hash_algo);
+						if ( strcmp(recursive,"true") == 0) {
+						   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | %s",mDpath,include,exclude,slen,hash_algo);
+						}
+						else {
+						   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | %s",mDpath,include,exclude,slen,hash_algo);
+						}
 					else if(strcmp(include,"") != 0)
 					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d | grep -E  \"%s\"| sed -r 's/.{%d}//' | %s",mDpath,include,slen,hash_algo);
 					else if(strcmp(exclude,"") != 0)
