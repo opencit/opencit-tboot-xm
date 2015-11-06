@@ -357,6 +357,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     fp=fopen(origManifestPath,"r");
     if (fp != NULL) {
 		fq=fopen(ma_result_path,"w");
+		chmod(ma_result_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 		if (fq != NULL) {
 			fprintf(fq,"<?xml version=\"1.0\"?>\n");
 			char * temp_ptr = NULL;
@@ -512,6 +513,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     strcat(hash_file,hashType);
     /*Write the Cumulative Hash calculated to the file*/
     FILE *fc = fopen(hash_file,"w");
+	chmod(hash_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (fc == NULL ) {
     	ERROR_LOG("Can not open file: %s, to write cumulative hash", hash_file);
     	return;
