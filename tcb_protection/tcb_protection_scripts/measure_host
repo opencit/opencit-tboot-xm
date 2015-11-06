@@ -195,6 +195,7 @@ manifest_verify()
 	
 	#Run the Verifier and the check for its results
 	mkdir -p ${tmp_root}/var/log/trustagent/
+	chmod 0755 ${tmp_root}/var/log/trustagent/
 	/bin/verifier $tmp_root/$manifest_path $tmp_root/ HOST >> $INITRD_LOG_FILE 2>&1
 	if [ $? -ne 0 ]; then
 		log "TCB Verification FAILED"
