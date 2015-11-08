@@ -339,6 +339,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     char include[128] = {'\0'};
     char exclude[128] = { '\0'};
 	char recursive[16] = {'\0'};
+	char recursive_cmd[32] = {'\0'};
     size_t len = 0;
     char calc_hash[65] = {'\0'};
     char ma_result_path[100] = {'\0'};
@@ -356,6 +357,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     fp=fopen(origManifestPath,"r");
     if (fp != NULL) {
 		fq=fopen(ma_result_path,"w");
+		chmod(ma_result_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 		if (fq != NULL) {
 			fprintf(fq,"<?xml version=\"1.0\"?>\n");
 			char * temp_ptr = NULL;
@@ -364,7 +366,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 
 			 strcpy(include,"");
 			 strcpy(exclude,"");
-			strcpy(recursive,"");
+			 strcpy(recursive,"");
 				  temp_ptr = NULL;
 				  temp_ptr = strstr(line,"DigestAlg=");
 				  if(temp_ptr != NULL){
@@ -431,6 +433,9 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 							tagEntry(temp_ptr);
 							strncpy(recursive, NodeValue, sizeof(recursive));
 							DEBUG_LOG("\nRecursive : %s", NodeValue);
+							if ( strcmp(recursive,"false") == 0) {
+								snprintf(recursive_cmd, sizeof(recursive_cmd), "-maxdepth 1");
+							}
 						}
 
 					char Dir_Str[256];
@@ -442,20 +447,16 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					mDpath[sizeof(mDpath) - 1] = '\0';
 					//strcat(mDpath,"\0");
 
-					int slen = strlen(fs_mount_path); //to remove mount path from the find command output.
+					//to remove mount path from the find command output and directory path and +1 is to remove the additional / after directory
+					int slen = strlen(mDpath) + 1; 
 					char hash_algo[15] = {'\0'};
 					sprintf(hash_algo,"%ssum",hashType);
 					if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
-						if ( strcmp(recursive,"true") == 0) {
-						   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | %s",mDpath,include,exclude,slen,hash_algo);
-						}
-						else {
-						   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | %s",mDpath,include,exclude,slen,hash_algo);
-						}
+					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" %s ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | grep -vE \"%s\" | %s",mDpath, recursive_cmd, slen, include, exclude, hash_algo);
 					else if(strcmp(include,"") != 0)
-					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d | grep -E  \"%s\"| sed -r 's/.{%d}//' | %s",mDpath,include,slen,hash_algo);
+					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" %s ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | %s",mDpath, recursive_cmd, slen, include, hash_algo);
 					else if(strcmp(exclude,"") != 0)
-					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d | grep -vE \"%s\"| sed -r 's/.{%d}//' | %s",mDpath,exclude,slen,hash_algo);
+					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" %s ! -type d | sed -r 's/.{%d}//' | grep -vE \"%s\" | %s",mDpath, recursive_cmd, slen, exclude, hash_algo);
 					else
 					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d| sed -r 's/.{%d}//' | %s",mDpath,slen,hash_algo);
 
@@ -512,6 +513,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     strcat(hash_file,hashType);
     /*Write the Cumulative Hash calculated to the file*/
     FILE *fc = fopen(hash_file,"w");
+	chmod(hash_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (fc == NULL ) {
     	ERROR_LOG("Can not open file: %s, to write cumulative hash", hash_file);
     	return;
