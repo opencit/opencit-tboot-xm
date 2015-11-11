@@ -46,10 +46,10 @@ function install_pkg()
 		sudo -n apt-get install --force-yes -y make gcc g++ libxml2-dev libssl-dev "linux-headers-`uname -r`" dos2unix
 	elif [ $os_flavour == "rhel" ] || [ $os_flavour == "fedora" ] || [ $os_flavour == "centos" ]
 	then
-		yum -y install make libgcc gcc-c++ libxml2-devel openssl-devel "kernel-devel-uname-r == $(uname -r)" dos2unix
+		sudo -n yum install -y make libgcc gcc-c++ libxml2-devel openssl-devel "kernel-devel-uname-r == $(uname -r)" dos2unix
 	elif [ $os_flavour == "suse" ]
 	then
-		zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel kernel-desktop-devel dos2unix
+		sudo -n zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel kernel-desktop-devel dos2unix
 	fi
 }
 function help_instruction()
