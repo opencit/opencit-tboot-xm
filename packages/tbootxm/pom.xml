@@ -9,7 +9,7 @@
 
     <parent>
         <groupId>com.intel.mtwilson.maven</groupId>
-        <artifactId>mtwilson-maven-package-makeself</artifactId>
+        <artifactId>mtwilson-maven-package-makeself-distro</artifactId>
         <version>3.0-SNAPSHOT</version>
         <relativePath/>
     </parent>
