@@ -21,7 +21,7 @@
 
   $(TARGET): $(TARGET).c
 	mkdir -p $(BIN)
-	$(CC) $(CFLAGS) $(TARGET).c  nxjson.c $(INCLUDES) $(LIBS) -o $(BIN)/$(TARGET)
+	$(CC) $(CFLAGS) $(TARGET).c  $(INCLUDES) $(LIBS) -o $(BIN)/$(TARGET)
 
   clean:
 	rm -rf $(BIN)
