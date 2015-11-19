@@ -1,7 +1,9 @@
 #!/bin/bash
 
 BASE_DIR="$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
+TBOOTXM_ENV="${TBOOTXM_ENV:-/opt/tbootxm/env}"
 TBOOTXM_LIB="${TBOOTXM_LIB:-/opt/tbootxm/lib}"
+TBOOTXM_LAYOUT_FILE="$TBOOTXM_ENV/tbootxm-layout"
 TBOOTXM_REPOSITORY="/var/tbootxm"  #"${TBOOTXM_REPOSITORY:-/var/tbootxm}"
 GENERATED_FILE_LOCATION="$TBOOTXM_REPOSITORY"  #"$BASE_DIR/generated_files"
 KERNEL_VERSION=`uname -r`
@@ -94,6 +96,12 @@ function get_grub_file_location()
       fi
     done
   fi
+	if [ -e "$GRUB_FILE" ] && [ -f "$GRUB_FILE" ] && [ -e "$TBOOTXM_LAYOUT_FILE" ]
+	then
+		echo "export GRUB_FILE=$GRUB_FILE" >> $TBOOTXM_LAYOUT_FILE
+	else
+		echo "tbootxm layout file not found"
+	fi
 }
 
 function get_partition_info()
