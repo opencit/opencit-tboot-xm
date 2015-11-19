@@ -10,6 +10,7 @@ REMOVE_GRUB_ENTRY_SCRIPT="${TBOOTXM_LIB}/remove_menuentry.pl"
 GRUB_ENTRY_FILE=""
 MENUENTRY_PREFIX="TCB-Protection"
 INITRD_NAME=initrd.img-$KERNEL_VERSION-measurement
+TBOOTXM_CONF_FILE="/tbootxm.conf"
 
 # check the flavour of OS
 function which_flavour()
@@ -143,6 +144,7 @@ function remove_tbootxm_files()
 	else
 		echo_warning "seems like tbootxm is not installed on the machine"
 	fi
+	rm $TBOOTXM_CONF_FILE 2>/dev/null
 }
 
 function main()
