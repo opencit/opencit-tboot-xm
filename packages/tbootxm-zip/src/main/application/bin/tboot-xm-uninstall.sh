@@ -170,7 +170,7 @@ function main()
 	remove_initrd
 	remove_tbootxm_files
 	echo_success "tboot-xm uninstall complete"
-	echo "If default grub entry was set to $MENUENTRY_PREFIX, it will be changed to first entry in GRUB file"
+	echo_warning "default grub entry will be changed to first entry in GRUB file"
 	
 	sed -i s/GRUB_DEFAULT=[0-9]*/GRUB_DEFAULT=0/ $GRUB_DEFAULT_FILE
 }
