@@ -103,22 +103,29 @@ function get_grub_file_location()
 		echo "tbootxm layout file not found"
 	fi
 }
-
 function get_partition_info()
 {
-	# Get partition information for current OS
-	PARTITION_INFO="" 
-	#take all the filesystem types supported and find partition for those
-	for fs_type in `cat /proc/filesystems | grep -v "nodev" | awk '{print $1}'`
-	do
-		for val in `df -P -t $fs_type 2> /dev/null | grep -i -v Filesystem | awk '{ print $1 ":" $6}'`
-		do 
-			PARTITION_INFO="${PARTITION_INFO},${val}" 
-		done 
-	done
-	PARTITION_INFO=`echo $PARTITION_INFO | cut -c2-`
-	PARTITION_INFO="{"$PARTITION_INFO"}"
-	echo "Partitions available and its mount points: $PARTITION_INFO"
+        # Get partition information for current OS
+        PARTITION_INFO=""
+        #take all the filesystem types supported and find partition for those
+        for fs_type in `cat /proc/filesystems | grep -v "nodev" | awk '{print $1}'`
+        do
+                for val in `df -P -t $fs_type 2> /dev/null | grep -i -v Filesystem | awk '{ print $6 ":" $1}'`
+                do
+                        PARTITION_INFO="${PARTITION_INFO},${val}"
+                done
+        done
+        PARTITION_INFO=`echo $PARTITION_INFO | cut -c2-`
+        echo $PARTITION_INFO
+        NEW_PART_INFO=""
+        for var in `echo $PARTITION_INFO | tr "," "\n" |  cut -f1 -d":" | sort`
+        do
+                var1=`echo "$PARTITION_INFO" | tr "," "\n" | grep "$var:"`
+                NEW_PART_INFO="${NEW_PART_INFO},`echo "$var1" | awk -F":" '{ print $2 ":" $1}'`"
+        done
+        NEW_PART_INFO=`echo $NEW_PART_INFO | cut -c2-`
+        PARTITION_INFO="{${NEW_PART_INFO}}"
+        echo "Partitions available and its mount points: $PARTITION_INFO"	
 }
 
 function generate_kernel_args()
