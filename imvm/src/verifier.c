@@ -342,7 +342,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 	char recursive_cmd[32] = {'\0'};
     size_t len = 0;
     char calc_hash[65] = {'\0'};
-    char ma_result_path[100] = {'\0'};
+    char ma_result_path[256] = {'\0'};
 	//memset(ma_result_path,'\0',strlen(ma_result_path));
     char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
     int digest_check  = 0;
