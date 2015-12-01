@@ -54,6 +54,7 @@
                                 <!-- application/lib -->
                                 <copy file="../../tcb_protection/create_menuentry.pl" todir="${project.build.directory}/application/lib"/>
                                 <copy file="../../tcb_protection/update_menuentry.pl" todir="${project.build.directory}/application/lib"/>
+                                <copy file="../../tcb_protection/remove_menuentry.pl" todir="${project.build.directory}/application/lib"/>
                                 
                                 <copy todir="${project.build.directory}/application/dracut_files">
                                     <fileset dir="../../tcb_protection/dracut_files"/>

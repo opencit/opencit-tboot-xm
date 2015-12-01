@@ -129,29 +129,24 @@ mount_root()
 unmount_partitions()
 {
 	log "Unmount Partitions - STARTED"
-	cat $INITRD_LOG_FILE >> $tcb_log_file
-	for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' `
+	for mntPoint in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' | cut -f2 -d":" | sort -r`
 	do
-        	mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
-        	mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
-        	if [ $mntPoint = "/" ]
-        	then
-                	log "Skipping unmount /"
-        	else
-                	umount $tmp_root/$mntPoint
-                	#rm -rf $tmp_root/$mntPoint
-        	fi
- 	done
-
-	#Unmount Root Partition
-	umount $tmp_root
-	if [ $? = 0 ] ; then
-		log "Unmounted all sucessfully"
-	else
-		log "ERROR : Cound not unmount root partition"
-	fi
+		log "unmounting $tmp_root/$mntPoint"
+		if [ $mntPoint = "/" ]
+		then
+			cat $INITRD_LOG_FILE >> $tcb_log_file
+			umount $tmp_root/$mntPoint
+		else
+			umount $tmp_root/$mntPoint
+		fi
+		if [ $? -ne 0 ]
+		then
+			log "ERROR: Failed to unmount $tmp_root/$mntPoint"
+		else
+			log "Successfully unmounted $tmp_root/$mntPoint"
+		fi
+	done
 	log "Unmount Paritions - COMPLETE"
-
 }
 #End of Unmount Fn
 
