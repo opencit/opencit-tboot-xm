@@ -6,7 +6,8 @@
 
   # compiler flags:
   #  -g    adds debugging information to the executable file
-  CFLAGS  = -g
+  LDFLAGS  := -pie -z noexecstack -z relro -z now
+  CFLAGS  = -g -Wformat -Wformat-security -fPIE -fPIC -fstack-protector -O2 -D FORTIFY_SOURCE=2
 
   LIBS = -lxml2 -lcrypto
 
@@ -21,7 +22,7 @@
 
   $(TARGET): $(TARGET).c
 	mkdir -p $(BIN)
-	$(CC) $(CFLAGS) $(TARGET).c  $(INCLUDES) $(LIBS) -o $(BIN)/$(TARGET)
+	$(CC) $(CFLAGS) $(TARGET).c  $(INCLUDES) $(LIBS) -o $(BIN)/$(TARGET) $(LDFLAGS)
 
   clean:
 	rm -rf $(BIN)
