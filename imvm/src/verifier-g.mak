@@ -3,13 +3,14 @@
 
   VERIFIER_ROOT=..
   BIN=$(VERIFIER_ROOT)/bin
+  LIB=$(VERIFIER_ROOT)/lib
 
   # compiler flags:
   #  -g    adds debugging information to the executable file
   LDFLAGS  := -pie -z noexecstack -z relro -z now
   CFLAGS  = -g -Wformat -Wformat-security -fPIE -fPIC -fstack-protector -O2 -D FORTIFY_SOURCE=2
 
-  LIBS = -lxml2 -lcrypto
+  LIBS = -lxml2 -lcrypto -lSafeStringRelease
 
   CURR_DIR = `pwd`
 
@@ -22,7 +23,7 @@
 
   $(TARGET): $(TARGET).c
 	mkdir -p $(BIN)
-	$(CC) $(CFLAGS) $(TARGET).c  $(INCLUDES) $(LIBS) -o $(BIN)/$(TARGET) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(TARGET).c  $(INCLUDES) -L$(LIB) $(LIBS) -o $(BIN)/$(TARGET) $(LDFLAGS)
 
   clean:
 	rm -rf $(BIN)
