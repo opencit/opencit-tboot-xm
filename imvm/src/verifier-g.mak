@@ -3,7 +3,9 @@
 
   VERIFIER_ROOT=..
   BIN=$(VERIFIER_ROOT)/bin
-  LIB=$(VERIFIER_ROOT)/lib
+  SAFESTRING=./SafeStringLibrary/
+  SAFESTRING_INCLUDE=$(SAFESTRING)/include/
+  LIBXML_INCLUDE=/usr/include/libxml2/
 
   # compiler flags:
   #  -g    adds debugging information to the executable file
@@ -14,7 +16,7 @@
 
   CURR_DIR = `pwd`
 
-  INCLUDES = -I/usr/include/libxml2/ -I$(CURR_DIR)
+  INCLUDES = -I$(LIBXML_INCLUDE) -I$(CURR_DIR) -I$(SAFESTRING_INCLUDE)
 
   # the build target executable:
   TARGET = verifier
@@ -23,7 +25,7 @@
 
   $(TARGET): $(TARGET).c
 	mkdir -p $(BIN)
-	$(CC) $(CFLAGS) $(TARGET).c  $(INCLUDES) -L$(LIB) $(LIBS) -o $(BIN)/$(TARGET) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(TARGET).c  $(INCLUDES) -L$(SAFESTRING) $(LIBS) -o $(BIN)/$(TARGET) $(LDFLAGS)
 
   clean:
 	rm -rf $(BIN)
