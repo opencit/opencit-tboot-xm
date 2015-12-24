@@ -24,6 +24,8 @@ Keywords in the Policy should match with those in this code : DigestAlg, File Pa
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
 #include <ctype.h>
+#include "safe_lib.h"
+#include "char_converter.h"
 
 //#define MOUNTPATH_IMVM  "/tmp/"
 //#define MOUNTPATH_HOST  "/tmp/root"
@@ -46,56 +48,6 @@ int process_started = 0;
 SHA256_CTX csha256;
 SHA_CTX csha1;
 
-/**
- *hex_to_string:
- *hex_str : string of hex chars, hex_str_len : length of hex string, byte * output string
- *return : size of output string
- */
-int hexstr_to_asciistr(char *hex_str, int hex_str_len, byte* out_str) {
-	int i = 0;
-	unsigned int buff = 0 & 0xFF;
-	int scanerr;
-	for (i = 0 ; i < (hex_str_len + 1) /2 ; i ++) {
-		scanerr = sscanf(hex_str+ (i*2), "%02x", &buff);
-		if (scanerr == EOF && scanerr != 1) {
-			ERROR_LOG("\nError while converting...");
-			return -1;
-		}
-		out_str[i] = buff;
-	}
-	out_str[i] = '\0';
-	return i;
-}
-
-/*
- * sha256_hash_string:
- * @hash : hash value for the file
- *
- * Store hash of file in "fileHashes.txt"
- */
-char* sha256_hash_string (unsigned char hash[SHA256_DIGEST_LENGTH], char outputBuffer[65]) {
-    int i;
-    int len = 65;
-    for(i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        snprintf(outputBuffer + (i * 2), (len - i * 2), "%02x", hash[i]);
-    }
-    return outputBuffer;
-}
-/* 
- * sha1_hash_string:
- * @hash : hash value for the file
- *
- * Store hash of file in "fileHashes.txt"
- */
-char* sha1_hash_string (unsigned char hash[SHA_DIGEST_LENGTH], char outputBuffer[65])
-{
-    int i;
-    int len = 65;
-    for(i = 0; i < SHA_DIGEST_LENGTH; i++) {
-        snprintf(outputBuffer + (i * 2), (len - i * 2), "%02x", hash[i]);
-    }
-   return outputBuffer;
-}
 
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
 void generate_cumulative_hash(char *hash,int sha_one){
@@ -104,12 +56,13 @@ void generate_cumulative_hash(char *hash,int sha_one){
 	char cur_hash[SHA256_DIGEST_LENGTH + 1] = {'\0'};
     if(sha_one){
     	//char cur_hash[SHA_DIGEST_LENGTH + 1] = {'\0'};
-	   strncpy_s(cHash,sizeof(cHash),d1,SHA_DIGEST_LENGTH);
-       DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha1_hash_string(cHash,ob));
-		  
+	   strncpy_s((char *)cHash,sizeof(cHash),(char *)d1,SHA_DIGEST_LENGTH);
+	   bin2hex(cHash, sizeof(cHash), ob, sizeof(ob));
+       //DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha1_hash_string(cHash,ob));
+	   DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
 	   SHA1_Init(&csha1);
 	   SHA1_Update(&csha1,d1,SHA_DIGEST_LENGTH);
-	   if (SHA_DIGEST_LENGTH == hexstr_to_asciistr(hash, strnlen_s(hash,MAX_LEN), cur_hash)) {
+	   if (SHA_DIGEST_LENGTH == hex2bin(hash, strnlen_s(hash,MAX_LEN), (unsigned char *)cur_hash, sizeof(cur_hash))) {
 		   SHA1_Update(&csha1,cur_hash, SHA_DIGEST_LENGTH);
 	   }
 	   else {
@@ -117,31 +70,33 @@ void generate_cumulative_hash(char *hash,int sha_one){
 	   }
 	   SHA1_Final(d1,&csha1);
 	   
-	   strncpy_s(cHash,sizeof(cHash),d1,SHA_DIGEST_LENGTH);
-	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha1_hash_string(cHash,ob));
-	   
+	   strncpy_s( (char *)cHash,sizeof(cHash), (char *)d1,SHA_DIGEST_LENGTH);
+	   bin2hex(cHash, sizeof(cHash), ob, sizeof(ob));
+	   //DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha1_hash_string(cHash,ob));
+	   DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
 	   memset_s(ob,strnlen_s(ob,sizeof(ob)),'\0');
 	   
 	   return;
 	}
 	
 	else{
-	   strncpy_s(cHash2,sizeof(cHash2),d2,SHA256_DIGEST_LENGTH);
-       DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha256_hash_string(cHash2,ob));
-	   
+	   strncpy_s(( char *)cHash2,sizeof(cHash2), (char *)d2,SHA256_DIGEST_LENGTH);
+	   bin2hex(cHash2, sizeof(cHash2), ob, sizeof(ob));
+       //DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha256_hash_string(cHash2,ob));
+       DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
 	   SHA256_Init(&csha256);
 	   SHA256_Update(&csha256,d2,SHA256_DIGEST_LENGTH);
-	   if (SHA256_DIGEST_LENGTH == hexstr_to_asciistr(hash, strnlen_s(hash,MAX_LEN), cur_hash)) {
+	   if (SHA256_DIGEST_LENGTH == hex2bin(hash, strnlen_s(hash,MAX_LEN), (unsigned char *)cur_hash, sizeof(cur_hash))) {
 		   SHA256_Update(&csha256,cur_hash, SHA256_DIGEST_LENGTH);
 	   }
 	   else {
 		   DEBUG_LOG("\n length of string converted from hex is not equal to SHA256 digest length");
 	   }
 	   SHA256_Final(d2, &csha256);
-	  
-	   strncpy_s(cHash2,sizeof(cHash2),d2,SHA256_DIGEST_LENGTH);
-	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha256_hash_string(cHash2,ob));   
-	   
+	   strncpy_s((char *)cHash2,sizeof(cHash2), (char *) d2,SHA256_DIGEST_LENGTH);
+	   bin2hex(cHash2, sizeof(cHash2), ob, sizeof(ob));
+	   //DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha256_hash_string(cHash2,ob));
+	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
 	   memset_s(ob,strnlen_s(ob,sizeof(ob)),'\0');
 	   
 	   return;
@@ -232,7 +187,7 @@ char* calculate(char *path, char output[65]) {
         SHA256_CTX sha256;
         SHA256_Init(&sha256);
         const int bufSize = 65000;
-        char *buffer = malloc(bufSize);
+        char *buffer = (char *)malloc(bufSize);
        
         int bytesRead = 0;
         if(!buffer) {
@@ -244,7 +199,8 @@ char* calculate(char *path, char output[65]) {
               SHA256_Update(&sha256, buffer, bytesRead);
         }
         SHA256_Final(hash, &sha256);
-        output = sha256_hash_string(hash, output);
+        //output = sha256_hash_string(hash, output);
+        bin2hex(hash, sizeof(hash), output, sizeof(output));
 		strcpy_s(hash_in,sizeof(hash_in),output);
         generate_cumulative_hash(output,0);
         fclose(file);
@@ -256,7 +212,7 @@ char* calculate(char *path, char output[65]) {
         SHA_CTX sha1;
         SHA1_Init(&sha1);
         const int bufSize = 32768;
-        char *buffer = malloc(bufSize);
+        char *buffer = (char *) malloc(bufSize);
         int bytesRead = 0;
         if(!buffer) {
         	fclose(file);
@@ -266,7 +222,8 @@ char* calculate(char *path, char output[65]) {
             SHA1_Update(&sha1, buffer, bytesRead);
         }
         SHA1_Final(hash, &sha1);
-        output = sha1_hash_string(hash, output);
+        //output = sha1_hash_string(hash, output);
+        bin2hex(hash, sizeof(hash), output, sizeof(output));
 	    strcpy_s(hash_in,sizeof(hash_in),output);
 		generate_cumulative_hash(output,1);
         fclose(file);
@@ -520,11 +477,16 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     	return;
     }
     char *ptr;
-    if(strcmp(hashType, "sha256") == 0)
-           ptr = sha256_hash_string(d2,cH2);
-    else
-           ptr = sha1_hash_string(d1,cH2);
-
+    if(strcmp(hashType, "sha256") == 0){
+    	bin2hex(d2, sizeof(d2), cH2, sizeof(cH2));
+    	ptr= cH2;
+        //ptr = sha256_hash_string(d2,cH2);
+    }
+    else {
+    	bin2hex(d1, sizeof(d1), cH2, sizeof(cH2));
+    	ptr= cH2;
+        //   ptr = sha1_hash_string(d1,cH2);
+    }
     fprintf(fc,"%s",ptr);
     fclose(fc);
 }
@@ -548,7 +510,7 @@ int main(int argc, char **argv) {
 	strcpy_s(manifest_file,sizeof(manifest_file),argv[1]);
 	strcpy_s(fs_mount_path,sizeof(fs_mount_path),argv[2]);
 	strcat_s(fs_mount_path,sizeof(fs_mount_path),"/");
-    memset_s(cHash,strnlen_s(cHash,sizeof(cHash)),0);
+    memset_s((char *)cHash,strnlen_s((char *)cHash,sizeof(cHash)),0);
     if (strcmp(argv[3], "IMVM") == 0) {
     	char* last_oblique_ptr = strrchr(manifest_file, '/');
         //strncpy_s(hash_file,sizeof(hash_file),manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
