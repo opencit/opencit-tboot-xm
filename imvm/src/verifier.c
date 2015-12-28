@@ -33,6 +33,7 @@ Keywords in the Policy should match with those in this code : DigestAlg, File Pa
 #define ERROR_LOG(fmt, args...) fprintf(stderr, fmt, ##args)
 #define byte unsigned char
 #define MAX_LEN 4096
+#define MAX_HASH_LEN 65
 
 char fs_mount_path[1024];
 char hashType[10]; //SHA1 or SHA256
@@ -42,7 +43,7 @@ unsigned char cHash[SHA_DIGEST_LENGTH] = {'\0'}; //Cumulative hash
 unsigned char cHash2[SHA256_DIGEST_LENGTH] = {'\0'};
 unsigned char d1[SHA_DIGEST_LENGTH]={0};
 unsigned char d2[SHA256_DIGEST_LENGTH]={0};
-char cH2[65];
+char cH2[MAX_HASH_LEN];
 char hash_file[256];
 int process_started = 0;
 SHA256_CTX csha256;
@@ -52,7 +53,7 @@ SHA_CTX csha1;
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
 void generate_cumulative_hash(char *hash,int sha_one){
     DEBUG_LOG("\nIncoming Hash : %s\n",hash);
-	char ob[65];
+	char ob[MAX_HASH_LEN]= {'\0'};
 	char cur_hash[SHA256_DIGEST_LENGTH + 1] = {'\0'};
     if(sha_one){
     	//char cur_hash[SHA_DIGEST_LENGTH + 1] = {'\0'};
@@ -73,7 +74,7 @@ void generate_cumulative_hash(char *hash,int sha_one){
 	   strncpy_s( (char *)cHash,sizeof(cHash), (char *)d1,SHA_DIGEST_LENGTH);
 	   bin2hex(cHash, sizeof(cHash), ob, sizeof(ob));
 	   //DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha1_hash_string(cHash,ob));
-	   DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
+	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
 	   memset_s(ob,strnlen_s(ob,sizeof(ob)),'\0');
 	   
 	   return;
@@ -154,7 +155,7 @@ int getSymLinkValue(char *path) {
  *
  * Calculate hash of file
  */
-char* calculate(char *path, char output[65]) {
+char* calculate(char *path, char output[MAX_HASH_LEN]) {
     
     char hash_in[65];
     char value[1056] = {'\0'};
@@ -200,7 +201,7 @@ char* calculate(char *path, char output[65]) {
         }
         SHA256_Final(hash, &sha256);
         //output = sha256_hash_string(hash, output);
-        bin2hex(hash, sizeof(hash), output, sizeof(output));
+        bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
 		strcpy_s(hash_in,sizeof(hash_in),output);
         generate_cumulative_hash(output,0);
         fclose(file);
@@ -223,7 +224,7 @@ char* calculate(char *path, char output[65]) {
         }
         SHA1_Final(hash, &sha1);
         //output = sha1_hash_string(hash, output);
-        bin2hex(hash, sizeof(hash), output, sizeof(output));
+        bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
 	    strcpy_s(hash_in,sizeof(hash_in),output);
 		generate_cumulative_hash(output,1);
         fclose(file);
@@ -301,7 +302,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 	char recursive[16] = {'\0'};
 	char recursive_cmd[32] = {'\0'};
     size_t len = 0;
-    char calc_hash[65] = {'\0'};
+    char calc_hash[MAX_HASH_LEN] = {'\0'};
     char ma_result_path[100] = {'\0'};
 	//memset_s(ma_result_path,sizeof(ma_result_path),'/0');
     char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
