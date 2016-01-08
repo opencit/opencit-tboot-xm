@@ -42,20 +42,24 @@ int main(int argc, char** argv)
     byte    rgRandom[BUFSIZE];
     int     size;
     int     offset, ret;
-    int     pcrno;
-    char    *filesystem_hash;
+    int     pcrno = -1;
+    char    *filesystem_hash = NULL;
     uint8_t hash_bytes[TPM_DIGEST_SIZE];
     size_t  i = 0;
 
     fprintf(STDOUT, "TPM extension\n\n");
 
-    if(argc < 3) {
+    if(argc != 3) {
       printf("Usage: tpmextend <PCR number> <filesystem hash>\n");
       return -1;
     }
 
     if (argc == 3) {
         pcrno = atoi(argv[1]);
+        if (pcrno < 0 || pcrno > 22) {
+        	printf("Please provide a valid PCR no. to extend\n");
+        	return -1;
+        }
         filesystem_hash = argv[2];
         printf("Will extend PCR%d by with filesyatem hash %s\n", pcrno, filesystem_hash);
     }
@@ -94,6 +98,7 @@ int main(int argc, char** argv)
     PrintBytes("PCR contents read by RPMMIO ", rgpcr, TPM_DIGEST_SIZE);
         if(ret<0){
         fprintf(STDOUT, "read failed\n");
+        close(tpmfd);
         return false;
     }
     
@@ -112,6 +117,7 @@ int main(int argc, char** argv)
     PrintBytes("PCR contents read by RPMMIO ", rgpcr, TPM_DIGEST_SIZE);
     if(ret<0){
         fprintf(STDOUT, "read failed, ret %d\n", ret);
+        close(tpmfd);
         return false;
     }
     

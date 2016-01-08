@@ -39,7 +39,7 @@ while(<FH>) {
 		if($_ ne '}') {
 			if ($_ =~ /tboot\.gz/ ) {
 				$isTboot = 1;
-				$buffer .= $_ . "\n";
+				$buffer .= $_ . " measure_nv=true\n";
 	#		} elsif ( $_ =~ $kernel_version and !($_ =~ $kernel_arg ) )
 			} elsif ( $_ =~ /$kernel_version/ and $_ =~ /vmlinu[xz]-/ and !($_ =~ $kernel_arg ) )
 			{
@@ -116,6 +116,11 @@ elsif ( $grub_version == 0 )
 					$isTboot = 0;
 					$isSameKernel = 0;
 				}
+			}
+			elsif( $_ =~ /\s*initrd / )
+			{
+				$_ =~ s/initrd /module /;
+				$buffer .= $_."\n";
 			}
 			else {
 				$buffer .= $_."\n";

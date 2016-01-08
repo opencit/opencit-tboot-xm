@@ -27,12 +27,20 @@ Keywords in the Policy should match with those in this code : DigestAlg, File Pa
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
+#include "safe_lib.h"
 #include <dirent.h>
 #include <sys/param.h>
+#include <libxml/xmlreader.h>
 #endif
+#include "char_converter.h"
 
-#define DEBUG_LOG(fmt, ...) fprintf(stdout, fmt, ##__VA_ARGS__);
-#define ERROR_LOG(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__);
+//#define MOUNTPATH_IMVM  "/tmp/"
+//#define MOUNTPATH_HOST  "/tmp/root"
+#define DEBUG_LOG(fmt, ...) fprintf(stdout, fmt, ##__VA_ARGS__)
+#define ERROR_LOG(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
+#define byte unsigned char
+#define MAX_LEN 4096
+#define MAX_HASH_LEN 65
 
 char hashType[10]; //SHA1 or SHA256
 char NodeValue[500]; //XML Tag value
@@ -86,13 +94,12 @@ hashObject_size = 0;
 static PBYTE                   hashObject_ptr = NULL;
 static PBYTE                   hash_ptr = NULL;
 #elif __linux__
-#define MOUNTPATH_IMVM  "/tmp/"
-#define MOUNTPATH_HOST  "/"
-
-unsigned char cHash[SHA_DIGEST_LENGTH]; //Cumulative hash
-unsigned char cHash2[SHA256_DIGEST_LENGTH];
-unsigned char d1[SHA_DIGEST_LENGTH] = { 0 };
-unsigned char d2[SHA256_DIGEST_LENGTH] = { 0 };
+unsigned char cHash[SHA_DIGEST_LENGTH] = {'\0'}; //Cumulative hash
+unsigned char cHash2[SHA256_DIGEST_LENGTH] = {'\0'};
+unsigned char d1[SHA_DIGEST_LENGTH]={0};
+unsigned char d2[SHA256_DIGEST_LENGTH]={0};
+char cH2[MAX_HASH_LEN];
+char hash_file[256];
 SHA256_CTX csha256;
 SHA_CTX csha1;
 #endif
@@ -550,34 +557,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 }
 #endif
 
-/*
-* sha256_hash_string: convert a sha256 hash to char string
-* @hash : hash value for the file
-* @hash_size : size of the hash value passed in char size
-* @outputBuffer : pointer to buffer to store the converted hash, enough memory must be allocated to beforehand
-* Store hash of file in "fileHashes.txt"
 */
-char* sha256_hash_string(unsigned char* hash, int hash_size, char *outputBuffer) {
-	int i;
-	for (i = 0; i < hash_size; i++) {
-		sprintf(outputBuffer + (i * 2), "%02x", hash[i]);
-	}
-	return outputBuffer;
-}
-
-/*
-* sha1_hash_string:
-* @hash : hash value for the file
-* @hash_size : size of the hash value passed in char size
-* @outputBuffer : pointer to buffer to store the converted hash, enough memory must be allocated to beforehand
-* Store hash of file in "fileHashes.txt"
-*/
-char* sha1_hash_string(unsigned char* hash, int hash_size, char *outputBuffer) {
-	int i = 0;
-	for (i = 0; i < hash_size; i++) {
-		sprintf(outputBuffer + (i * 2), "%02x", hash[i]);
-	}
-	return outputBuffer;
 }
 
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
@@ -589,38 +569,55 @@ void generate_cumulative_hash(char *hash, int sha_one){
 		cleanup_CNG_api();
 	}
 #elif __linux__
-	char ob[256];
-	if(sha_one){
-		strncpy(cHash,d1,SHA_DIGEST_LENGTH);
-		DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha1_hash_string(cHash,ob));
-
-		SHA1_Init(&csha1);
-		SHA1_Update(&csha1,d1,SHA_DIGEST_LENGTH);
-		SHA1_Update(&csha1, hash, strlen(hash));
-		SHA1_Final(d1,&csha1);
-
-		strncpy(cHash,d1,SHA_DIGEST_LENGTH);
-		DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha1_hash_string(cHash,ob));
-
-		memset(ob,'\0',strlen(ob));
-
-		return;
+	char ob[MAX_HASH_LEN]= {'\0'};
+	char cur_hash[SHA256_DIGEST_LENGTH + 1] = {'\0'};
+    if(sha_one){
+    	//char cur_hash[SHA_DIGEST_LENGTH + 1] = {'\0'};
+	   strncpy_s((char *)cHash,sizeof(cHash),(char *)d1,SHA_DIGEST_LENGTH);
+	   bin2hex(cHash, sizeof(cHash), ob, sizeof(ob));
+       //DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha1_hash_string(cHash,ob));
+	   DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
+	   SHA1_Init(&csha1);
+	   SHA1_Update(&csha1,d1,SHA_DIGEST_LENGTH);
+	   if (SHA_DIGEST_LENGTH == hex2bin(hash, strnlen_s(hash,MAX_LEN), (unsigned char *)cur_hash, sizeof(cur_hash))) {
+		   SHA1_Update(&csha1,cur_hash, SHA_DIGEST_LENGTH);
+	   }
+	   else {
+		   DEBUG_LOG("\n length of string converted from hex is not equal to SHA1 digest length");
+	   }
+	   SHA1_Final(d1,&csha1);
+	   
+	   strncpy_s( (char *)cHash,sizeof(cHash), (char *)d1,SHA_DIGEST_LENGTH);
+	   bin2hex(cHash, sizeof(cHash), ob, sizeof(ob));
+	   //DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha1_hash_string(cHash,ob));
+	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
+	   memset_s(ob,strnlen_s(ob,sizeof(ob)),'\0');
+	   
+	   return;
 	}
+	
 	else{
-		strncpy(cHash2,d2,SHA256_DIGEST_LENGTH);
-		DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha256_hash_string(cHash2,ob));
-
-		SHA256_Init(&csha256);
-		SHA256_Update(&csha256,d2,SHA256_DIGEST_LENGTH);
-		SHA256_Update(&csha256, hash, strlen(hash));
-		SHA256_Final(d2, &csha256);
-
-		strncpy(cHash2, d2, SHA256_DIGEST_LENGTH);
-		DEBUG_LOG("\n%s %s", "Cumulative Hash after is:", sha256_hash_string(cHash2, ob));
-
-		memset(ob,'\0',strlen(ob));
-
-		return;
+	   strncpy_s(( char *)cHash2,sizeof(cHash2), (char *)d2,SHA256_DIGEST_LENGTH);
+	   bin2hex(cHash2, sizeof(cHash2), ob, sizeof(ob));
+       //DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha256_hash_string(cHash2,ob));
+       DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
+	   SHA256_Init(&csha256);
+	   SHA256_Update(&csha256,d2,SHA256_DIGEST_LENGTH);
+	   if (SHA256_DIGEST_LENGTH == hex2bin(hash, strnlen_s(hash,MAX_LEN), (unsigned char *)cur_hash, sizeof(cur_hash))) {
+		   SHA256_Update(&csha256,cur_hash, SHA256_DIGEST_LENGTH);
+	   }
+	   else {
+		   DEBUG_LOG("\n length of string converted from hex is not equal to SHA256 digest length");
+	   }
+	   SHA256_Final(d2, &csha256);
+	   strncpy_s((char *)cHash2,sizeof(cHash2), (char *) d2,SHA256_DIGEST_LENGTH);
+	   bin2hex(cHash2, sizeof(cHash2), ob, sizeof(ob));
+	   //DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha256_hash_string(cHash2,ob));
+	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
+	   memset_s(ob,strnlen_s(ob,sizeof(ob)),'\0');
+	   
+	   return;
+		
 	}
 #endif
 }
@@ -672,79 +669,78 @@ int getSymLinkValue(char *path) {
 		return getSymLinkValue(path);
 	}
 #elif __linux__
-	struct stat p_statbuf;
-	if (lstat(path, &p_statbuf) < 0) {  /* if error occured */
-		ERROR_LOG("\n%s %s", "Not valid path -", path);
-		return -1;
-	}
-	if (S_ISLNK(p_statbuf.st_mode) == 1) {
-		// If symbolic link doesn't exists read the path its pointing to
-		int len = readlink(path, symlinkpath, symlinkpath_size);
-		if (len != -1) {
-			symlinkpath[len] = '\0';
-		}
-		DEBUG_LOG("\n%s %s %s %s", "Symlink", path, " points to", symlinkpath);
-		//("Symlink '%s' points to '%s' \n", path, symlinkpath);
-		char sympathroot[512];
-		// If the path is starting with "/" and 'fs_mount_path' is not appended
-		if (((strstr(symlinkpath, "/") - symlinkpath) == 0) && (strstr(symlinkpath, fs_mount_path) == NULL)) {
-			snprintf(sympathroot, sizeof sympathroot, "%s%s", fs_mount_path, symlinkpath);
-			DEBUG_LOG("\n%s %s %s %s", "Absolute symlink path", symlinkpath, "points to", sympathroot);
-			//printf("Absolute symlink path '%s' points to '%s'\n", symlinkpath, sympathroot);
-		}
-		else {
-			char* last_backslash = strrchr(path, '/');
-			if (last_backslash) {
-				*last_backslash = '\0';
-			}
-			snprintf(sympathroot, sizeof sympathroot, "%s%s%s", path, "/", symlinkpath);
-			DEBUG_LOG("\n%s %s %s %s", "Relative symlink path", symlinkpath, "points to", sympathroot);
-			//printf("Relative symlink path '%s' point to '%s'\n", symlinkpath, sympathroot);
-		}
-		strcpy(path, sympathroot);
-		return getSymLinkValue(path);
-	}
+    struct stat p_statbuf;
+    if (lstat(path, &p_statbuf) < 0) {  /* if error occured */
+        ERROR_LOG("\n%s %s","Not valid path -", path);
+        return -1;
+    }
+        // Check if the file path is a symbolic link
+    if (S_ISLNK(p_statbuf.st_mode) ==1) {
+            // If symbolic link doesn't exists read the path its pointing to
+            int len = readlink(path, symlinkpath, sizeof(symlinkpath));
+            if (len != -1) {
+                symlinkpath[len] = '\0';
+            }
+            DEBUG_LOG("\n%s %s %s %s","Symlink",path," points to",symlinkpath);
+            //("Symlink '%s' points to '%s' \n", path, symlinkpath);
+            char sympathroot[512];
+            // If the path is starting with "/" and 'fs_mount_path' is not appended
+            if(((strstr(symlinkpath, "/") - symlinkpath) == 0) && (strstr(symlinkpath,fs_mount_path) == NULL)) {
+                snprintf(sympathroot, sizeof sympathroot, "%s%s", fs_mount_path, symlinkpath);
+                DEBUG_LOG("\n%s %s %s %s","Absolute symlink path",symlinkpath,"points to",sympathroot);
+				//printf("Absolute symlink path '%s' points to '%s'\n", symlinkpath, sympathroot);
+            }
+            else {
+                char* last_backslash = strrchr(path, '/');
+                if (last_backslash) {
+                    *last_backslash = '\0';
+                }
+                snprintf(sympathroot, sizeof sympathroot, "%s%s%s", path, "/", symlinkpath);
+                DEBUG_LOG("\n%s %s %s %s","Relative symlink path",symlinkpath,"points to",sympathroot);
+				//printf("Relative symlink path '%s' point to '%s'\n", symlinkpath, sympathroot);
+            }
+            strcpy_s(path, MAX_LEN, sympathroot);
+            return getSymLinkValue(path);
+    }
 #endif
 	return 0;
 }
 
-/*
-* calculate:
-* @path : path of the file
-* @output : character array for storing the resulted file hash
-*
-* Calculate hash of file
-*/
-char* calculate(char *path, char *output) {
-	const int bufSize = 65000;
-	char *buffer = malloc(bufSize);
-	int bytesRead = 0;
-	if (!buffer) return NULL;
-	char value[512];
-	/*We append the mount path before the filepath first,
-	and then pass that address to calculate the hash */
+ /*
+ * calculate:
+ * @path : path of the file
+ * @output : character array for storing the resulted file hash
+ *
+ * Calculate hash of file
+ */
+char* calculate(char *path, char output[MAX_HASH_LEN]) {
+    
+    char hash_in[65];
+    char value[1056] = {'\0'};
+    /*We append the mount path before the filepath first, 
+	 and then pass that address to calculate the hash */
 
-	strcpy(value, fs_mount_path);
-	strcat(value, path);//Value = Mount Path + Path in the image/disk
+    strcpy_s(value, sizeof(value), fs_mount_path);
+    strcat_s(value,sizeof(value),path);//Value = Mount Path + Path in the image/disk
 #ifdef __linux__
-	int retval = getSymLinkValue(value);
-	if (retval != 0) {
-		ERROR_LOG("\n%s %s %s", "File:", path, "doesn't exist");
-		return NULL;
-	}
-	DEBUG_LOG("\n%s %s %s %s", "Mounted file path for file", path, "is", value);
-#endif
-	FILE* file = fopen(value, "rb");
-	if (!file) {
-		ERROR_LOG("\n%s %s", "File not found-", value);
-		return NULL;
-	}
-	/*How the process works:
-	1. Open the file pointed by value
-	2. Read the file contents into char * buffer
-	3. Pass those to SHA function.(Output to char output passed to the function)
-	4. Return the Output string.
-	*/
+    int retval = getSymLinkValue(value);
+    if(retval != 0) {
+        ERROR_LOG("\n%s %s %s","File:",path,"doesn't exist");
+        return NULL;
+    }
+	DEBUG_LOG("\n%s %s %s %s","Mounted file path for file",path,"is",value);
+#endif    
+    FILE* file = fopen(value, "rb");
+    if(!file) {
+        ERROR_LOG("\n%s %s","File not found-", value);
+        return NULL;
+    }
+    /*How the process works: 
+   1. Open the file pointed by value
+   2. Read the file contents into char * buffer
+   3. Pass those to SHA function.(Output to char output passed to the function)
+   4. Return the Output string. 
+   */
 #ifdef _WIN32
 	BCRYPT_ALG_HANDLE       handle_Alg = NULL;
 	BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
@@ -771,6 +767,7 @@ char* calculate(char *path, char *output) {
 
 	//Dump the hash in variable and finish the Hash Object handle
 	status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
+	//TODO use new hex2bin functions 
 	if (strcmp(hashType, "sha256") == 0) {
 		output = sha256_hash_string(hash_ptr, hash_size, output);
 		generate_cumulative_hash(output, 0);
@@ -781,42 +778,50 @@ char* calculate(char *path, char *output) {
 	}
 	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 #elif __linux__
-	if (strcmp(hashType, "sha256") == 0) {
-		//For SHA 256 hash**Hard dependency on exact usage of 'sha256'   
-		unsigned char hash[SHA256_DIGEST_LENGTH];
-		SHA256_CTX sha256;
-		SHA256_Init(&sha256);
-		const int bufSize = 65000;
-		char *buffer = malloc(bufSize);
-
-		int bytesRead = 0;
-		if (!buffer) return NULL;
-		while ((bytesRead = fread(buffer, 1, bufSize, file))) {
-			SHA256_Update(&sha256, buffer, bytesRead);
-		}
-		SHA256_Final(hash, &sha256);
-
-		output = sha256_hash_string(hash, SHA256_DIGEST_LENGTH, output);
-		generate_cumulative_hash(output, 0);
-	}
-	else {
-		// Using SHA1 algorithm for hash calculation
-		unsigned char hash[SHA_DIGEST_LENGTH];
-		SHA_CTX sha1;
-		SHA1_Init(&sha1);
-		const int bufSize = 32768;
-		char *buffer = malloc(bufSize);
-
-		int bytesRead = 0;
-		if (!buffer) return NULL;
-		while ((bytesRead = fread(buffer, 1, bufSize, file))) {
-			SHA1_Update(&sha1, buffer, bytesRead);
-		}
-		SHA1_Final(hash, &sha1);
-
-		output = sha1_hash_string(hash, SHA_DIGEST_LENGTH, output);
-		generate_cumulative_hash(output, 1);
-	}
+    if(strcmp(hashType, "sha256") == 0) {
+     //For SHA 256 hash**Hard dependency on exact usage of 'sha256'   
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+        SHA256_CTX sha256;
+        SHA256_Init(&sha256);
+        const int bufSize = 65000;
+        char *buffer = (char *)malloc(bufSize);
+       
+        int bytesRead = 0;
+        if(!buffer) {
+        	fclose(file);
+        	return NULL;
+        }
+        while((bytesRead = fread(buffer, 1, bufSize, file))) {
+             
+              SHA256_Update(&sha256, buffer, bytesRead);
+        }
+        SHA256_Final(hash, &sha256);
+        //output = sha256_hash_string(hash, output);
+        bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
+		strcpy_s(hash_in,sizeof(hash_in),output);
+        generate_cumulative_hash(output,0);
+    }
+    else {
+        // Using SHA1 algorithm for hash calculation
+        unsigned char hash[SHA_DIGEST_LENGTH];
+        SHA_CTX sha1;
+        SHA1_Init(&sha1);
+        const int bufSize = 32768;
+        char *buffer = (char *) malloc(bufSize);
+        int bytesRead = 0;
+        if(!buffer) {
+        	fclose(file);
+        	return NULL;
+        }
+        while((bytesRead = fread(buffer, 1, bufSize, file))) {
+            SHA1_Update(&sha1, buffer, bytesRead);
+        }
+        SHA1_Final(hash, &sha1);
+        //output = sha1_hash_string(hash, output);
+        bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
+	    strcpy_s(hash_in,sizeof(hash_in),output);
+		generate_cumulative_hash(output,1);
+    }
 #endif
 	fclose(file);
 	free(buffer);
@@ -832,7 +837,7 @@ and returns the value held inside them
 so <File Path = "a.txt" .....> returns a.txt
 include="*.out" ....> returns *.out and so on..
 */
-void tagEntry(char* line){
+void tagEntry(char* line){    
 	char key[500];
 	/*We use a local string 'key' here so that we dont make any changes
 	to the line pointer passed to the function.
@@ -840,9 +845,8 @@ void tagEntry(char* line){
 	E.g :<Dir Path="/etc" include="*.bin" exclude="*.conf">
 	*/
 	int i = 0;
-	strcpy(key, line);
+	strcpy_s(key,sizeof(key),line);
 	char  *start, *end;
-
 	while (key[i] != '\"')
 		i++;
 	start = &key[++i];
@@ -854,8 +858,7 @@ void tagEntry(char* line){
 	at a given point of time.
 	Its contents are copied after its new value addition immediately
 	*/
-	strcpy(NodeValue, start);
-
+	strcpy_s(NodeValue,sizeof(NodeValue),start);
 }
 
 /*
@@ -881,31 +884,34 @@ is passed to calculate and the hash is added against log the dir in question
 static void generateLogs(const char *origManifestPath, char *imagePath, char *verificationType){
 	FILE *fp, *fq;
 	char *line = NULL;
-	char include[50];
-	char exclude[100];
+    char include[128] = {'\0'};
+    char exclude[128] = { '\0'};
+	char recursive[16] = {'\0'};
+	char recursive_cmd[32] = {'\0'};
 	size_t len = 32768;
+    char calc_hash[MAX_HASH_LEN] = {'\0'};
+    char ma_result_path[100] = {'\0'};
+    char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
 	int dhash_len = 256;
-	char calc_hash[256];
 	int digest_check = 0;
 
-	char ma_result_path[100];
-	memset(ma_result_path, '\0', sizeof(ma_result_path));
-	sprintf(ma_result_path, "%s%s", hash_file, "xml");
-
+    if(strcmp(verificationType,"HOST") == 0)
+      snprintf(ma_result_path, sizeof(ma_result_path), "%s%s", fs_mount_path, ma_result_path_default);
+    else
+      snprintf(ma_result_path, sizeof(ma_result_path), "%s%s",hash_file,"xml");
 	DEBUG_LOG("\n%s %s", "Manifest Path", origManifestPath);
-	fp = fopen(origManifestPath, "r");
-	if (!fp) {
-		ERROR_LOG("\n%s %s", "File not found-", origManifestPath);
-		return;
-	}
-
-	fq = fopen(ma_result_path, "w");
-	if (!fq) {
-		ERROR_LOG("\n%s %s", "File not found - ", ma_result_path);
-		return;
-	}
-
-	fprintf(fq, "%s\n", "<?xml version=\"1.0\"?>");
+    fp=fopen(origManifestPath,"r");
+    if (fp != NULL) {
+		fq=fopen(ma_result_path,"w");
+#ifdef __linux__
+		chmod(ma_result_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+#elif __WIN32
+//		_chmod
+#endif
+		if (fq != NULL) {
+			fprintf(fq,"<?xml version=\"1.0\"?>\n");
+			char * temp_ptr = NULL;
+		   //Open Manifest to get list of files to hash
 #ifdef _WIN32
 	DEBUG_LOG("\n%s", "setting up CNG api algorithm provider");
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -916,161 +922,208 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 		return;
 	}
 #endif
-	//Open Manifest to get list of files to hash
-	line = (char *)malloc(sizeof(char) * len);
- 
-	while (fgets(line, len, fp) != NULL) {
-		if (feof(fp)) {
-			break;
-		}
+			//Open Manifest to get list of files to hash
+			line = (char *)malloc(sizeof(char) * len);
+			while (fgets(line, len, fp) != NULL) {
+				if (feof(fp)) {
+					break;
+				}
+				strcpy_s(include,sizeof(include),"");
+				strcpy_s(exclude,sizeof(exclude),"");
+				strcpy_s(recursive,sizeof(recursive),"");
+				temp_ptr = NULL;
+				temp_ptr = strstr(line,"DigestAlg=");
+				if(temp_ptr != NULL){
+					/*Get the type of hash */
+					tagEntry(temp_ptr);
+					strcpy_s(hashType,sizeof(hashType),NodeValue);
+					digest_check = 1;
+					DEBUG_LOG("\n%s %s","Type of Hash used :",hashType);
+					fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n",hashType);
+					DEBUG_LOG("\n%s %s", "Type of Hash used :", hashType);
+				}
+				//File Hashes
+				if(strstr(line,"<File Path=")!= NULL && digest_check){
+					tagEntry(line);
+					char file_name_buff[1024] = {'\0'};
+					snprintf(file_name_buff, sizeof(file_name_buff), "%s/%s", fs_mount_path, NodeValue);
+					DEBUG_LOG("\nfile path : %s\n", file_name_buff);
+					//TODO need to add separate way for windows
+					int retval = getSymLinkValue(file_name_buff);
+					if ( retval == 0 )
+					{
+						//file exist
+						fprintf(fq,"<File Path=\"%s\">",NodeValue);
+						temp_ptr = calculate(NodeValue,calc_hash);
+						if (temp_ptr != NULL) {
+							fprintf(fq,"%s</File>\n", temp_ptr);
+						}
+						DEBUG_LOG("\n%s %s %s %s","File :",NodeValue,"Hash Measured:",calc_hash);
+					}
+					else {
+						continue;
+					}
+				}
+			 	//Directory Hashes
+				  if(strstr(line,"<Dir ")!= NULL && digest_check){
+						temp_ptr = NULL;
+						temp_ptr = strstr(line, "Path=");
+						char dir_path[500] = {'\0'};
+						if (temp_ptr != NULL ) {
+							tagEntry(temp_ptr);
+							strcpy_s(dir_path,sizeof(dir_path),NodeValue);
+						}
+						DEBUG_LOG("\n%s %s","Directory :",NodeValue);
+						temp_ptr = NULL;
+						temp_ptr = strstr(line, "Include=");
+						if (temp_ptr != NULL) {
+							tagEntry(temp_ptr);
+							strcpy_s(include,sizeof(include),NodeValue);
+							DEBUG_LOG("\n%s %s","Include type :",NodeValue);
+						}
+						temp_ptr = NULL;
+						temp_ptr = strstr(line,"Exclude=");
+						if ( temp_ptr != NULL ) {
+							tagEntry(temp_ptr);
+							strcpy_s(exclude,sizeof(exclude),NodeValue);
+							DEBUG_LOG("\n%s %s","Exclude type :",NodeValue);
+						}
+						temp_ptr=NULL;
+						temp_ptr=strstr(line, "Recursive=");
+						if ( temp_ptr != NULL ) {
+							tagEntry(temp_ptr);
+							strcpy_s(recursive,sizeof(recursive),NodeValue);
+							DEBUG_LOG("\nRecursive : %s", NodeValue);
+							if ( strcmp(recursive,"false") == 0) {
+								snprintf(recursive_cmd, sizeof(recursive_cmd), "-maxdepth 1");
+							}
+						}
 
-		if (strstr(line, "DigestAlg=") != NULL){
-			/*Get the type of hash */
-			tagEntry(strstr(line, "DigestAlg="));
-			strcpy(hashType, NodeValue);
-			digest_check = 1;
-			fprintf(fq, "<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n", hashType);
-			DEBUG_LOG("\n%s %s", "Type of Hash used :", hashType);
-		}
+					char Dir_Str[1024];
+					char mDpath[256] = {'\0'};
+					char *dhash = NULL;
+					dhash = (char *)malloc(sizeof(char) * dhash_len);
+					memset(dhash, 0, dhash_len);
+					strcpy_s(mDpath,sizeof(mDpath),fs_mount_path);
+					strcat_s(mDpath,sizeof(mDpath),dir_path);//path of dir in the VM
 
-		//File Hashes
-		if (strstr(line, "<File Path=") != NULL && digest_check){
-			tagEntry(line);
-			fprintf(fq, "<File Path=\"%s\">", NodeValue);
-
-			fprintf(fq, "%s</File>\n", calculate(NodeValue, calc_hash));
-			DEBUG_LOG("\n%s %s %s %s", "File :", NodeValue, "Hash Measured:", calc_hash);
-		}
-
-		//Directory Hashes  
-		if (strstr(line, "<Dir ") != NULL && digest_check){
-			strcpy(include, "");
-			strcpy(exclude, "");
-
-			tagEntry(strstr(line, "Path="));
-			char dir_path[500];
-			strcpy(dir_path, NodeValue);
-			DEBUG_LOG("\n%s %s", "Directory :", NodeValue);
-
-			if (strstr(line, "Include=") != NULL){
-				tagEntry(strstr(line, "Include="));
-				strcpy(include, NodeValue);
-				DEBUG_LOG("\n%s %s", "Include type :", NodeValue);
-			}
-
-			if (strstr(line, "Exclude=") != NULL){
-				tagEntry(strstr(line, "Exclude="));
-				strcpy(exclude, NodeValue);
-				DEBUG_LOG("\n%s %s", "Exclude type :", NodeValue);
-			}
-
-			char Dir_Str[1024];
-			char mDpath[256];
-			char *dhash = NULL;
-			dhash = (char *)malloc(sizeof(char) * dhash_len);
-			memset(dhash, 0, dhash_len);
-
-			strcpy(mDpath, fs_mount_path);
-			strcat(mDpath, dir_path);//path of dir in the VM
-			strcat(mDpath, "\0");
 #ifdef _WIN32
-			if (strcmp(include, "") != 0 && strcmp(exclude, "") != 0)
-				sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf| findstr /i \"%s\" | findstr /v /i \"%s\"", mDpath, include, exclude);
-			else if (strcmp(include, "") != 0)
-				sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf| findstr /i \"%s\"", mDpath, include);
-			else if (strcmp(exclude, "") != 0)
-				sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf| findstr /v /i \"%s\"", mDpath, exclude);
-			else
-				sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf", mDpath);
+					//TODO need to write in sync with linux 
+					if (strcmp(include, "") != 0 && strcmp(exclude, "") != 0)
+						sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf| findstr /i \"%s\" | findstr /v /i \"%s\"", mDpath, include, exclude);
+					else if (strcmp(include, "") != 0)
+						sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf| findstr /i \"%s\"", mDpath, include);
+					else if (strcmp(exclude, "") != 0)
+						sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf| findstr /v /i \"%s\"", mDpath, exclude);
+					else
+						sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf", mDpath);
 
-			char file[50];
-			strcpy(file, fs_mount_path);
-			strcat(file, "filelist.txt");
+					char file[50];
+					strcpy(file, fs_mount_path);
+					strcat(file, "filelist.txt");
 
-			FILE *dir_file = _popen(Dir_Str, "r");
-			FILE *fd = fopen(file, "wb");
-			if (!fd) {
-				ERROR_LOG("\n%s %s", "File not found-", file);
-				return;
-			}
+					FILE *dir_file = _popen(Dir_Str, "r");
+					FILE *fd = fopen(file, "wb");
+					if (!fd) {
+						ERROR_LOG("\n%s %s", "File not found-", file);
+						return;
+					}
 
-			while (fgets(dhash, dhash_len, dir_file))
-				fputs(dhash, fd);
-			fclose(fd);
+					while (fgets(dhash, dhash_len, dir_file))
+						fputs(dhash, fd);
+					fclose(fd);
 
-			dhash = calculate("filelist.txt", dhash);
-			_pclose(dir_file);
+					dhash = calculate("filelist.txt", dhash);
+					_pclose(dir_file);
 #elif __linux__
-			int slen = strlen(fs_mount_path); //to remove mount path from the find command output. 
-			char hash_algo[15] = { '\0' };
-			sprintf(hash_algo, "%ssum", hashType);
-			if (strcmp(include, "") != 0 && strcmp(exclude, "") != 0)
-				sprintf(Dir_Str, "find \"%s\" ! -type d | grep -E  \"%s\" | grep -vE \"%s\" | sed -r 's/.{%d}//' | sort | %s", mDpath, include, exclude, slen, hash_algo);
-			else if (strcmp(include, "") != 0)
-				sprintf(Dir_Str, "find \"%s\" ! -type d | grep -E  \"%s\" | sed -r 's/.{%d}//' | sort | %s", mDpath, include, slen, hash_algo);
-			else if (strcmp(exclude, "") != 0)
-				sprintf(Dir_Str, "find \"%s\" ! -type d | grep -vE \"%s\" | sed -r 's/.{%d}//' | sort | %s", mDpath, exclude, slen, hash_algo);
-			else
-				sprintf(Dir_Str, "find \"%s\" ! -type d | sed -r 's/.{%d}//' | sort | %s", mDpath, slen, hash_algo);
+					//to remove mount path from the find command output and directory path and +1 is to remove the additional / after directory
+					int slen = strnlen_s(mDpath,sizeof(mDpath)) + 1; 
+					char hash_algo[15] = {'\0'};
+					snprintf(hash_algo,sizeof(hash_algo),"%ssum",hashType);
+					if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
+					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" %s ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | grep -vE \"%s\" | %s",mDpath, recursive_cmd, slen, include, exclude, hash_algo);
+					else if(strcmp(include,"") != 0)
+					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" %s ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | %s",mDpath, recursive_cmd, slen, include, hash_algo);
+					else if(strcmp(exclude,"") != 0)
+					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" %s ! -type d | sed -r 's/.{%d}//' | grep -vE \"%s\" | %s",mDpath, recursive_cmd, slen, exclude, hash_algo);
+					else
+					   snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" ! -type d| sed -r 's/.{%d}//' | %s",mDpath,slen,hash_algo);
 
-			FILE *dir_file = popen(Dir_Str, "r");
-			fgets(dhash, dhash_len, dir_file);
-			strtok(dhash, " ");
-			pclose(dir_file);
+					/*char ops[200];
+					snprintf(ops,sizeof(ops),"find \"%s\"/ ! -type d | sed -r 's/.{%d}//'",mDpath,slen);*/
+
+					DEBUG_LOG("\n%s %s %s %s","********mDpath is ----------",mDpath," and command is ",Dir_Str);
+
+					FILE *dir_file = popen(Dir_Str,"r");
+					if (dir_file != NULL ) {
+						getline(&dhash, &len, dir_file);
+						size_t dhash_max = 128;
+						char *next_token;
+						strtok_s(dhash,&dhash_max," ",&next_token);
+					}
+					if (dir_file != NULL) {
+						pclose(dir_file);
+					}				
 #endif            
-			DEBUG_LOG("\n%s %s %s %s", "mDpath is ", mDpath, " and command is ", Dir_Str);
-			DEBUG_LOG("\n%s %s %s %s", "Dir :", mDpath, "Hash Measured:", dhash);
-			fprintf(fq, "<Dir Path=\"%s\">", dir_path);
-			fprintf(fq, "%s</Dir>\n", dhash);
-
-			if (strcmp(hashType, "sha256") == 0)
-				generate_cumulative_hash(dhash, 0);
-			else
-				generate_cumulative_hash(dhash, 1);
-		}//Dir hash ends
-	}//While ends
-
-	if (!digest_check){
-		ERROR_LOG("\n%s", "Hash Algorithm not specified!");
-		return;
-	}
-
-	fprintf(fq, "%s", "</Measurements>");
-	fclose(fp);
-	fclose(fq);
-	strcat(hash_file, hashType);
-
-	/*Write the Cumulative Hash calculated to the file*/
-	FILE *fc = fopen(hash_file, "w");
-	if (!fc) {
-		ERROR_LOG("\n%s %s", "File not found-", hash_file);
-		return;
-	}
-
-	char *ptr = NULL;
-	ptr = (char *)malloc(sizeof(char) * dhash_len);
-	memset(ptr, 0, dhash_len);
+					DEBUG_LOG("\n%s %s %s %s", "mDpath is ", mDpath, " and command is ", Dir_Str);
+					DEBUG_LOG("\n%s %s %s %s", "Dir :", mDpath, "Hash Measured:", dhash);
+					fprintf(fq, "<Dir Path=\"%s\">", dir_path);
+					fprintf(fq, "%s</Dir>\n", dhash);
+					char outputBuffer[65];
+					if (strcmp(hashType, "sha256") == 0)
+						generate_cumulative_hash(dhash, 0);
+					else
+						generate_cumulative_hash(dhash, 1);
+				}//Dir hash ends
+			}//While ends
+			if(!digest_check){
+				ERROR_LOG("%s","Hash Algorithm not specified!");
+				//return -1 ?
+			}
+			fprintf(fq,"</Measurements>");
+			fclose(fq);
+		}
+		else{
+			ERROR_LOG("Can not open file: %s to write the measurement", ma_result_path);
+			fclose(fp);
+			return;
+		}
+		fclose(fp);
+    }
+    else {
+    	ERROR_LOG("Can not open Manifest file: %s", origManifestPath);
+    	return;
+    }
+    strcat_s(hash_file,sizeof(hash_file),hashType);
+    /*Write the Cumulative Hash calculated to the file*/
+    FILE *fc = fopen(hash_file,"w");
+	chmod(hash_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (fc == NULL ) {
+    	ERROR_LOG("Can not open file: %s, to write cumulative hash", hash_file);
+    	return;
+    }
 #ifdef _WIN32
+	//TODO need update  thi
+//	ptr = (char *)malloc(sizeof(char) * dhash_len);
+//	memset(ptr, 0, dhash_len);
 	status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
 	if (!NT_SUCCESS(status)){
 		ERROR_LOG("\nCould not dump the hash on memory. Error : 0x%x", status);
 	}
 
-	if (strcmp(hashType, "sha256") == 0) {
-		ptr = sha256_hash_string(hash_ptr, hash_size, ptr);
-	}
-	else {
-		ptr = sha1_hash_string(hash_ptr, hash_size, ptr);
-	}
 	cleanup_CNG_api();
-#elif __linux__
-	if (strcmp(hashType, "sha256") == 0) {
-		ptr = sha256_hash_string(d2, SHA256_DIGEST_LENGTH, ptr);
-	}
-	else {
-		ptr = sha1_hash_string(d1, SHA_DIGEST_LENGTH, ptr);
-	}
 #endif
+	char *ptr = NULL;
+    if(strcmp(hashType, "sha256") == 0){
+    	bin2hex(d2, sizeof(d2), cH2, sizeof(cH2));
+    	ptr= cH2;
+        //ptr = sha256_hash_string(d2,cH2);
+    }
+    else {
+    	bin2hex(d1, sizeof(d1), cH2, sizeof(cH2));
+    	ptr= cH2;
+        //   ptr = sha1_hash_string(d1,cH2);
+    }
 	DEBUG_LOG("\n%s %s\n", "Hash Measured:", ptr);
 	fprintf(fc, "%s", ptr);
 	fclose(fc);
@@ -1081,36 +1134,36 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 * provided to the verifier and calls a xml parsing function
 */
 int main(int argc, char **argv) {
-	int imageMountingRequired = 0; //IMVM = 1 /HOST = 0
-	char manifest_file[100];
+    char manifest_file[100] = {'\0'};
+#ifdef __linux__
+    xmlDocPtr Doc;
+#endif
+    if(argc != 4) {
+        ERROR_LOG("\n%s %s %s","Usage:",argv[0]," <manifest_path> <mounted_path> <IMVM/HOST>");
+        return EXIT_FAILURE;
+    }
+    DEBUG_LOG("\n%s %s","MANIFEST-PATH :", argv[1]);
+	DEBUG_LOG("\n%s %s","MOUNTED-PATH :", argv[2]);
+	DEBUG_LOG("\n MODE : %s", argv[3]);
+  
+	strcpy_s(manifest_file,sizeof(manifest_file),argv[1]);
+	strcpy_s(fs_mount_path,sizeof(fs_mount_path),argv[2]);
+	strcat_s(fs_mount_path,sizeof(fs_mount_path),"/");
+    memset_s((char *)cHash,strnlen_s((char *)cHash,sizeof(cHash)),0);
+	memset(cHash2, 0, sizeof(cHash2));
+/*
 #ifdef _WIN32
 	DWORD pid = GetCurrentProcessId();
 	char power_shell[] = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
 	char power_shell_prereq_command[] = "-noprofile -executionpolicy bypass -file";
 	char* mount_script = "C:\\Mount-EXTVM.ps1";
 	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-#elif __linux__
-	pid_t pid = getpid();
-	char* mount_script = "../scripts/mount_vm_image.sh";
-	char verifierpid[64] = { 0 };
-	sprintf(verifierpid, "%d", pid);
-	memset(cHash, 0, sizeof(cHash));
-	memset(cHash2, 0, sizeof(cHash2));
+	PROCESS_INFORMATION pi;	
 #endif
-
-	//xmlDocPtr Doc;
-	if (argc != 4) {
-		ERROR_LOG("\n%s %s %s", "Usage:", argv[0], "<manifest_path> <disk_path> <IMVM/HOST>");
-		return EXIT_FAILURE;
-	}
-	DEBUG_LOG("\n%s %s", "MANIFEST-PATH :", argv[1]);
-	DEBUG_LOG("\n%s %s", "DISK-PATH :", argv[2]);
-	DEBUG_LOG("\n%s %s", "MODE :", argv[3]);
-
-	strcpy(manifest_file, argv[1]);
+*/
 	if (strcmp(argv[3], "IMVM") == 0) {
 #ifdef _WIN32
+/*
 		char next_logical_drive_char;
 		int sleep_count = 0;
 		//try to get next available drive letter, if not available wait for 5 sec
@@ -1131,26 +1184,23 @@ int main(int argc, char **argv) {
 				break;
 			}
 		}
-#elif __linux__
-		strcpy(fs_mount_path, MOUNTPATH_IMVM);
-		strcat(fs_mount_path, verifierpid);
+*/
 #endif
-		strncpy(hash_file, manifest_file, strlen(manifest_file) - strlen("/manifestlist.xml"));
-		sprintf(hash_file, "%s%s", hash_file, "/measurement.");
+    	char* last_oblique_ptr = strrchr(manifest_file, '/');
+        //strncpy_s(hash_file,sizeof(hash_file),manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
+    	strncpy_s(hash_file,sizeof(hash_file),manifest_file,strnlen_s(manifest_file,sizeof(manifest_file))-strnlen_s(last_oblique_ptr + 1, sizeof("/manifestlist.xml")));
+    	strcat_s(hash_file,sizeof(hash_file),"/measurement.");
 		DEBUG_LOG("\n%s", hash_file);
-		imageMountingRequired = 1;
 	}
 	else if (strcmp(argv[3], "HOST") == 0) {
-		strncpy(hash_file, manifest_file, strlen(manifest_file) - strlen("/manifestlist.xml"));
-		sprintf(hash_file, "%s%s", hash_file, "/measurement.");
+        snprintf(hash_file, sizeof(hash_file), "%s/var/log/trustagent/measurement.", fs_mount_path);
 		DEBUG_LOG("\n%s", hash_file);
-		imageMountingRequired = 0;
 	}
 	else {
 		ERROR_LOG("\n%s", "Invalid verification_type.Valid options are IMVM/HOST");
 		return EXIT_FAILURE;
 	}
-
+/*
 	if (imageMountingRequired) {
 		char command[1024] = { '\0' };
 #ifdef _WIN32
@@ -1177,27 +1227,20 @@ int main(int argc, char **argv) {
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
 		DEBUG_LOG("\n%s", "Successfully mounted the image");
-#elif __linux__
-		sprintf(command, "%s %s %s", mount_script, argv[2], fs_mount_path);
-		int res = system(command);
-		if (res != 0) {
-			ERROR_LOG("\n%s", "Error in mounting the image!!!!");
-			exit(1);
-		}
-		strcat(fs_mount_path, "/mount");
 #endif
 	}
-
-	//Doc = xmlParseFile(argv[1]); 
-	/*This will save the XML file in a correct format, as desired by our parser.
+*/
+#ifdef __linux__
+    Doc = xmlParseFile(argv[1]);	
+	/*This will save the XML file in a correct format, as desired by our parser. 
 	We dont use libxml tools to parse but our own pointer legerdemain for the time being
 	Main advantage is simplicity and speed ~O(n) provided space isn't an issue */
-	//xmlSaveFormatFile (argv[1], Doc, 1); /*This would render even inline XML perfect for line by line parsing*/  
-	//xmlFreeDoc(Doc);
+	xmlSaveFormatFile (argv[1], Doc, 1); /*This would render even inline XML perfect for line by line parsing*/  
+    xmlFreeDoc(Doc);  
+#endif
+    generateLogs(argv[1], argv[2], argv[3]);
 
-	generateLogs(argv[1], argv[2], argv[3]);
-
-	if (strcmp(argv[3], "IMVM") == 0) {
+/*	if (strcmp(argv[3], "IMVM") == 0) {
 		char command[1024] = { '\0' };
 #ifdef _WIN32
 		sprintf(command, "%s %s %s -Path %s -DriveLetter %s -Umount", power_shell, power_shell_prereq_command, mount_script, argv[2], fs_mount_path);
@@ -1221,15 +1264,8 @@ int main(int argc, char **argv) {
 		CloseHandle(si.hStdOutput);
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
-#elif __linux__
-		sprintf(command, "%s %s", mount_script, fs_mount_path);
-		int res = system(command);
-		if (res != 0) {
-			ERROR_LOG("\n%s", "Error in unmounting the image!!!!");
-			exit(1);
-		}
-#endif
 		DEBUG_LOG("\n%s", "Successfully unmounted the image\n");
 	}
+*/
 	return 0;
 }

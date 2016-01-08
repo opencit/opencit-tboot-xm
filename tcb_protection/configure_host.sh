@@ -1,7 +1,9 @@
 #!/bin/bash
 
 BASE_DIR="$(dirname "$(readlink -f ${BASH_SOURCE[0]})")"
+TBOOTXM_ENV="${TBOOTXM_ENV:-/opt/tbootxm/env}"
 TBOOTXM_LIB="${TBOOTXM_LIB:-/opt/tbootxm/lib}"
+TBOOTXM_LAYOUT_FILE="$TBOOTXM_ENV/tbootxm-layout"
 TBOOTXM_REPOSITORY="/var/tbootxm"  #"${TBOOTXM_REPOSITORY:-/var/tbootxm}"
 GENERATED_FILE_LOCATION="$TBOOTXM_REPOSITORY"  #"$BASE_DIR/generated_files"
 KERNEL_VERSION=`uname -r`
@@ -10,7 +12,8 @@ MENUENTRY_FILE="$TBOOTXM_REPOSITORY/sample_menuentry"  #"$BASE_DIR/sample_menuen
 MENUENTRY_PREFIX="TCB-Protection"
 CREATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/create_menuentry.pl"  #"$BASE_DIR/create_menuentry.pl"
 UPDATE_MENU_ENTRY_SCRIPT="$TBOOTXM_LIB/update_menuentry.pl"  #"$BASE_DIR/update_menuentry.pl"
-MANIFEST_PATH=${MANIFEST_PATH:-""}
+#MANIFEST_PATH=${MANIFEST_PATH:-""}
+MANIFEST_PATH="/boot/trust/manifest.xml"
 GRUB_FILE=${GRUB_FILE:-""}
 #CONFIG_FILE_NAME="$TBOOTXM_REPOSITORY/measure_host.cfg"
 CONFIG_FILE_NAME="/tbootxm.conf"
@@ -93,25 +96,42 @@ function get_grub_file_location()
       fi
     done
   fi
+	if [ -e "$GRUB_FILE" ] && [ -f "$GRUB_FILE" ] && [ -e "$TBOOTXM_LAYOUT_FILE" ]
+	then
+		echo "export GRUB_FILE=$GRUB_FILE" >> $TBOOTXM_LAYOUT_FILE
+	else
+		echo "tbootxm layout file not found"
+	fi
 }
-
 function get_partition_info()
 {
-	# Get partition information for current OS
-	PARTITION_INFO="" 
-	for val in `df -P -t ext4 -t ext3 -t ext2 | grep -i -v Filesystem | awk '{ print $1 ":" $6}'`
-	do 
-		PARTITION_INFO="${PARTITION_INFO},${val}" 
-	done 
-	PARTITION_INFO=`echo $PARTITION_INFO | cut -c2-`
-	PARTITION_INFO="{"$PARTITION_INFO"}"
-	echo "Partitions available and its mount points: $PARTITION_INFO"
+        # Get partition information for current OS
+        PARTITION_INFO=""
+        #take all the filesystem types supported and find partition for those
+        for fs_type in `cat /proc/filesystems | grep -v "nodev" | awk '{print $1}'`
+        do
+                for val in `df -P -t $fs_type 2> /dev/null | grep -i -v Filesystem | awk '{ print $6 ":" $1}'`
+                do
+                        PARTITION_INFO="${PARTITION_INFO},${val}"
+                done
+        done
+        PARTITION_INFO=`echo $PARTITION_INFO | cut -c2-`
+        echo $PARTITION_INFO
+        NEW_PART_INFO=""
+        for var in `echo $PARTITION_INFO | tr "," "\n" |  cut -f1 -d":" | sort`
+        do
+                var1=`echo "$PARTITION_INFO" | tr "," "\n" | grep "$var:"`
+                NEW_PART_INFO="${NEW_PART_INFO},`echo "$var1" | awk -F":" '{ print $2 ":" $1}'`"
+        done
+        NEW_PART_INFO=`echo $NEW_PART_INFO | cut -c2-`
+        PARTITION_INFO="{${NEW_PART_INFO}}"
+        echo "Partitions available and its mount points: $PARTITION_INFO"	
 }
 
 function generate_kernel_args()
 {
 	echo "Following kernel argument will be used in grub menuentry for TCB Protection: "
-	KERNEL_ARGS="MANIFEST_PATH=\"`readlink -e $MANIFEST_PATH`\"\nPARTITION_INFO=\"$PARTITION_INFO\""
+	KERNEL_ARGS="MANIFEST_PATH=\"$MANIFEST_PATH\"\nPARTITION_INFO=\"$PARTITION_INFO\""
 	echo $KERNEL_ARGS
 	chattr -i $CONFIG_FILE_NAME > /dev/null 2>&1
 	rm -rf $CONFIG_FILE_NAME
@@ -135,6 +155,10 @@ function which_grub() {
 	                GRUB_VERSION=0
 	                return
         	fi
+	elif [ $os_version == "rhel" ] && [ -n "`which grub2-install 2>/dev/null`" ] ; then
+		grub2-install --version | grep " 2."
+                GRUB_VERSION=2
+                return		
 	fi
 
 	grub-install --version | grep " 2." 
@@ -214,7 +238,7 @@ function update_grub()
 		cat $MENUENTRY_FILE >> /etc/grub.d/40_custom
 		echo "Menuentry has been appended in /etc/grub.d/40_custom"
 	fi
-	if [ $os_version == "fedora" ]; then
+	if [ $os_version == "fedora" ] || [ $os_version == "rhel" ]; then
 		grub2-mkconfig -o $GRUB_FILE
 		
 	else
@@ -238,7 +262,7 @@ function which_flavour()
             flavour="rhel"
     fi
     grep -c -i fedora /etc/*-release > /dev/null
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 ] && [ $flavour == "" ]; then
             flavour="fedora"
     fi
     grep -c -i "SuSE" /etc/*-release > /dev/null
@@ -281,7 +305,7 @@ function main()
     echo "Configuring Host"
     mkdir -p "/var/log/trustagent"
     validate_n_copy_initrd
-    get_manifest_file_location
+    #get_manifest_file_location
     get_partition_info
     generate_kernel_args
     generate_grub_entry

@@ -39,7 +39,8 @@ fi
 log "CONFIG_FILE_PATH = $CONFIG_FILE"
 if [ ! $CONFIG_FILE ] || [ -z $CONFIG_FILE ]
 then
-	CONFIG_FILE="/measure_host.cfg"	
+	#CONFIG_FILE="/measure_host.cfg"	
+	CONFIG_FILE="/tbootxm.conf"
 	log "CONFIG_FILE_PATH = $CONFIG_FILE"
 fi
 
@@ -55,7 +56,7 @@ load_configuration()
 	else
 		log "Configuration file not found"
 		unmount_partitions
-		exit 1
+		return 1
 	fi
 	for key in `cat $tmp_root/$CONFIG_FILE | awk 'BEGIN {FS="="}{print $1}'`
 	do
@@ -74,6 +75,7 @@ load_configuration()
 	PARTITION_INFO=`echo $PARTITION_INFO | sed s/\"//g`
 	log "PARTITION_INFO=${PARTITION_INFO}"
 	log "Configuration loaded"
+	return 0
 }
 # Output pre-requisites
 prereqs()
@@ -127,29 +129,24 @@ mount_root()
 unmount_partitions()
 {
 	log "Unmount Partitions - STARTED"
-	cat $INITRD_LOG_FILE >> $tcb_log_file
-	for value in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' `
+	for mntPoint in `echo $part_info | awk 'BEGIN{FS=","} { for ( i = 1 ; i <= NF ; i++ ) print $i }' | cut -f2 -d":" | sort -r`
 	do
-        	mntDevice=`echo $value | awk 'BEGIN{FS=":"}{ print $1}'`
-        	mntPoint=`echo $value | awk 'BEGIN{FS=":"}{ print $2}'`
-        	if [ $mntPoint = "/" ]
-        	then
-                	log "Skipping unmount /"
-        	else
-                	umount $tmp_root/$mntPoint
-                	#rm -rf $tmp_root/$mntPoint
-        	fi
- 	done
-
-	#Unmount Root Partition
-	umount $tmp_root
-	if [ $? = 0 ] ; then
-		log "Unmounted all sucessfully"
-	else
-		log "ERROR : Cound not unmount root partition"
-	fi
+		log "unmounting $tmp_root/$mntPoint"
+		if [ $mntPoint = "/" ]
+		then
+			cat $INITRD_LOG_FILE >> $tcb_log_file
+			umount $tmp_root/$mntPoint
+		else
+			umount $tmp_root/$mntPoint
+		fi
+		if [ $? -ne 0 ]
+		then
+			log "ERROR: Failed to unmount $tmp_root/$mntPoint"
+		else
+			log "Successfully unmounted $tmp_root/$mntPoint"
+		fi
+	done
 	log "Unmount Paritions - COMPLETE"
-
 }
 #End of Unmount Fn
 
@@ -186,19 +183,22 @@ manifest_verify()
 	if [ ! -e "$tmp_root/$manifest_path" ]; then
         	log "Manifest Path INCORRECT.File not Found at $tmp_root/$manifest_path"
 		unmount_partitions
-        	exit 1
+        	return 1
 	fi
 	
 	rm -f "$cumulative_hash"*
 	
 	#Run the Verifier and the check for its results
-	/bin/verifier $tmp_root/$manifest_path NA HOST >> $INITRD_LOG_FILE 2>&1
+	mkdir -p ${tmp_root}/var/log/trustagent/
+	chmod 0755 ${tmp_root}/var/log/trustagent/
+	/bin/verifier $tmp_root/$manifest_path $tmp_root/ HOST >> $INITRD_LOG_FILE 2>&1
 	if [ $? -ne 0 ]; then
 		log "TCB Verification FAILED"
 		unmount_partitions
-		exit 1
+		return 1 
 	else
 		log "TCB Verification COMPLETE"
+		return 0
 	fi
 }
 
@@ -225,7 +225,7 @@ tpm_extend()
 	then
 		log "No cumulative hash to extend"
 		unmount_partitions
-		exit 1
+		return 1
 	fi
 	log "Run TPM Extend for Extending PCR 19"
 	log "TPM Extend Log"
@@ -234,8 +234,9 @@ tpm_extend()
 	if [ $? -ne 0 ]; then
 		log "TPM extend failed."
 		unmount_partitions
-		exit 1
+		return 1 
 	fi
+	return 0
 }
 
 #Step 1 - Load the RPMMIO Drivers
@@ -252,17 +253,26 @@ log "`lvm vgchange -ay`"
 #load configuration 
 load_configuration
 
-#Step 3 - Mount Other Partitions
-mount_partitions
+if [ $? -eq 0 ]
+then
 
-#Step 4 - Measurement - Verifier
-manifest_verify
+	#Step 3 - Mount Other Partitions
+	mount_partitions
 
-#Step 5 - Extend PCR 19 using TPM Extend
-tpm_extend
+	#Step 4 - Measurement - Verifier
+	manifest_verify
 
-#Step 6 - Unmount all the Partitions that were mounted in the process
-unmount_partitions
-log "END OF MEASUREMENT AGENT"
+	if [ $? -eq 0 ]
+	then
+		#Step 5 - Extend PCR 19 using TPM Extend
+		tpm_extend
+		if [ $? -eq 0 ]
+		then
+			#Step 6 - Unmount all the Partitions that were mounted in the process
+			unmount_partitions
+		fi
+	fi
+fi
+#log "END OF MEASUREMENT AGENT"
 
 

@@ -77,6 +77,7 @@ elif [ "$TBOOTXM_LAYOUT" == "home" ]; then
 fi
 export TBOOTXM_BIN=$TBOOTXM_HOME/bin
 export TBOOTXM_JAVA=$TBOOTXM_HOME/java
+export TBOOTXM_LIB=$TBOOTXM_HOME/lib
 
 # note that the env dir is not configurable; it is defined as "env" under home
 export TBOOTXM_ENV=$TBOOTXM_HOME/env
@@ -106,7 +107,7 @@ tbootxm_backup_configuration
 tbootxm_backup_repository
 
 # create application directories (chown will be repeated near end of this script, after setup)
-for directory in $TBOOTXM_HOME $TBOOTXM_CONFIGURATION $TBOOTXM_REPOSITORY $TBOOTXM_JAVA $TBOOTXM_BIN $TBOOTXM_LOGS $TBOOTXM_ENV; do
+for directory in $TBOOTXM_HOME $TBOOTXM_CONFIGURATION $TBOOTXM_REPOSITORY $TBOOTXM_JAVA $TBOOTXM_BIN $TBOOTXM_LOGS $TBOOTXM_ENV $TBOOTXM_LIB; do
   mkdir -p $directory
   chmod 700 $directory
 done
@@ -119,6 +120,7 @@ echo "export TBOOTXM_REPOSITORY=$TBOOTXM_REPOSITORY" >> $TBOOTXM_ENV/tbootxm-lay
 echo "export TBOOTXM_JAVA=$TBOOTXM_JAVA" >> $TBOOTXM_ENV/tbootxm-layout
 echo "export TBOOTXM_BIN=$TBOOTXM_BIN" >> $TBOOTXM_ENV/tbootxm-layout
 echo "export TBOOTXM_LOGS=$TBOOTXM_LOGS" >> $TBOOTXM_ENV/tbootxm-layout
+echo "export TBOOTXM_LIB=$TBOOTXM_LIB" >> $TBOOTXM_ENV/tbootxm-layout
 
 # make sure unzip and authbind are installed
 TBOOTXM_YUM_PACKAGES="zip unzip dos2unix"
@@ -145,20 +147,22 @@ cp $UTIL_SCRIPT_FILE $TBOOTXM_HOME/bin/functions.sh
 # set permissions
 chmod 700 $TBOOTXM_HOME/bin/*
 
-# validate correct kernel version
-kernelRequiredVersionFile="$TBOOTXM_CONFIGURATION/kernel_required_version"
-if [ ! -f "$kernelRequiredVersionFile" ]; then
-  echo_failure "Kernel required version file does not exist"
+### INSTALL RPMMIO MODULES 
+echo "Installing rpmmio modules..."
+MTWILSON_RPMMIO_PACKAGE=`ls -1 tbootxm-rpmmio-*.bin 2>/dev/null | tail -n 1`
+if [ -z "$MTWILSON_RPMMIO_PACKAGE" ]; then
+  echo_failure "Failed to find rpmmio module package"
   exit -1
 fi
-kernelRequiredVersion=$(cat "$kernelRequiredVersionFile")
-kernelCurrentVersion=$(uname -r)
-if [ "$kernelRequiredVersion" != "$kernelCurrentVersion" ]; then
-  echo_failure "Incorrect kernel version"
-  exit -1
-fi
+./$MTWILSON_RPMMIO_PACKAGE
+if [ $? -ne 0 ]; then echo_failure "Failed to install rpmmio module package"; exit -1; fi
 
+# Generate initrd
 $TBOOTXM_BIN/generate_initrd.sh
+if [ $? -ne 0 ]; then echo_failure "Failed to generate initrd"; exit -1; fi
+
+# Configure host
 $TBOOTXM_BIN/configure_host.sh
+if [ $? -ne 0 ]; then echo_failure "Failed to configure host with tbootxm"; exit -1; fi
 
 echo_success "Measurement Agent Installation complete"

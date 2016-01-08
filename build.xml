@@ -32,6 +32,15 @@
 		</fail>
 		<!-- the maven archetypes depend on root pom -->
 		<!-- the root pom -->
+
+		<!-- permissions -->
+		<chmod file="build_components.sh" perm="700"/>
+		
+		<!-- run the build script to install prerequisite packages -->
+		<exec executable="/bin/bash" failonerror="true">
+			<arg value="-c"/>
+			<arg value="./build_components.sh --installpkg-only"/>
+		</exec>
 	</target>
 	
 	<target name="clean" depends="init">
@@ -52,28 +61,28 @@
 		
 		<delete dir="tpmextend/bin"/>
 		<delete dir="imvm/bin"/>
-		<delete file="rpmmio/src/rpmmio.ko"/>
 	</target>
 	
-	<target name="build" depends="init">
+	<target name="build-tbootxm-rpmmio" depends="init">
 		<!-- the root pom and all projects except packages -->	
 		<exec executable="${cmd.maven}"  resultproperty="mavenExitInstall">
 			<arg value="-DskipTests=true"/>
 			<arg value="install"/>
 		</exec>
-		<fail message="Cannot build project" status="${mavenExitInstall}">
+		<fail message="Cannot maven build projects" status="${mavenExitInstall}">
 			<condition><not><equals arg1="${mavenExitInstall}" arg2="0"/></not></condition>
 		</fail>
-		
-		<!-- permissions -->
-		<chmod file="build_components.sh" perm="700"/>
-		
+	</target>
+	
+	<target name="build-imvm-tpmextend" depends="init">
 		<!-- run the build script -->
 		<exec executable="/bin/bash" failonerror="true">
 			<arg value="-c"/>
-			<arg value="./build_components.sh --installpkg"/>
+			<arg value="./build_components.sh"/>
 		</exec>
 	</target>
+	
+	<target name="build" depends="build-tbootxm-rpmmio,build-imvm-tpmextend"></target>
 
 	<target name="packages" depends="init">
 		<!-- the packages -->

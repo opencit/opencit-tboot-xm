@@ -12,5 +12,6 @@
     
     <modules>
         <module>tbootxm-maven-root</module>
+        <module>tbootxm-rpmmio</module>
     </modules>
 </project>

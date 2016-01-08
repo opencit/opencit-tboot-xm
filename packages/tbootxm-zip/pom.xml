@@ -44,9 +44,6 @@
                         </goals>
                         <configuration>
                             <target>
-                                <!-- kernel.version -->
-                                <copy file="../../kernel_required_version" todir="${project.build.directory}/application/configuration"/>
-                                
                                 <!-- application/bin -->
                                 <copy file="../../tpmextend/bin/debug/tpmextend" todir="${project.build.directory}/application/bin"/>
                                 <copy file="../../imvm/bin/verifier" todir="${project.build.directory}/application/bin"/>
@@ -55,9 +52,9 @@
                                 <copy file="../../tcb_protection/tcb_protection_scripts/measure_host" todir="${project.build.directory}/application/bin"/>
                                 
                                 <!-- application/lib -->
-                                <copy file="../../rpmmio/src/rpmmio.ko" todir="${project.build.directory}/application/lib"/>
                                 <copy file="../../tcb_protection/create_menuentry.pl" todir="${project.build.directory}/application/lib"/>
                                 <copy file="../../tcb_protection/update_menuentry.pl" todir="${project.build.directory}/application/lib"/>
+                                <copy file="../../tcb_protection/remove_menuentry.pl" todir="${project.build.directory}/application/lib"/>
                                 
                                 <copy todir="${project.build.directory}/application/dracut_files">
                                     <fileset dir="../../tcb_protection/dracut_files"/>

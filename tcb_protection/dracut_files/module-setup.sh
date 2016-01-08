@@ -27,6 +27,7 @@ install()
 	#inst /etc/pki/tls/openssl.cnf "/etc/pki/tls/openssl.cnf"
 	inst /usr/bin/sha1sum "/bin/sha1sum"
 	inst /usr/bin/sha256sum "/bin/sha256sum"
+	inst /usr/bin/sort "/bin/sort"
 	if [ -e /usr/sbin/insmod ]
 	then	
 		inst /usr/sbin/insmod "/bin/insmod"
