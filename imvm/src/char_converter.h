@@ -12,6 +12,9 @@
 #include<string.h>
 #include<stdint.h>
 #include<stdlib.h>
+#ifdef _WIN32
+#include<windows.h>
+#endif
 
 int hex2bin(char *hex_str, int hex_str_len, unsigned char *byte_buffer, int byte_buffer_len);
 int bin2hex(unsigned char * byte_buffer, int byte_buffer_len, char * hex_str, int hex_str_len);

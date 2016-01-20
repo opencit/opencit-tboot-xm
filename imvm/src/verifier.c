@@ -18,7 +18,10 @@ Keywords in the Policy should match with those in this code : DigestAlg, File Pa
 #include <WinBase.h>
 #include <bcrypt.h>
 #include <WinIoCtl.h>
+#include <io.h>
+#include <errors.h>
 #include <xmllite.h>
+#include <shlwapi.h>
 #elif __linux__
 #include <linux/limits.h>
 #include <unistd.h>
@@ -41,6 +44,7 @@ Keywords in the Policy should match with those in this code : DigestAlg, File Pa
 #define byte unsigned char
 #define MAX_LEN 4096
 #define MAX_HASH_LEN 65
+char cH2[MAX_HASH_LEN];
 
 char hashType[10]; //SHA1 or SHA256
 char NodeValue[500]; //XML Tag value
@@ -49,15 +53,21 @@ char fs_mount_path[1024];
 int process_started = 0;
 
 #ifdef _WIN32
+//For xml parsing using xmllite
+#pragma warning(disable : 4127)  // conditional expression is constant 
+#define CHKHR(stmt)					do { hr = (stmt); if (FAILED(hr)) goto CleanUp; } while(0) 
+#define HR(stmt)					do { hr = (stmt); goto CleanUp; } while(0) 
+#define SAFE_RELEASE(I)				do { if (I){ I->lpVtbl->Release(I); } I = NULL; } while(0)
+
 #define NT_SUCCESS(Status)          (((NTSTATUS)(Status)) >= 0)
 #define STATUS_UNSUCCESSFUL         ((NTSTATUS)0xC0000001L)
-#define MOUNTPATH_IMVM  "../temp"
-#define MOUNTPATH_HOST  "C:"
+//#define MOUNTPATH_IMVM  "../temp"
+//#define MOUNTPATH_HOST  "C:"
 
 #define malloc(size) HeapAlloc(GetProcessHeap(), 0, size)
 #define free(mem_ptr) HeapFree(GetProcessHeap(),0, mem_ptr)
+#define snprintf sprintf_s
 
-#define snprintf _snprintf
 typedef struct _REPARSE_DATA_BUFFER {
 	ULONG  ReparseTag;
 	USHORT ReparseDataLength;
@@ -98,7 +108,6 @@ unsigned char cHash[SHA_DIGEST_LENGTH] = {'\0'}; //Cumulative hash
 unsigned char cHash2[SHA256_DIGEST_LENGTH] = {'\0'};
 unsigned char d1[SHA_DIGEST_LENGTH]={0};
 unsigned char d2[SHA256_DIGEST_LENGTH]={0};
-char cH2[MAX_HASH_LEN];
 char hash_file[256];
 SHA256_CTX csha256;
 SHA_CTX csha1;
@@ -249,6 +258,24 @@ int setup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handl
 }
 
 /*
+Check if file exist on file system or not.
+It automatically resolves the symlink, hardlink and open target file mentioned in filename,
+and also resolves junctions in if exist in filename path
+filename: Full path of file which you want to check
+return 0 if file exist, non zero if file does not exist or can't be found
+*/
+int fileExist(char * filename) {
+	FILE *fp = NULL;
+	errno_t err_code;
+	err_code = fopen_s(&fp, filename, "r");
+	if (err_code != 0) {
+		return err_code;
+	}
+	if (fp) fclose(fp);
+	return 0;
+}
+
+/*
 *next_available_logical_dirve(): generate a next valid dirve name in case of windows where drive can be mounted
 *return: next available valid Drive letter in char
 */
@@ -258,7 +285,7 @@ char next_available_logical_drive() {
 	memset(drive_name_present, 0, sizeof_drive_buf);
 	int total_drive_size = GetLogicalDriveStrings(sizeof_drive_buf, drive_name_present);
 	if (total_drive_size == 0) {
-		return NULL;
+		return '\0';
 	}
 	char drives[24];
 	memset(drives, 0, 24);
@@ -274,7 +301,7 @@ char next_available_logical_drive() {
 		}
 	}
 
-	char drive_char = NULL, drive_str[2];
+	char drive_char = '\0', drive_str[2];
 	drive_str[0] = 'D';
 	drive_str[1] = '\0';
 	for (drive_char = 'D'; drive_char <= 90; drive_char++, drive_str[0] = drive_char) {
@@ -282,7 +309,7 @@ char next_available_logical_drive() {
 			return drive_char;
 		}
 	}
-	return NULL;
+	return '\0';
 }
 
 /*
@@ -380,7 +407,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			}
 			wlength = reparse_buffer->SymbolicLinkReparseBuffer.PrintNameLength / sizeof(WCHAR) + 1;
 			w_complete_path_pname = (WCHAR *)malloc(sizeof(WCHAR) * wlength);
-			lstrcpynW(w_complete_path_pname, reparse_buffer->SymbolicLinkReparseBuffer.PathBuffer + (reparse_buffer->SymbolicLinkReparseBuffer.PrintNameOffset / sizeof(WCHAR)),
+			strncpy_s(w_complete_path_pname, wlength, reparse_buffer->SymbolicLinkReparseBuffer.PathBuffer + (reparse_buffer->SymbolicLinkReparseBuffer.PrintNameOffset / sizeof(WCHAR)),
 				reparse_buffer->SymbolicLinkReparseBuffer.PrintNameLength / sizeof(WCHAR) + 1);
 			wprintf(L"\n wide char Path : %s", w_complete_path_pname);
 			clength = WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS, w_complete_path_pname, wlength, 0, 0, 0, 0);
@@ -394,15 +421,15 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			DEBUG_LOG("\nchar path print name : %s", complete_path_pname);
 
 			//appending unparsed path
-			if (strlen(target_buf) > 0) {
-				int target_buf_length = strlen(complete_path_pname) + (strlen(path) - reparse_buffer->Reserved);
+			if (strnlen_s(target_buf, target_buf_size) > 0) {
+				int target_buf_length = strnlen_s(complete_path_pname, clength) + (strnlen_s(path, MAX_LEN) - reparse_buffer->Reserved);
 				if (target_buf_length > target_buf_size) {
 					realloc(target_buf, target_buf_length);
 					target_buf_size = target_buf_length;
 				}
 				//target_buf = (char *)malloc(target_buf_length * sizeof(char));
-				strcpy(target_buf, complete_path_pname);
-				strcat(target_buf, (path + (strlen(path) - reparse_buffer->Reserved)));
+				strcpy_s(target_buf, target_buf_size, complete_path_pname);
+				strcat_s(target_buf, target_buf_size, (path + (strnlen_s(path, MAX_LEN) - reparse_buffer->Reserved)));
 				//return target_buf_size;
 				goto return_target_link;
 			}
@@ -410,7 +437,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			//extract name from substitutestring
 			wlength = reparse_buffer->SymbolicLinkReparseBuffer.SubstituteNameLength;
 			w_complete_path_sname = (WCHAR *)malloc(sizeof(WCHAR)*wlength);
-			lstrcpynW(w_complete_path_sname, reparse_buffer->SymbolicLinkReparseBuffer.PathBuffer + (reparse_buffer->SymbolicLinkReparseBuffer.SubstituteNameOffset / sizeof(WCHAR)),
+			strncpy_s(w_complete_path_sname, wlength, reparse_buffer->SymbolicLinkReparseBuffer.PathBuffer + (reparse_buffer->SymbolicLinkReparseBuffer.SubstituteNameOffset / sizeof(WCHAR)),
 				reparse_buffer->SymbolicLinkReparseBuffer.SubstituteNameLength / sizeof(WCHAR) + 1);
 
 			clength = WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS, w_complete_path_sname, wlength, 0, 0, 0, 0);
@@ -425,7 +452,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			clength = WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS, w_complete_path_sname, wlength, complete_path_sname, clength, 0, 0);
 			if (clength == 0) {
 				ERROR_LOG("\n%s", "conversion from wchar to char failed");
-				if (strlen(complete_path_pname) == 0) {
+				if (strnlen_s(complete_path_pname, clength) == 0) {
 					target_buf_size = -3;
 					goto return_target_link;
 				}
@@ -434,7 +461,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			DEBUG_LOG("\nchar path substitute name : %s", complete_path_sname);
 
 			//need to remove \\?\ from path
-			int target_buf_length = strlen(complete_path_sname) + (strlen(path) - reparse_buffer->Reserved);
+			int target_buf_length = strnlen_s(complete_path_sname, clength) + (strnlen_s(path, MAX_LEN) - reparse_buffer->Reserved);
 			if (target_buf_length > target_buf_size) {
 				realloc(target_buf, target_buf_length);
 				target_buf_size = target_buf_length;
@@ -442,13 +469,13 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			//target_buf = (char *)malloc(target_buf_length * sizeof(char));
 			if (strstr(complete_path_sname, "\\\\?\\") != NULL) {
 				// if it contains windows convention of preceding "\\?\" in path
-				strcpy(target_buf, &complete_path_sname[4]);
+				strcpy_s(target_buf, target_buf_size, &complete_path_sname[4]);
 			}
 			else {
 				//if its a relative path
-				strcpy(target_buf, complete_path_sname);
+				strcpy_s(target_buf, target_buf_size, complete_path_sname);
 			}
-			strcat(target_buf, (path + (strlen(path) - reparse_buffer->Reserved)));
+			strcat_s(target_buf, target_buf_size, (path + (strnlen_s(path, MAX_LEN) - reparse_buffer->Reserved)));
 			DEBUG_LOG("\nafter adding unparsed path : %s", target_buf);
 		}
 		else if (reparse_buffer->ReparseTag == IO_REPARSE_TAG_MOUNT_POINT) {
@@ -456,7 +483,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			DEBUG_LOG("\n unparsed length : %d", reparse_buffer->Reserved);
 			wlength = reparse_buffer->MountPointReparseBuffer.PrintNameLength / sizeof(WCHAR) + 1;
 			w_complete_path_pname = (WCHAR *)malloc(sizeof(WCHAR) * wlength);
-			lstrcpynW(w_complete_path_pname, reparse_buffer->MountPointReparseBuffer.PathBuffer + (reparse_buffer->MountPointReparseBuffer.PrintNameOffset / sizeof(WCHAR)),
+			strncpy_s(w_complete_path_pname, wlength, reparse_buffer->MountPointReparseBuffer.PathBuffer + (reparse_buffer->MountPointReparseBuffer.PrintNameOffset / sizeof(WCHAR)),
 				reparse_buffer->MountPointReparseBuffer.PrintNameLength / sizeof(WCHAR) + 1);
 			wprintf(L"\n wide char Path : %s", w_complete_path_pname);
 
@@ -471,7 +498,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 				target_buf_size = clength;
 			}
 			//complete_path_pname = (char *)malloc(sizeof(CHAR)* clength);
-			memset(target_buf, 0, clength);
+			memset(target_buf, 0, target_buf_size);
 			clength = WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS, w_complete_path_pname, wlength, target_buf, clength, 0, 0);
 			if (clength == 0) {
 				ERROR_LOG("\n%s", "conversion from wchar to char fails");
@@ -480,14 +507,14 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 				//return -1;
 			}
 			DEBUG_LOG("\nchar path print name : %s", target_buf);
-			if (strlen(target_buf) > 0) {
+			if (strnlen_s(target_buf, target_buf_size) > 0) {
 				goto return_target_link;
 				//return target_buf_size;
 			}
 			//extract name from substitutestring
 			wlength = reparse_buffer->MountPointReparseBuffer.SubstituteNameLength;
 			w_complete_path_sname = (WCHAR *)malloc(sizeof(WCHAR)*wlength);
-			lstrcpynW(w_complete_path_sname, reparse_buffer->MountPointReparseBuffer.PathBuffer + (reparse_buffer->MountPointReparseBuffer.SubstituteNameOffset / sizeof(WCHAR)),
+			strncpy_s(w_complete_path_sname, wlength, reparse_buffer->MountPointReparseBuffer.PathBuffer + (reparse_buffer->MountPointReparseBuffer.SubstituteNameOffset / sizeof(WCHAR)),
 				reparse_buffer->MountPointReparseBuffer.SubstituteNameLength / sizeof(WCHAR) + 1);
 
 			clength = WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS, w_complete_path_sname, wlength, 0, 0, 0, 0);
@@ -557,14 +584,11 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 }
 #endif
 
-*/
-}
-
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
 void generate_cumulative_hash(char *hash, int sha_one){
 	DEBUG_LOG("\nIncoming Hash : %s\n", hash); 
 #ifdef _WIN32
-	status = BCryptHashData(handle_Hash_object, hash, strlen(hash), 0);
+	status = BCryptHashData(handle_Hash_object, hash, strnlen_s(hash, MAX_LEN), 0);
 	if (!NT_SUCCESS(status)) {
 		cleanup_CNG_api();
 	}
@@ -591,7 +615,7 @@ void generate_cumulative_hash(char *hash, int sha_one){
 	   bin2hex(cHash, sizeof(cHash), ob, sizeof(ob));
 	   //DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha1_hash_string(cHash,ob));
 	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
-	   memset_s(ob,strnlen_s(ob,sizeof(ob)),'\0');
+	   memset(ob,'\0',strnlen_s(ob,sizeof(ob)));
 	   
 	   return;
 	}
@@ -614,7 +638,7 @@ void generate_cumulative_hash(char *hash, int sha_one){
 	   bin2hex(cHash2, sizeof(cHash2), ob, sizeof(ob));
 	   //DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha256_hash_string(cHash2,ob));
 	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
-	   memset_s(ob,strnlen_s(ob,sizeof(ob)),'\0');
+	   memset(ob,'\0',strnlen_s(ob,sizeof(ob)));
 	   
 	   return;
 		
@@ -665,7 +689,7 @@ int getSymLinkValue(char *path) {
 			DEBUG_LOG("\n%s %s %s %s", "Relative symlink path", symlinkpath, "points to", sympathroot);
 			//printf("Relative symlink path '%s' point to '%s'\n", symlinkpath, sympathroot);
 		}
-		strcpy(path, sympathroot);
+		strcpy_s(path, strnlen_s(sympathroot, len) + 1, sympathroot);
 		return getSymLinkValue(path);
 	}
 #elif __linux__
@@ -714,8 +738,11 @@ int getSymLinkValue(char *path) {
  * Calculate hash of file
  */
 char* calculate(char *path, char output[MAX_HASH_LEN]) {
-    
-    char hash_in[65];
+	const int bufSize = 65000;
+	char *buffer = malloc(bufSize);
+	int bytesRead = 0;
+	if (!buffer) return NULL;
+
     char value[1056] = {'\0'};
     /*We append the mount path before the filepath first, 
 	 and then pass that address to calculate the hash */
@@ -723,18 +750,13 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
     strcpy_s(value, sizeof(value), fs_mount_path);
     strcat_s(value,sizeof(value),path);//Value = Mount Path + Path in the image/disk
 #ifdef __linux__
-    int retval = getSymLinkValue(value);
+   /* int retval = getSymLinkValue(value);
     if(retval != 0) {
         ERROR_LOG("\n%s %s %s","File:",path,"doesn't exist");
         return NULL;
-    }
+    }*/
 	DEBUG_LOG("\n%s %s %s %s","Mounted file path for file",path,"is",value);
 #endif    
-    FILE* file = fopen(value, "rb");
-    if(!file) {
-        ERROR_LOG("\n%s %s","File not found-", value);
-        return NULL;
-    }
     /*How the process works: 
    1. Open the file pointed by value
    2. Read the file contents into char * buffer
@@ -751,6 +773,13 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
 	PBYTE                   hashObject_ptr = NULL;
 	PBYTE                   hash_ptr = NULL;
 
+	FILE* file;
+	errno_t error_code;
+	error_code = fopen_s(&file, value, "rb");
+	if ( (!file) || error_code) {
+		ERROR_LOG("\n%s %s", "File not found-", value);
+		return NULL;
+	}
 	status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
 	if (!NT_SUCCESS(status)) {
 		ERROR_LOG("\nCould not inititalize CNG args Provider : 0x%x", status);
@@ -766,31 +795,28 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
 	}
 
 	//Dump the hash in variable and finish the Hash Object handle
-	status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
-	//TODO use new hex2bin functions 
+	status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0); 
+	bin2hex(hash_ptr, hash_size, output, MAX_HASH_LEN);
 	if (strcmp(hashType, "sha256") == 0) {
-		output = sha256_hash_string(hash_ptr, hash_size, output);
+		//output = sha256_hash_string(hash_ptr, hash_size, output);
 		generate_cumulative_hash(output, 0);
 	}
 	else {
-		output = sha1_hash_string(hash_ptr, hash_size, output);
+		//output = sha1_hash_string(hash_ptr, hash_size, output);
 		generate_cumulative_hash(output, 1);
 	}
 	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 #elif __linux__
+	FILE* file = fopen(value, "rb");
+	if (!file) {
+		ERROR_LOG("\n%s %s", "File not found-", value);
+		return NULL;
+	}
     if(strcmp(hashType, "sha256") == 0) {
      //For SHA 256 hash**Hard dependency on exact usage of 'sha256'   
         unsigned char hash[SHA256_DIGEST_LENGTH];
         SHA256_CTX sha256;
         SHA256_Init(&sha256);
-        const int bufSize = 65000;
-        char *buffer = (char *)malloc(bufSize);
-       
-        int bytesRead = 0;
-        if(!buffer) {
-        	fclose(file);
-        	return NULL;
-        }
         while((bytesRead = fread(buffer, 1, bufSize, file))) {
              
               SHA256_Update(&sha256, buffer, bytesRead);
@@ -806,13 +832,6 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
         unsigned char hash[SHA_DIGEST_LENGTH];
         SHA_CTX sha1;
         SHA1_Init(&sha1);
-        const int bufSize = 32768;
-        char *buffer = (char *) malloc(bufSize);
-        int bytesRead = 0;
-        if(!buffer) {
-        	fclose(file);
-        	return NULL;
-        }
         while((bytesRead = fread(buffer, 1, bufSize, file))) {
             SHA1_Update(&sha1, buffer, bytesRead);
         }
@@ -868,6 +887,7 @@ Dir Path  **** Hard Dependency
 DigestAlg= **** Hard Dependency
 Include **** Hard Dependency
 Exclude **** Hard Dependency
+Recursive ****  Hard Dependency
 and generates appropriate logs.
 
 Maybe we can have a to_upper/lower kinda function here that can take care of format issues.(Not covered in the Lite version)
@@ -887,7 +907,12 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     char include[128] = {'\0'};
     char exclude[128] = { '\0'};
 	char recursive[16] = {'\0'};
+#ifdef _WIN32
+	// "/S" switch in dir command search recursively
+	char recursive_cmd[32] = { '/', 'S', '\0' };
+#elif __linux__
 	char recursive_cmd[32] = {'\0'};
+#endif
 	size_t len = 32768;
     char calc_hash[MAX_HASH_LEN] = {'\0'};
     char ma_result_path[100] = {'\0'};
@@ -903,25 +928,14 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     fp=fopen(origManifestPath,"r");
     if (fp != NULL) {
 		fq=fopen(ma_result_path,"w");
-#ifdef __linux__
+#ifdef _WIN32
+		_chmod(ma_result_path, _S_IREAD | _S_IWRITE);
+#elif __linux__
 		chmod(ma_result_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-#elif __WIN32
-//		_chmod
 #endif
 		if (fq != NULL) {
 			fprintf(fq,"<?xml version=\"1.0\"?>\n");
 			char * temp_ptr = NULL;
-		   //Open Manifest to get list of files to hash
-#ifdef _WIN32
-	DEBUG_LOG("\n%s", "setting up CNG api algorithm provider");
-	NTSTATUS status = STATUS_UNSUCCESSFUL;
-
-	status = setup_CNG_api();
-	if (!NT_SUCCESS(status)){
-		ERROR_LOG("\nCould not inititalize CNG Provider : 0x%x", status);
-		return;
-	}
-#endif
 			//Open Manifest to get list of files to hash
 			line = (char *)malloc(sizeof(char) * len);
 			while (fgets(line, len, fp) != NULL) {
@@ -932,15 +946,28 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 				strcpy_s(exclude,sizeof(exclude),"");
 				strcpy_s(recursive,sizeof(recursive),"");
 				temp_ptr = NULL;
-				temp_ptr = strstr(line,"DigestAlg=");
-				if(temp_ptr != NULL){
-					/*Get the type of hash */
-					tagEntry(temp_ptr);
-					strcpy_s(hashType,sizeof(hashType),NodeValue);
-					digest_check = 1;
-					DEBUG_LOG("\n%s %s","Type of Hash used :",hashType);
-					fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n",hashType);
-					DEBUG_LOG("\n%s %s", "Type of Hash used :", hashType);
+				//Extract Digest Algo
+				if (!digest_check) {
+					temp_ptr = strstr(line,"DigestAlg=");				
+					if(temp_ptr != NULL){
+						/*Get the type of hash */
+						tagEntry(temp_ptr);
+						strcpy_s(hashType,sizeof(hashType),NodeValue);
+						digest_check = 1;
+						DEBUG_LOG("\n%s %s","Type of Hash used :",hashType);
+						fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n",hashType);
+						DEBUG_LOG("\n%s %s", "Type of Hash used :", hashType);
+#ifdef _WIN32
+						DEBUG_LOG("\n%s", "setting up CNG api algorithm provider");
+						NTSTATUS status = STATUS_UNSUCCESSFUL;
+
+						status = setup_CNG_api();
+						if (!NT_SUCCESS(status)){
+							ERROR_LOG("\nCould not inititalize CNG Provider : 0x%x", status);
+							return;
+						}
+#endif
+					}
 				}
 				//File Hashes
 				if(strstr(line,"<File Path=")!= NULL && digest_check){
@@ -948,8 +975,11 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					char file_name_buff[1024] = {'\0'};
 					snprintf(file_name_buff, sizeof(file_name_buff), "%s/%s", fs_mount_path, NodeValue);
 					DEBUG_LOG("\nfile path : %s\n", file_name_buff);
-					//TODO need to add separate way for windows
+#ifdef _WIN32
+					int retval = fileExist(file_name_buff);
+#elif __linux__
 					int retval = getSymLinkValue(file_name_buff);
+#endif
 					if ( retval == 0 )
 					{
 						//file exist
@@ -994,8 +1024,13 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 							tagEntry(temp_ptr);
 							strcpy_s(recursive,sizeof(recursive),NodeValue);
 							DEBUG_LOG("\nRecursive : %s", NodeValue);
+							//Hard coded to check "false" string
 							if ( strcmp(recursive,"false") == 0) {
+#ifdef _WIN32
+								memset(recursive_cmd, 0, sizeof(recursive_cmd));
+#elif __linux__
 								snprintf(recursive_cmd, sizeof(recursive_cmd), "-maxdepth 1");
+#endif
 							}
 						}
 
@@ -1009,32 +1044,35 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 
 #ifdef _WIN32
 					//TODO need to write in sync with linux 
+					char temp_dir_file_list[32] = "/tmp/dir_file.txt";
 					if (strcmp(include, "") != 0 && strcmp(exclude, "") != 0)
-						sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf| findstr /i \"%s\" | findstr /v /i \"%s\"", mDpath, include, exclude);
+						snprintf(Dir_Str, sizeof(Dir_Str), "for /f %%f in ('dir \"%s\" %s /a-d /b /on') do @echo %%~npxf| findstr /i \"%s\" | findstr /v /i \"%s\"", mDpath, recursive_cmd, include, exclude);
 					else if (strcmp(include, "") != 0)
-						sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf| findstr /i \"%s\"", mDpath, include);
+						snprintf(Dir_Str, sizeof(Dir_Str), "for /f %%f in ('dir \"%s\" %s /a-d /b /on') do @echo %%~npxf| findstr /i \"%s\"", mDpath, recursive_cmd, include);
 					else if (strcmp(exclude, "") != 0)
-						sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf| findstr /v /i \"%s\"", mDpath, exclude);
+						snprintf(Dir_Str, sizeof(Dir_Str), "for /f %%f in ('dir \"%s\" %s /a-d /b /on') do @echo %%~npxf| findstr /v /i \"%s\"", mDpath, recursive_cmd, exclude);
 					else
-						sprintf(Dir_Str, "for /f %%f in ('dir \"%s\" /s /a-d /b /on') do @echo %%~npxf", mDpath);
+						snprintf(Dir_Str, sizeof(Dir_Str), "for /f %%f in ('dir \"%s\" %s /a-d /b /on') do @echo %%~npxf", mDpath, recursive_cmd);
 
-					char file[50];
-					strcpy(file, fs_mount_path);
-					strcat(file, "filelist.txt");
+					char file[64];
+					strcpy_s(file, sizeof(file), fs_mount_path);
+					strcat_s(file, sizeof(file), temp_dir_file_list);
 
 					FILE *dir_file = _popen(Dir_Str, "r");
-					FILE *fd = fopen(file, "wb");
-					if (!fd) {
+					FILE *fd = NULL;
+					errno_t error_code = fopen_s(&fd, file, "wb");
+					if ( !fd || error_code) {
 						ERROR_LOG("\n%s %s", "File not found-", file);
 						return;
 					}
-
 					while (fgets(dhash, dhash_len, dir_file))
 						fputs(dhash, fd);
 					fclose(fd);
-
-					dhash = calculate("filelist.txt", dhash);
+					dhash = calculate(temp_dir_file_list, dhash);
 					_pclose(dir_file);
+					if (remove(file) == -1) {
+						ERROR_LOG("\nFailed to remove the temproray created file %s", file);
+					}
 #elif __linux__
 					//to remove mount path from the find command output and directory path and +1 is to remove the additional / after directory
 					int slen = strnlen_s(mDpath,sizeof(mDpath)) + 1; 
@@ -1069,7 +1107,6 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					DEBUG_LOG("\n%s %s %s %s", "Dir :", mDpath, "Hash Measured:", dhash);
 					fprintf(fq, "<Dir Path=\"%s\">", dir_path);
 					fprintf(fq, "%s</Dir>\n", dhash);
-					char outputBuffer[65];
 					if (strcmp(hashType, "sha256") == 0)
 						generate_cumulative_hash(dhash, 0);
 					else
@@ -1097,7 +1134,13 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     strcat_s(hash_file,sizeof(hash_file),hashType);
     /*Write the Cumulative Hash calculated to the file*/
     FILE *fc = fopen(hash_file,"w");
+#ifdef _WIN32
+	if (_chmod(hash_file, _S_IREAD | _S_IWRITE) == -1) {
+		ERROR_LOG("Failed to provide read write permissions to cumulative hash file %s ", hash_file);
+	}
+#elif __linux__
 	chmod(hash_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+#endif
     if (fc == NULL ) {
     	ERROR_LOG("Can not open file: %s, to write cumulative hash", hash_file);
     	return;
@@ -1109,24 +1152,119 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 	status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
 	if (!NT_SUCCESS(status)){
 		ERROR_LOG("\nCould not dump the hash on memory. Error : 0x%x", status);
+		return;
 	}
-
-	cleanup_CNG_api();
 #endif
-	char *ptr = NULL;
-    if(strcmp(hashType, "sha256") == 0){
-    	bin2hex(d2, sizeof(d2), cH2, sizeof(cH2));
-    	ptr= cH2;
-        //ptr = sha256_hash_string(d2,cH2);
+#ifdef _WIN32
+	if (bin2hex(hash_ptr, hash_size, cH2, sizeof(cH2)) < 0) {
+		ERROR_LOG("\n Failed to convert binary hash to hex");
+		return;
+	}
+	cleanup_CNG_api();
+#elif __linux__
+	if(strcmp(hashType, "sha256") == 0){
+		if (bin2hex(d2, sizeof(d2), cH2, sizeof(cH2)) < 0 ) {
+			ERROR_LOG("\n Failed to convert binary hash to hex");
+			return;
+		}
     }
     else {
-    	bin2hex(d1, sizeof(d1), cH2, sizeof(cH2));
-    	ptr= cH2;
-        //   ptr = sha1_hash_string(d1,cH2);
+		if (bin2hex(d1, sizeof(d1), cH2, sizeof(cH2)) < 0) {
+			ERROR_LOG("\n Failed to convert binary hash to hex");
+			return;
+		}
     }
-	DEBUG_LOG("\n%s %s\n", "Hash Measured:", ptr);
-	fprintf(fc, "%s", ptr);
+#endif
+	DEBUG_LOG("\n%s %s\n", "Hash Measured:", cH2);
+	fprintf(fc, "%s", cH2);
 	fclose(fc);
+}
+
+static void formatManifest(const char * origManifest, const char *formattedManifest){
+	HRESULT hr = S_OK;
+	XmlNodeType nodeType;
+	IStream *pFileStream = NULL;
+	IStream *pOutFileStream = NULL;
+	IXmlReader *pReader = NULL;
+	IXmlWriter *pWriter = NULL;
+
+	//Open read-only input stream 
+	if (FAILED(hr = SHCreateStreamOnFile(origManifest, STGM_READ, &pFileStream)))
+	{
+		ERROR_LOG("Error creating file reader, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	//Open writeable output stream 
+	if (FAILED(hr = SHCreateStreamOnFile(formattedManifest, STGM_CREATE | STGM_WRITE, &pOutFileStream)))
+	{
+		ERROR_LOG("Error creating file writer, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = CreateXmlReader(&IID_IXmlReader, (void**)&pReader, NULL)))
+	{
+		ERROR_LOG("Error creating xml reader, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = CreateXmlWriter(&IID_IXmlWriter, (void**)&pWriter, NULL)))
+	{
+		ERROR_LOG("Error creating xml writer, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = pReader->lpVtbl->SetProperty(pReader, XmlReaderProperty_DtdProcessing, DtdProcessing_Prohibit)))
+	{
+		ERROR_LOG("Error setting indent property in reader, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = pWriter->lpVtbl->SetProperty(pWriter, XmlWriterProperty_Indent, TRUE)))
+	{
+		ERROR_LOG("Error setting indent property in writer, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = pReader->lpVtbl->SetInput(pReader, pFileStream)))
+	{
+		ERROR_LOG("Error setting input for reader, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = pWriter->lpVtbl->SetOutput(pWriter, pOutFileStream)))
+	{
+		ERROR_LOG("Error setting output for writer, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	//read until there are no more nodes 
+	while (S_OK == (hr = pReader->lpVtbl->Read(pReader, &nodeType)))
+	{
+		switch (nodeType)
+		{
+		case XmlNodeType_EndElement:
+			if (FAILED(hr = pWriter->lpVtbl->WriteFullEndElement(pWriter)))
+			{
+				ERROR_LOG("Error writing WriteFullEndElement, error is %08.8lx", hr);
+				HR(hr);
+			}
+			break;
+		default:
+			if (FAILED(hr = pWriter->lpVtbl->WriteNodeShallow(pWriter, pReader, FALSE)))
+			{
+				ERROR_LOG("Error writing WriteNodeShallow, error is %08.8lx", hr);
+				HR(hr);
+			}
+			break;
+		}
+	}
+
+CleanUp:
+	SAFE_RELEASE(pFileStream);
+	SAFE_RELEASE(pOutFileStream);
+	SAFE_RELEASE(pReader);
+	SAFE_RELEASE(pWriter);
 }
 
 /*
@@ -1134,62 +1272,29 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 * provided to the verifier and calls a xml parsing function
 */
 int main(int argc, char **argv) {
-    char manifest_file[100] = {'\0'};
-#ifdef __linux__
-    xmlDocPtr Doc;
-#endif
+    char manifest_file[512] = {'\0'};
+	char fmanifest_file[100] = {'\0'};
+
     if(argc != 4) {
         ERROR_LOG("\n%s %s %s","Usage:",argv[0]," <manifest_path> <mounted_path> <IMVM/HOST>");
         return EXIT_FAILURE;
     }
     DEBUG_LOG("\n%s %s","MANIFEST-PATH :", argv[1]);
 	DEBUG_LOG("\n%s %s","MOUNTED-PATH :", argv[2]);
-	DEBUG_LOG("\n MODE : %s", argv[3]);
+	DEBUG_LOG("\n MODE : %s\n", argv[3]);
   
 	strcpy_s(manifest_file,sizeof(manifest_file),argv[1]);
 	strcpy_s(fs_mount_path,sizeof(fs_mount_path),argv[2]);
 	strcat_s(fs_mount_path,sizeof(fs_mount_path),"/");
-    memset_s((char *)cHash,strnlen_s((char *)cHash,sizeof(cHash)),0);
-	memset(cHash2, 0, sizeof(cHash2));
-/*
-#ifdef _WIN32
-	DWORD pid = GetCurrentProcessId();
-	char power_shell[] = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
-	char power_shell_prereq_command[] = "-noprofile -executionpolicy bypass -file";
-	char* mount_script = "C:\\Mount-EXTVM.ps1";
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;	
-#endif
-*/
 	if (strcmp(argv[3], "IMVM") == 0) {
-#ifdef _WIN32
-/*
-		char next_logical_drive_char;
-		int sleep_count = 0;
-		//try to get next available drive letter, if not available wait for 5 sec
-		while (1) {
-			next_logical_drive_char = next_available_logical_drive();
-			if (next_logical_drive_char == NULL && sleep_count < 5) {
-				DEBUG_LOG("\n%s", "wait till some drive is unmounted");
-				Sleep(1000);
-				sleep_count++;
-			}
-			else if (sleep_count == 5 && next_logical_drive_char == NULL) {
-				ERROR_LOG("\n%s", "can't get drive letter for disk");
-				return EXIT_FAILURE;
-			}
-			else {
-				DEBUG_LOG("\n%s : %c", "next available drive char", next_logical_drive_char);
-				sprintf(fs_mount_path, "%c:", next_logical_drive_char);
-				break;
-			}
-		}
-*/
-#endif
     	char* last_oblique_ptr = strrchr(manifest_file, '/');
-        //strncpy_s(hash_file,sizeof(hash_file),manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
-    	strncpy_s(hash_file,sizeof(hash_file),manifest_file,strnlen_s(manifest_file,sizeof(manifest_file))-strnlen_s(last_oblique_ptr + 1, sizeof("/manifestlist.xml")));
-    	strcat_s(hash_file,sizeof(hash_file),"/measurement.");
+		strncpy_s(hash_file,sizeof(hash_file),manifest_file,strnlen_s(manifest_file,sizeof(manifest_file))-strnlen_s(last_oblique_ptr + 1,sizeof("/manifest.xml")));
+#ifdef _WIN32
+		strcpy_s(fmanifest_file,sizeof(fmanifest_file),hash_file);
+		strcat_s(fmanifest_file,sizeof(fmanifest_file),"/fmanifest.xml");
+		DEBUG_LOG("\n%s", fmanifest_file);
+#endif
+    	strcat_s(hash_file,sizeof(hash_file),"measurement.");
 		DEBUG_LOG("\n%s", hash_file);
 	}
 	else if (strcmp(argv[3], "HOST") == 0) {
@@ -1200,72 +1305,24 @@ int main(int argc, char **argv) {
 		ERROR_LOG("\n%s", "Invalid verification_type.Valid options are IMVM/HOST");
 		return EXIT_FAILURE;
 	}
-/*
-	if (imageMountingRequired) {
-		char command[1024] = { '\0' };
-#ifdef _WIN32
-		sprintf(command, "%s %s %s -Path %s -DriveLetter %s -Mount", power_shell, power_shell_prereq_command, mount_script, argv[2], fs_mount_path);
-		DEBUG_LOG("\ncommand : %s", command);
-		// dirctory which will be the working directory of powershell
-		char current_dir_of_power_shell[] = "C:\\";
-		ZeroMemory(&si, sizeof(si));
-		si.cb = sizeof(si);
-		ZeroMemory(&pi, sizeof(pi));
 
-		int res = CreateProcess(NULL, command, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, current_dir_of_power_shell, &si, &pi);
-		if (res == 0) {
-			ERROR_LOG("\nCreateProcess failed (%d).", GetLastError());
-			ERROR_LOG("\n%s", "Mounting of image failed");
-			//exit(EXIT_FAILURE);
-			return EXIT_FAILURE;
-		}
-
-		WaitForSingleObject(pi.hProcess, INFINITE);
-		CloseHandle(si.hStdError);
-		CloseHandle(si.hStdInput);
-		CloseHandle(si.hStdOutput);
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
-		DEBUG_LOG("\n%s", "Successfully mounted the image");
-#endif
-	}
-*/
-#ifdef __linux__
-    Doc = xmlParseFile(argv[1]);	
-	/*This will save the XML file in a correct format, as desired by our parser. 
+	/*This will save the XML file in a correct format, as desired by our parser.
 	We dont use libxml tools to parse but our own pointer legerdemain for the time being
 	Main advantage is simplicity and speed ~O(n) provided space isn't an issue */
-	xmlSaveFormatFile (argv[1], Doc, 1); /*This would render even inline XML perfect for line by line parsing*/  
-    xmlFreeDoc(Doc);  
-#endif
-    generateLogs(argv[1], argv[2], argv[3]);
-
-/*	if (strcmp(argv[3], "IMVM") == 0) {
-		char command[1024] = { '\0' };
+	/*This would render even inline XML perfect for line by line parsing*/
 #ifdef _WIN32
-		sprintf(command, "%s %s %s -Path %s -DriveLetter %s -Umount", power_shell, power_shell_prereq_command, mount_script, argv[2], fs_mount_path);
-		DEBUG_LOG("\ncommand : %s", command); 
-		char current_dir_of_power_shell[] = "C:\\";
-		ZeroMemory(&si, sizeof(si));
-		si.cb = sizeof(si);
-		ZeroMemory(&pi, sizeof(pi));
-
-		int res = CreateProcess(NULL, command, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, current_dir_of_power_shell, &si, &pi);
-		if (res == 0) {
-			ERROR_LOG("\nCreateProcess failed (%d).", GetLastError());
-			ERROR_LOG("\n%s", "Mounting of image failed");
-			//exit(EXIT_FAILURE);
-			return EXIT_FAILURE;
-		}
-
-		WaitForSingleObject(pi.hProcess, INFINITE);
-		CloseHandle(si.hStdError);
-		CloseHandle(si.hStdInput);
-		CloseHandle(si.hStdOutput);
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
-		DEBUG_LOG("\n%s", "Successfully unmounted the image\n");
+	formatManifest(argv[1], fmanifest_file);
+	if (_chmod(fmanifest_file, _S_IREAD | _S_IWRITE) == -1) {
+		ERROR_LOG("Failed to provide read write permissions to cumulative hash file %s ", fmanifest_file);
+		return EXIT_FAILURE;
 	}
-*/
+	generateLogs(fmanifest_file, argv[2], argv[3]);
+	DeleteFile(fmanifest_file);
+#elif __linux__
+	xmlDocPtr Doc = xmlParseFile(argv[1]);
+	xmlSaveFormatFile (argv[1], Doc, 1);
+    xmlFreeDoc(Doc);  
+	generateLogs(argv[1], argv[2], argv[3]);
+#endif
 	return 0;
 }
