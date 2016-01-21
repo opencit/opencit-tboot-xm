@@ -915,7 +915,8 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 #endif
 	size_t len = 32768;
     char calc_hash[MAX_HASH_LEN] = {'\0'};
-    char ma_result_path[100] = {'\0'};
+    char ma_result_path[256] = {'\0'};
+	//memset_s(ma_result_path,sizeof(ma_result_path),'/0');
     char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
 	int dhash_len = 256;
 	int digest_check = 0;
@@ -1098,10 +1099,9 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 						size_t dhash_max = 128;
 						char *next_token;
 						strtok_s(dhash,&dhash_max," ",&next_token);
-					}
-					if (dir_file != NULL) {
 						pclose(dir_file);
-					}				
+					}
+
 #endif            
 					DEBUG_LOG("\n%s %s %s %s", "mDpath is ", mDpath, " and command is ", Dir_Str);
 					DEBUG_LOG("\n%s %s %s %s", "Dir :", mDpath, "Hash Measured:", dhash);
@@ -1146,16 +1146,11 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     	return;
     }
 #ifdef _WIN32
-	//TODO need update  thi
-//	ptr = (char *)malloc(sizeof(char) * dhash_len);
-//	memset(ptr, 0, dhash_len);
 	status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
 	if (!NT_SUCCESS(status)){
 		ERROR_LOG("\nCould not dump the hash on memory. Error : 0x%x", status);
 		return;
 	}
-#endif
-#ifdef _WIN32
 	if (bin2hex(hash_ptr, hash_size, cH2, sizeof(cH2)) < 0) {
 		ERROR_LOG("\n Failed to convert binary hash to hex");
 		return;
