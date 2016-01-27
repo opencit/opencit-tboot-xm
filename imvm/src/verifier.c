@@ -276,43 +276,6 @@ int fileExist(char * filename) {
 }
 
 /*
-*next_available_logical_dirve(): generate a next valid dirve name in case of windows where drive can be mounted
-*return: next available valid Drive letter in char
-*/
-char next_available_logical_drive() {
-	int sizeof_drive_buf = 128;
-	char drive_name_present[128];
-	memset(drive_name_present, 0, sizeof_drive_buf);
-	int total_drive_size = GetLogicalDriveStrings(sizeof_drive_buf, drive_name_present);
-	if (total_drive_size == 0) {
-		return '\0';
-	}
-	char drives[24];
-	memset(drives, 0, 24);
-	int drives_count = 0;
-	int i, j = -1;
-	for (i = 0; i < total_drive_size; i++) {
-		if (drive_name_present[i] == '\0') {
-			//drives[drives_count] = (char *)malloc(sizeof(char) * (i - j));
-			//memcpy(drives[drives_count], drive_name_present, i - j);
-			drives[drives_count] = drive_name_present[j + 1];
-			j = i;
-			drives_count++;
-		}
-	}
-
-	char drive_char = '\0', drive_str[2];
-	drive_str[0] = 'D';
-	drive_str[1] = '\0';
-	for (drive_char = 'D'; drive_char <= 90; drive_char++, drive_str[0] = drive_char) {
-		if (strstr(drives, drive_str) == NULL) {
-			return drive_char;
-		}
-	}
-	return '\0';
-}
-
-/*
 *ISLINK(): check whether passed path is link or not
 *@path : pointer to path
 *return : return 0, if path is link otherwise 1. If error occured it will return negative value
@@ -582,6 +545,93 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 		return target_buf_size;
 	}
 }
+
+static void formatManifest(const char * origManifest, const char *formattedManifest){
+	HRESULT hr = S_OK;
+	XmlNodeType nodeType;
+	IStream *pFileStream = NULL;
+	IStream *pOutFileStream = NULL;
+	IXmlReader *pReader = NULL;
+	IXmlWriter *pWriter = NULL;
+
+	//Open read-only input stream 
+	if (FAILED(hr = SHCreateStreamOnFile(origManifest, STGM_READ, &pFileStream)))
+	{
+		ERROR_LOG("Error creating file reader, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	//Open writeable output stream 
+	if (FAILED(hr = SHCreateStreamOnFile(formattedManifest, STGM_CREATE | STGM_WRITE, &pOutFileStream)))
+	{
+		ERROR_LOG("Error creating file writer, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = CreateXmlReader(&IID_IXmlReader, (void**)&pReader, NULL)))
+	{
+		ERROR_LOG("Error creating xml reader, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = CreateXmlWriter(&IID_IXmlWriter, (void**)&pWriter, NULL)))
+	{
+		ERROR_LOG("Error creating xml writer, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = pReader->lpVtbl->SetProperty(pReader, XmlReaderProperty_DtdProcessing, DtdProcessing_Prohibit)))
+	{
+		ERROR_LOG("Error setting indent property in reader, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = pWriter->lpVtbl->SetProperty(pWriter, XmlWriterProperty_Indent, TRUE)))
+	{
+		ERROR_LOG("Error setting indent property in writer, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = pReader->lpVtbl->SetInput(pReader, pFileStream)))
+	{
+		ERROR_LOG("Error setting input for reader, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	if (FAILED(hr = pWriter->lpVtbl->SetOutput(pWriter, pOutFileStream)))
+	{
+		ERROR_LOG("Error setting output for writer, error is %08.8lx", hr);
+		HR(hr);
+	}
+
+	//read until there are no more nodes 
+	while (S_OK == (hr = pReader->lpVtbl->Read(pReader, &nodeType)))
+	{
+		switch (nodeType)
+		{
+		case XmlNodeType_EndElement:
+			if (FAILED(hr = pWriter->lpVtbl->WriteFullEndElement(pWriter)))
+			{
+				ERROR_LOG("Error writing WriteFullEndElement, error is %08.8lx", hr);
+				HR(hr);
+			}
+			break;
+		default:
+			if (FAILED(hr = pWriter->lpVtbl->WriteNodeShallow(pWriter, pReader, FALSE)))
+			{
+				ERROR_LOG("Error writing WriteNodeShallow, error is %08.8lx", hr);
+				HR(hr);
+			}
+			break;
+		}
+	}
+
+CleanUp:
+	SAFE_RELEASE(pFileStream);
+	SAFE_RELEASE(pOutFileStream);
+	SAFE_RELEASE(pReader);
+	SAFE_RELEASE(pWriter);
+}
 #endif
 
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
@@ -749,14 +799,8 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
 
     strcpy_s(value, sizeof(value), fs_mount_path);
     strcat_s(value,sizeof(value),path);//Value = Mount Path + Path in the image/disk
-#ifdef __linux__
-   /* int retval = getSymLinkValue(value);
-    if(retval != 0) {
-        ERROR_LOG("\n%s %s %s","File:",path,"doesn't exist");
-        return NULL;
-    }*/
 	DEBUG_LOG("\n%s %s %s %s","Mounted file path for file",path,"is",value);
-#endif    
+   
     /*How the process works: 
    1. Open the file pointed by value
    2. Read the file contents into char * buffer
@@ -1175,101 +1219,13 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 	fclose(fc);
 }
 
-static void formatManifest(const char * origManifest, const char *formattedManifest){
-	HRESULT hr = S_OK;
-	XmlNodeType nodeType;
-	IStream *pFileStream = NULL;
-	IStream *pOutFileStream = NULL;
-	IXmlReader *pReader = NULL;
-	IXmlWriter *pWriter = NULL;
-
-	//Open read-only input stream 
-	if (FAILED(hr = SHCreateStreamOnFile(origManifest, STGM_READ, &pFileStream)))
-	{
-		ERROR_LOG("Error creating file reader, error is %08.8lx", hr);
-		HR(hr);
-	}
-
-	//Open writeable output stream 
-	if (FAILED(hr = SHCreateStreamOnFile(formattedManifest, STGM_CREATE | STGM_WRITE, &pOutFileStream)))
-	{
-		ERROR_LOG("Error creating file writer, error is %08.8lx", hr);
-		HR(hr);
-	}
-
-	if (FAILED(hr = CreateXmlReader(&IID_IXmlReader, (void**)&pReader, NULL)))
-	{
-		ERROR_LOG("Error creating xml reader, error is %08.8lx", hr);
-		HR(hr);
-	}
-
-	if (FAILED(hr = CreateXmlWriter(&IID_IXmlWriter, (void**)&pWriter, NULL)))
-	{
-		ERROR_LOG("Error creating xml writer, error is %08.8lx", hr);
-		HR(hr);
-	}
-
-	if (FAILED(hr = pReader->lpVtbl->SetProperty(pReader, XmlReaderProperty_DtdProcessing, DtdProcessing_Prohibit)))
-	{
-		ERROR_LOG("Error setting indent property in reader, error is %08.8lx", hr);
-		HR(hr);
-	}
-
-	if (FAILED(hr = pWriter->lpVtbl->SetProperty(pWriter, XmlWriterProperty_Indent, TRUE)))
-	{
-		ERROR_LOG("Error setting indent property in writer, error is %08.8lx", hr);
-		HR(hr);
-	}
-
-	if (FAILED(hr = pReader->lpVtbl->SetInput(pReader, pFileStream)))
-	{
-		ERROR_LOG("Error setting input for reader, error is %08.8lx", hr);
-		HR(hr);
-	}
-
-	if (FAILED(hr = pWriter->lpVtbl->SetOutput(pWriter, pOutFileStream)))
-	{
-		ERROR_LOG("Error setting output for writer, error is %08.8lx", hr);
-		HR(hr);
-	}
-
-	//read until there are no more nodes 
-	while (S_OK == (hr = pReader->lpVtbl->Read(pReader, &nodeType)))
-	{
-		switch (nodeType)
-		{
-		case XmlNodeType_EndElement:
-			if (FAILED(hr = pWriter->lpVtbl->WriteFullEndElement(pWriter)))
-			{
-				ERROR_LOG("Error writing WriteFullEndElement, error is %08.8lx", hr);
-				HR(hr);
-			}
-			break;
-		default:
-			if (FAILED(hr = pWriter->lpVtbl->WriteNodeShallow(pWriter, pReader, FALSE)))
-			{
-				ERROR_LOG("Error writing WriteNodeShallow, error is %08.8lx", hr);
-				HR(hr);
-			}
-			break;
-		}
-	}
-
-CleanUp:
-	SAFE_RELEASE(pFileStream);
-	SAFE_RELEASE(pOutFileStream);
-	SAFE_RELEASE(pReader);
-	SAFE_RELEASE(pWriter);
-}
-
 /*
 * Main function which checks for the different input parameters
 * provided to the verifier and calls a xml parsing function
 */
 int main(int argc, char **argv) {
     char manifest_file[512] = {'\0'};
-	char fmanifest_file[100] = {'\0'};
-
+	char fmanifest_file[512] = { '\0' };
     if(argc != 4) {
         ERROR_LOG("\n%s %s %s","Usage:",argv[0]," <manifest_path> <mounted_path> <IMVM/HOST>");
         return EXIT_FAILURE;
@@ -1308,7 +1264,7 @@ int main(int argc, char **argv) {
 #ifdef _WIN32
 	formatManifest(argv[1], fmanifest_file);
 	if (_chmod(fmanifest_file, _S_IREAD | _S_IWRITE) == -1) {
-		ERROR_LOG("Failed to provide read write permissions to cumulative hash file %s ", fmanifest_file);
+		ERROR_LOG("Failed to provide read write permissions to formatted manifest file %s ", fmanifest_file);
 		return EXIT_FAILURE;
 	}
 	generateLogs(fmanifest_file, argv[2], argv[3]);
