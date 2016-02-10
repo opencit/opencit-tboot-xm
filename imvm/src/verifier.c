@@ -868,7 +868,7 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
         SHA256_Final(hash, &sha256);
         //output = sha256_hash_string(hash, output);
         bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
-		strcpy_s(hash_in,sizeof(hash_in),output);
+	//strcpy_s(hash_in,sizeof(hash_in),output);
         generate_cumulative_hash(output,0);
     }
     else {
@@ -882,8 +882,8 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
         SHA1_Final(hash, &sha1);
         //output = sha1_hash_string(hash, output);
         bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
-	    strcpy_s(hash_in,sizeof(hash_in),output);
-		generate_cumulative_hash(output,1);
+	//strcpy_s(hash_in,sizeof(hash_in),output);
+	generate_cumulative_hash(output,1);
     }
 #endif
 	fclose(file);
