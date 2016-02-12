@@ -44,25 +44,22 @@ Keywords in the Policy should match with those in this code : DigestAlg, File Pa
 #define byte unsigned char
 #define MAX_LEN 4096
 #define MAX_HASH_LEN 65
-char cH2[MAX_HASH_LEN];
 
+char cH2[MAX_HASH_LEN];
 char hashType[10]; //SHA1 or SHA256
 char NodeValue[500]; //XML Tag value
 char hash_file[256];
 char fs_mount_path[1024];
-int process_started = 0;
 
 #ifdef _WIN32
 //For xml parsing using xmllite
-#pragma warning(disable : 4127)  // conditional expression is constant 
 #define CHKHR(stmt)					do { hr = (stmt); if (FAILED(hr)) goto CleanUp; } while(0) 
 #define HR(stmt)					do { hr = (stmt); goto CleanUp; } while(0) 
 #define SAFE_RELEASE(I)				do { if (I){ I->lpVtbl->Release(I); } I = NULL; } while(0)
 
 #define NT_SUCCESS(Status)          (((NTSTATUS)(Status)) >= 0)
 #define STATUS_UNSUCCESSFUL         ((NTSTATUS)0xC0000001L)
-//#define MOUNTPATH_IMVM  "../temp"
-//#define MOUNTPATH_HOST  "C:"
+
 
 #define malloc(size) HeapAlloc(GetProcessHeap(), 0, size)
 #define free(mem_ptr) HeapFree(GetProcessHeap(),0, mem_ptr)
@@ -93,31 +90,22 @@ typedef struct _REPARSE_DATA_BUFFER {
 		} GenericReparseBuffer;
 	};
 } REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
+#endif
 
 /*These global variables are required for calculating the cumulative hash */
-static BCRYPT_ALG_HANDLE       handle_Alg = NULL;
-static BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
-static NTSTATUS                status = STATUS_UNSUCCESSFUL;
-static DWORD                   out_data_size = 0,
-hash_size = 0,
-hashObject_size = 0;
-static PBYTE                   hashObject_ptr = NULL;
-static PBYTE                   hash_ptr = NULL;
+
+#ifdef _WIN32
+unsigned char cH[MAX_HASH_LEN] = { '\0' };
 #elif __linux__
-unsigned char cHash[SHA_DIGEST_LENGTH] = {'\0'}; //Cumulative hash
-unsigned char cHash2[SHA256_DIGEST_LENGTH] = {'\0'};
-unsigned char d1[SHA_DIGEST_LENGTH]={0};
-unsigned char d2[SHA256_DIGEST_LENGTH]={0};
-char hash_file[256];
-SHA256_CTX csha256;
-SHA_CTX csha1;
+unsigned char d1[SHA_DIGEST_LENGTH]={'\0'};
+unsigned char d2[SHA256_DIGEST_LENGTH]={'\0'};
 #endif
 
 #ifdef _WIN32
 /*
 Cleanup the CNG api
 return : 0 for success or failure status
-*/
+
 void cleanup_CNG_api() {
 	if (handle_Alg) {
 		BCryptCloseAlgorithmProvider(handle_Alg, 0);
@@ -133,11 +121,11 @@ void cleanup_CNG_api() {
 	}
 }
 
-/*
+
 open Crypto Algorithm Handle, allocate buffer for hashObject and hash buffer,
 and create hash object
 return : 0 for success or failure status
-*/
+
 int setup_CNG_api() {
 	// Open algorithm
 	if (strcmp(hashType, "sha256") == 0) {
@@ -183,14 +171,13 @@ int setup_CNG_api() {
 	}
 	return status;
 }
-
+*/
 /*
 Cleaup the CNG api,
 Close and Destroy the handle, free the allocated memory for hash Object and hash buffer
 return: error number
 */
 void cleanup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handle_Hash_object, PBYTE* hashObject_ptr, PBYTE* hash_ptr) {
-	int err = 0;
 	if (*handle_Alg) {
 		BCryptCloseAlgorithmProvider(*handle_Alg, 0);
 	}
@@ -214,6 +201,7 @@ void cleanup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *ha
 int setup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handle_Hash_object, PBYTE* hashObject_ptr, int * hashObject_size, PBYTE* hash_ptr, int * hash_size) {
 	// Open algorithm
 	int out_data_size;
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
 	if (strcmp(hashType, "sha256") == 0) {
 		status = BCryptOpenAlgorithmProvider(handle_Alg, BCRYPT_SHA256_ALGORITHM, NULL, 0);
 	}
@@ -636,24 +624,68 @@ CleanUp:
 
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
 void generate_cumulative_hash(char *hash, int sha_one){
-	DEBUG_LOG("\nIncoming Hash : %s\n", hash); 
-#ifdef _WIN32
-	status = BCryptHashData(handle_Hash_object, hash, strnlen_s(hash, MAX_LEN), 0);
-	if (!NT_SUCCESS(status)) {
-		cleanup_CNG_api();
-	}
-#elif __linux__
+	DEBUG_LOG("\nIncoming Hash : %s\n", hash);
 	char ob[MAX_HASH_LEN]= {'\0'};
-	char cur_hash[SHA256_DIGEST_LENGTH + 1] = {'\0'};
+	char cur_hash[MAX_HASH_LEN] = {'\0'};
+
+	int hexstr_len = hex2bin(hash, strnlen_s(hash, MAX_LEN), (unsigned char *)cur_hash, sizeof(cur_hash));
+#ifdef _WIN32
+	BCRYPT_ALG_HANDLE       handle_Alg = NULL;
+	BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
+	NTSTATUS                status = STATUS_UNSUCCESSFUL;
+	DWORD                   out_data_size = 0,
+		hash_size = 0,
+		hashObject_size = 0;
+	PBYTE                   hashObject_ptr = NULL;
+	PBYTE                   hash_ptr = NULL;
+	unsigned char cHash_buffer[MAX_HASH_LEN] = { '\0' };
+
+	strncpy_s((char *)cHash_buffer,sizeof(cHash_buffer),(char *)cH,strnlen_s(cH, MAX_HASH_LEN));
+	bin2hex(cHash_buffer, strnlen_s(cHash_buffer, MAX_HASH_LEN), ob, sizeof(ob));
+    DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
+	
+	status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
+	if (!NT_SUCCESS(status)) {
+		ERROR_LOG("\nCould not inititalize CNG args Provider : 0x%x", status);
+		return NULL;
+	}
+
+	status = BCryptHashData(handle_Hash_object, cH, hash_size, 0);
+	if (!NT_SUCCESS(status)) {
+		cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
+		return NULL;
+	}
+
+	if (hexstr_len == hash_size) {
+		status = BCryptHashData(handle_Hash_object, cur_hash, hash_size, 0);
+		if (!NT_SUCCESS(status)) {
+			cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
+			return NULL;
+		}
+	}
+	else {
+		DEBUG_LOG("\n length of string converted from hex is : %d not equal to expected hash digest length : %d", hexstr_len, hash_size);
+		ERROR_LOG("\n ERROR: current hash is not being updated in cumulative hash");
+	}
+	//Dump the hash in variable and finish the Hash Object handle
+	status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0); 
+	strncpy_s(cH, sizeof(cH), hash_ptr, hash_size);
+	strncpy_s( (char *)cHash_buffer,sizeof(cHash_buffer), (char *)cH,strnlen_s(cH, MAX_HASH_LEN));
+	bin2hex(cHash_buffer, strnlen_s(cHash_buffer, MAX_HASH_LEN), ob, sizeof(ob));
+	DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
+	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
+#elif __linux__
+	unsigned char cHash[SHA_DIGEST_LENGTH] = { '\0' }; //Cumulative hash
+	unsigned char cHash2[SHA256_DIGEST_LENGTH] = { '\0' };
     if(sha_one){
-    	//char cur_hash[SHA_DIGEST_LENGTH + 1] = {'\0'};
 	   strncpy_s((char *)cHash,sizeof(cHash),(char *)d1,SHA_DIGEST_LENGTH);
 	   bin2hex(cHash, sizeof(cHash), ob, sizeof(ob));
        //DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha1_hash_string(cHash,ob));
 	   DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
+	   SHA_CTX csha1;
 	   SHA1_Init(&csha1);
 	   SHA1_Update(&csha1,d1,SHA_DIGEST_LENGTH);
-	   if (SHA_DIGEST_LENGTH == hex2bin(hash, strnlen_s(hash,MAX_LEN), (unsigned char *)cur_hash, sizeof(cur_hash))) {
+	   if (hexstr_len == SHA_DIGEST_LENGTH) {
 		   SHA1_Update(&csha1,cur_hash, SHA_DIGEST_LENGTH);
 	   }
 	   else {
@@ -675,9 +707,10 @@ void generate_cumulative_hash(char *hash, int sha_one){
 	   bin2hex(cHash2, sizeof(cHash2), ob, sizeof(ob));
        //DEBUG_LOG("\n%s %s","Cumulative Hash before:",sha256_hash_string(cHash2,ob));
        DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
+	   SHA256_CTX csha256;
 	   SHA256_Init(&csha256);
 	   SHA256_Update(&csha256,d2,SHA256_DIGEST_LENGTH);
-	   if (SHA256_DIGEST_LENGTH == hex2bin(hash, strnlen_s(hash,MAX_LEN), (unsigned char *)cur_hash, sizeof(cur_hash))) {
+	   if (hexstr_len == SHA256_DIGEST_LENGTH) {
 		   SHA256_Update(&csha256,cur_hash, SHA256_DIGEST_LENGTH);
 	   }
 	   else {
@@ -691,7 +724,6 @@ void generate_cumulative_hash(char *hash, int sha_one){
 	   memset(ob,'\0',strnlen_s(ob,sizeof(ob)));
 	   
 	   return;
-		
 	}
 #endif
 }
@@ -868,7 +900,7 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
         SHA256_Final(hash, &sha256);
         //output = sha256_hash_string(hash, output);
         bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
-	//strcpy_s(hash_in,sizeof(hash_in),output);
+		//strcpy_s(hash_in,sizeof(hash_in),output);
         generate_cumulative_hash(output,0);
     }
     else {
@@ -882,8 +914,8 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
         SHA1_Final(hash, &sha1);
         //output = sha1_hash_string(hash, output);
         bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
-	//strcpy_s(hash_in,sizeof(hash_in),output);
-	generate_cumulative_hash(output,1);
+	    //strcpy_s(hash_in,sizeof(hash_in),output);
+		generate_cumulative_hash(output,1);
     }
 #endif
 	fclose(file);
@@ -1002,6 +1034,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 						DEBUG_LOG("\n%s %s","Type of Hash used :",hashType);
 						fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n",hashType);
 						DEBUG_LOG("\n%s %s", "Type of Hash used :", hashType);
+/*
 #ifdef _WIN32
 						DEBUG_LOG("\n%s", "setting up CNG api algorithm provider");
 						NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -1012,6 +1045,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 							return;
 						}
 #endif
+*/
 					}
 				}
 				//File Hashes
@@ -1190,16 +1224,10 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
     	return;
     }
 #ifdef _WIN32
-	status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
-	if (!NT_SUCCESS(status)){
-		ERROR_LOG("\nCould not dump the hash on memory. Error : 0x%x", status);
-		return;
-	}
-	if (bin2hex(hash_ptr, hash_size, cH2, sizeof(cH2)) < 0) {
+	if (bin2hex(cH, strnlen_s(cH, MAX_HASH_LEN), cH2, sizeof(cH2)) < 0) {
 		ERROR_LOG("\n Failed to convert binary hash to hex");
 		return;
 	}
-	cleanup_CNG_api();
 #elif __linux__
 	if(strcmp(hashType, "sha256") == 0){
 		if (bin2hex(d2, sizeof(d2), cH2, sizeof(cH2)) < 0 ) {
