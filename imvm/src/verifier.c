@@ -1130,13 +1130,24 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					//TODO need to write in sync with linux 
 					//char temp_dir_file_list[32] = "/tmp/dir_file.txt";
 					if (strcmp(include, "") != 0 && strcmp(exclude, "") != 0)
-						snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer} | Where-Object { $_.FullName.remove(0, %d) -cmatch '%s' -and $_.FullName.remove(0, %d) -notmatch '%s' } | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"", mDpath, recursive_cmd, slen, include, slen, exclude, slen);
+						snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}" 
+							" | Where-Object { $_.FullName.remove(0, %d) -cmatch '%s' -and $_.FullName.remove(0, %d) -notmatch '%s' }" 
+							" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
+							mDpath, recursive_cmd, slen, include, slen, exclude, slen);
 					else if (strcmp(include, "") != 0)
-						snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer} | Where-Object { $_.FullName.remove(0, %d) -cmatch '%s' } | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"", mDpath, recursive_cmd, slen, include, slen);
+						snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}" 
+							" | Where-Object { $_.FullName.remove(0, %d) -cmatch '%s' }" 
+							" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
+							mDpath, recursive_cmd, slen, include, slen);
 					else if (strcmp(exclude, "") != 0)
-						snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer} | Where-Object { $_.FullName.remove(0, %d) -notmatch '%s' } | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"", mDpath, recursive_cmd, slen, exclude, slen);
+						snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}"
+						" | Where-Object { $_.FullName.remove(0, %d) -notmatch '%s' }"
+						" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
+						mDpath, recursive_cmd, slen, exclude, slen);
 					else
-						snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer} | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"", mDpath, recursive_cmd, slen);
+						snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}"
+						" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
+						mDpath, recursive_cmd, slen);
 
 					/*char file[64] = {0};
 					strcpy_s(file, sizeof(file), fs_mount_path);
