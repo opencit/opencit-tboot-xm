@@ -35,9 +35,9 @@ ant ready
 if [ $? -ne 0 ]; then echo "Failed to run \"ant ready\" command" >&2; exit 3; fi
 $changeVersionCommand
 if [ $? -ne 0 ]; then echo "Failed to change maven version at top level" >&2; exit 3; fi
+$changeParentVersionCommand
+if [ $? -ne 0 ]; then echo "Failed to change maven parent versions" >&2; exit 3; fi
 
-(cd tbootxm-rpmmio  && $changeVersionCommand)
-if [ $? -ne 0 ]; then echo "Failed to change maven version on \"tbootxm-rpmmio\" folder" >&2; exit 3; fi
 (cd packages  && $changeVersionCommand)
 if [ $? -ne 0 ]; then echo "Failed to change maven version on \"packages\" folder" >&2; exit 3; fi
 (cd packages  && $changeParentVersionCommand)
