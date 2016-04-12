@@ -9,7 +9,7 @@ set pwd=%~dp0
 
 set VsDevCmd="C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\Tools\VsDevCmd.bat"
 
-set imvm_home=%pwd%\imvm
+set imvm_home=%pwd%\..
 
 IF "%1"=="" (
   call:print_help

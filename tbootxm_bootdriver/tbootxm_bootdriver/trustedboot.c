@@ -11,10 +11,10 @@ void doMeasurement() {
 	if (ma_status == 1) {
 		return;
 	}
+
 	DbgPrint("doMeasurement function called");
 	// Do not try to perform any file operations at higher IRQL levels.
 	// Instead, you may use a work item or a system worker thread to perform file operations.
-
 	if (KeGetCurrentIrql() != PASSIVE_LEVEL)
 	{
 		DbgPrint("File operations not possible at PASSIVE Level");
@@ -95,9 +95,8 @@ void doMeasurement() {
 				i++;
 				if (buffer[0] == '\n')
 				{
-					DbgPrint("Line break found");
 					line[i] = '\0';
-					DbgPrint("%s\n", line);
+					DbgPrint("line break found : %s\n", line);
 					char * updated_line = NULL;
 					if (updated_line = strstr(line, "<Manifest"))
 					{
@@ -192,7 +191,7 @@ void doMeasurement() {
 			else if (ntstatus == STATUS_END_OF_FILE)
 			{
 				line[i] = '\0';
-				DbgPrint("%s\n", line);
+				DbgPrint("file end found : %s\n", line);
 				enum TagType tag = Manifest;
 				WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, tag);
 				free(line);
@@ -235,14 +234,15 @@ void doMeasurement() {
 	WriteMeasurementFile(NULL, cH2, handle1, ioStatusBlock1, Manifest);
 	ZwClose(handle1);
 
-	///* extend to PCR 16 */
+	// extend to PCR 14
+	#define TAG_PCR 14
 	#define TAG_SIZE 20
-	////#define TAG_PCR 16
-	BYTE assetTag[TAG_SIZE] = "97fc38c88a9c160c84b6";
 	BYTE newPCRV[TAG_SIZE] = { 0 };
-	TpmPCRExtend(15, assetTag, newPCRV);
-	TpmPCRExtend(16, assetTag, newPCRV);
-	TpmPCRExtend(23, assetTag, newPCRV);
+	TpmPCRExtend(TAG_PCR, cH, newPCRV);
+	//BYTE assetTag[TAG_SIZE] = "97fc38c88a9c160c84b6";
+	//TpmPCRExtend(15, cH, newPCRV);
+	//TpmPCRExtend(16, cH, newPCRV);
+	//TpmPCRExtend(23, assetTag, newPCRV);
 
 	ma_status = 1;
 }

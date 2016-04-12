@@ -1,7 +1,8 @@
 ; MUI 1.67 compatible ------
 !include "MUI.nsh"
+!include "x64.nsh"
 
-!define PRODUCT_NAME "tbootxm_bootdriver"
+!define PRODUCT_NAME "tbootxm"
 !define PRODUCT_VERSION "1.0"
 !define PRODUCT_PUBLISHER "Intel Corporation"
 
@@ -23,7 +24,7 @@
 ; Finish page
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 ;!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
-;!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README"
+;!define MUI_FINISHPAGE_SHOWREADME ""
 !insertmacro MUI_PAGE_FINISH
 
 ; Uninstaller pages
@@ -37,7 +38,7 @@
 ; MUI end ------
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "tbootxm_bootdriver-setup.exe"
+OutFile "tbootxm-setup.exe"
 InstallDir "$PROGRAMFILES\Intel\tbootxm"
 ShowInstDetails show
 ShowUnInstDetails show
@@ -46,12 +47,12 @@ Function .onInit
   !insertmacro MUI_LANGDLL_DISPLAY
 FunctionEnd
 
-Section "tbootxm_bootdriver" SEC01
-  SetOverwrite try
-  SetOutPath "$INSTDIR"
-  File ".\Win7Debug\tbootxm_bootdriver Package\tbootxm_bootdriver.cat"
-  File ".\Win7Debug\tbootxm_bootdriver Package\tbootxm_bootdriver.inf"
-  File ".\Win7Debug\tbootxm_bootdriver Package\tbootxm_bootdriver.sys"
+Section "tbootxm" SEC01
+  SetOutPath "$INSTDIR\bin"
+  File ".\tbootxm_bootdriver\signed\tbootxm_bootdriver.cat"
+  File ".\tbootxm_bootdriver\signed\tbootxm_bootdriver.inf"
+  File ".\tbootxm_bootdriver\signed\tbootxm_bootdriver.sys"
+  File ".\imvm\bin\verifier.exe"
 SectionEnd
 
 Section -Post
@@ -59,12 +60,16 @@ Section -Post
 SectionEnd
 
 Section -InstallDriver
-  nsExec::Exec 'C:\Windows\System32\RUNDLL32.EXE C:\Windows\System32\SETUPAPI.DLL,InstallHinfSection DefaultInstall 132 $INSTDIR\tbootxm_bootdriver.inf'
+${If} ${RunningX64}
+  ${DisableX64FSRedirection}
+  nsExec::Exec 'C:\Windows\System32\RUNDLL32.EXE C:\Windows\System32\SETUPAPI.DLL,InstallHinfSection DefaultInstall 132 $INSTDIR\bin\tbootxm_bootdriver.inf'
+  ${EnableX64FSRedirection}
+${EndIf}
 SectionEnd
 
 ; Section descriptions
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC01} "Installs the tbootxm_bootdriver"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC01} "Installs the tbootxm components"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 Function un.onUninstSuccess
@@ -78,11 +83,18 @@ Function un.onInit
 FunctionEnd
 
 Section Uninstall
-  nsExec::Exec 'C:\Windows\System32\RUNDLL32.EXE C:\Windows\System32\SETUPAPI.DLL,InstallHinfSection DefaultUninstall 132 $INSTDIR\tbootxm_bootdriver.inf'
+${If} ${RunningX64}
+  ${DisableX64FSRedirection}
+  nsExec::Exec 'C:\Windows\System32\RUNDLL32.EXE C:\Windows\System32\SETUPAPI.DLL,InstallHinfSection DefaultUninstall 132 $INSTDIR\bin\tbootxm_bootdriver.inf'
+  ${EnableX64FSRedirection}
+${EndIf}
 
-  Delete "$INSTDIR\tbootxm_bootdriver.cat"
-  Delete "$INSTDIR\tbootxm_bootdriver.inf"
-  Delete "$INSTDIR\tbootxm_bootdriver.sys"
+  Delete "$INSTDIR\uninst.exe"
+  Delete "$INSTDIR\bin\verifier.exe"
+  Delete "$INSTDIR\bin\tbootxm_bootdriver.cat"
+  Delete "$INSTDIR\bin\tbootxm_bootdriver.inf"
+  Delete "$INSTDIR\bin\tbootxm_bootdriver.sys"  
+  RMDir "$INSTDIR\bin"
   RMDir "$INSTDIR"
   SetAutoClose true
 SectionEnd

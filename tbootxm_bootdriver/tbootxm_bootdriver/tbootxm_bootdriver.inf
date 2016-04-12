@@ -3,64 +3,68 @@
 ;
 
 [Version]
-Signature="$WINDOWS NT$"
-Class=DiskDrive
-ClassGUID={4d36e967-e325-11ce-bfc1-08002be10318}
-Provider=%provider%
-DriverVer=04/01/2016,15.36.8.8
-CatalogFile=%driver_name%.cat
+Signature   = "$WINDOWS NT$"
+Class       = DiskDrive
+ClassGUID   = {4d36e967-e325-11ce-bfc1-08002be10318}
+Provider    = %provider%
+DriverVer   = 04/01/2016,15.36.8.8
+CatalogFile = %driver_name%.cat
 
 ;
 ; General installation section
 ;
 
-[DefaultInstall]
-CopyFiles = tbootxm_bootdriver.driverfiles
-AddReg    = tbootxm_bootdriver.Reg
-
-[tbootxm_bootdriver.driverfiles]
-%driver_name%.sys
-
 [DestinationDirs]
 DefaultDestDir = 12
+tbootxm_bootdriver.DriverFiles = 12
 
-[tbootxm_bootdriver.Reg]
-HKLM, System\CurrentControlSet\Control\Class\{4d36e967-e325-11ce-bfc1-08002be10318}, UpperFilters, 0x00010008, tbootxm_bootdriver
+[DefaultInstall]
+CopyFiles = tbootxm_bootdriver.DriverFiles
+AddReg    = tbootxm_bootdriver.AddReg
+
+[DefaultInstall.Services]
+AddService = %service_name%,,tbootxm_bootdriver.Service.Install
+
+[tbootxm_bootdriver.AddReg]
+HKLM, System\CurrentControlSet\Control\Class\{4d36e967-e325-11ce-bfc1-08002be10318}, UpperFilters, 0x00010008, %driver_name%
+
+[DefaultUninstall]
+DelFiles = tbootxm_bootdriver.DriverFiles
+DelReg   = tbootxm_bootdriver.DelReg
+
+[DefaultUninstall.Services]
+DelService = %service_name%,0x200
+
+[tbootxm_bootdriver.DelReg]
+HKLM, System\CurrentControlSet\Control\Class\{4d36e967-e325-11ce-bfc1-08002be10318}, UpperFilters, 0x00018002, %driver_name%
 
 ;
 ; Service installation section
 ;
 
-[DefaultInstall.Services]
-AddService = %service_name%, ,tbootxm_bootdriver.Service.Install
-
 [tbootxm_bootdriver.Service.Install]
-DisplayName = %service_name%
-ServiceType = 1
-StartType = 0
-ErrorControl = 1
-ServiceBinary = %12%\%driver_name%.sys
+DisplayName    = %service_name%
+ServiceBinary  = %12%\%driver_name%.sys
+ServiceType    = 1
+StartType 	   = 0
+ErrorControl   = 1
 LoadOrderGroup = "Pnp Filter"
 
+[tbootxm_bootdriver.DriverFiles]
+%driver_name%.sys
+
 [SourceDisksFiles]
-tbootxm_bootdriver.sys = 1
+tbootxm_bootdriver.sys = 1,,
 
 [SourceDisksNames]
 1 = %diskid1%,,,
 
-
-[DefaultUninstall]
-DelFiles = tbootxm_bootdriver.driverfiles
-DelReg   = tbootxm_bootdriver.Reg
-
-[DefaultUninstall.Services]
-DelService = %service_name%, 0x200
 ;
 ; Localizable Strings
 ;
 
 [Strings]
-provider	 = "Intel"
-service_name = "tbootxm_bootdriver"
-diskid1		 = "Intel Installation Disk #1"
+provider	 = "Intel Corporation"
 driver_name  = "tbootxm_bootdriver"
+service_name = "tbootxm_bootdriver"
+diskid1		 = "Intel Installation Disk"
