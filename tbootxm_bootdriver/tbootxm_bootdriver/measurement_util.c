@@ -45,7 +45,6 @@ int setup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handl
 		cleanup_CNG_api_args(handle_Alg, handle_Hash_object, hashObject_ptr, hash_ptr);
 		return status;
 	}
-
 	//calculate the size of buffer of hashobject
 	status = BCryptGetProperty(*handle_Alg, BCRYPT_OBJECT_LENGTH, (PBYTE)hashObject_size, sizeof(DWORD), &out_data_size, 0);
 	if (!NT_SUCCESS(status)) {
@@ -87,7 +86,7 @@ char *GetTagValue(char *line, char *tag, char **sub_line)
 		i++;
 	char *end = &(sub_line[0])[i];
 
-	int buffer_size = end - start + 1;
+	int buffer_size = (int)(end - start + 1);
 	char *value = (char *)malloc(buffer_size);
 	RtlZeroMemory(value, buffer_size);
 	RtlCopyMemory(value, start, end - start);
@@ -119,11 +118,11 @@ void PopulateElementAttribues(void **structure, enum TagType tag, char *line)
 		struct ManifestDirectory *dir = ((struct ManifestDirectory *) *structure);
 		dir->Include = GetTagValue(line, dir_include_tag, &subline);
 		DbgPrint("Include tag : %s\n", dir->Include);
-		dir->Exclude = GetTagValue(subline, dir_exclude_tag, &subline);
+		dir->Exclude = GetTagValue(line, dir_exclude_tag, &subline);
 		DbgPrint("Exclude tag : %s\n", dir->Exclude);
-		dir->Recursive = GetTagValue(subline, dir_recursive_tag, &subline);
+		dir->Recursive = GetTagValue(line, dir_recursive_tag, &subline);
 		DbgPrint("Recursive tag : %s\n", dir->Recursive);
-		dir->Path = GetTagValue(subline, path_tag, &subline);
+		dir->Path = GetTagValue(line, path_tag, &subline);
 		DbgPrint("Path tag : %s\n", dir->Path);
 	}
 }
@@ -170,6 +169,7 @@ void WriteMeasurementFile(char *line, char *hash, HANDLE handle1, IO_STATUS_BLOC
 				RtlStringCbCatA(line, new_line_size, "</Dir>\r\n");
 			}
 		}
+
 		buffer_size = strlen(line) + 1;
 		buffer = (char *)malloc(buffer_size);
 		ntstatus = RtlStringCbPrintfA(buffer, buffer_size, "%s", line);
@@ -360,7 +360,8 @@ close_handle:
 	return output;
 }
 
-void ListDirectory(char *path, char *include, char *exclude, char *recursive, char *files_buffer, BCRYPT_HASH_HANDLE *handle_Hash_object) {
+int ListDirectory(char *path, char *include, char *exclude, char *recursive, char *files_buffer, BCRYPT_HASH_HANDLE *handle_Hash_object) {
+	int status = 0;
 	char value[1056] = { '\0' };
 	/*We append the mount path before the filepath first,
 	and then pass that address to calculate the hash */
@@ -396,7 +397,7 @@ void ListDirectory(char *path, char *include, char *exclude, char *recursive, ch
 
 	if (!NT_SUCCESS(ntstatus)) {
 		DbgPrint("File not found - %s\n", value);
-		return;
+		return -1;
 	}
 
 	ntstatus = ZwCreateEvent(&event, GENERIC_ALL, 0, NotificationEvent, FALSE);
@@ -405,7 +406,7 @@ void ListDirectory(char *path, char *include, char *exclude, char *recursive, ch
 	if (!NT_SUCCESS(ntstatus)) {
 		DbgPrint("NotificationEvent could not be created\n");
 		ZwClose(handle);
-		return;
+		return -1;
 	}
 
 	PUCHAR Buffer[MAX_LEN] = { '\0' };
@@ -435,12 +436,14 @@ void ListDirectory(char *path, char *include, char *exclude, char *recursive, ch
 	}
 
 	if (!NT_SUCCESS(ntstatus)) {
-		DbgPrint("Could not get file information\n");
+		DbgPrint("Could not get directory information\n");
+		status = -1;
 		goto close_handle;
 	}
 
 	if (*Buffer == 0) {
 		DbgPrint("Buffer is Empty\n");
+		status = -1;
 		goto close_handle;
 	}
 
@@ -473,6 +476,7 @@ void ListDirectory(char *path, char *include, char *exclude, char *recursive, ch
 					if (!NT_SUCCESS(ntstatus)) {
 						DbgPrint("Could not calculate directory hash : 0x%x\n", ntstatus);
 						free(file_path);
+						status = -1;
 						goto close_handle;
 					}
 
@@ -488,7 +492,7 @@ void ListDirectory(char *path, char *include, char *exclude, char *recursive, ch
 			}
 		}
 		else if (strcmp(recursive, "true") == 0 && *(as.Buffer) != '.') {
-			ListDirectory(file_path, include, exclude, recursive, files_buffer, handle_Hash_object);
+			status = ListDirectory(file_path, include, exclude, recursive, files_buffer, handle_Hash_object);
 		}
 		free(file_path);
 
@@ -504,4 +508,5 @@ void ListDirectory(char *path, char *include, char *exclude, char *recursive, ch
 close_handle:
 	ZwClose(handle);
 	ZwClose(event);
+	return status;
 }

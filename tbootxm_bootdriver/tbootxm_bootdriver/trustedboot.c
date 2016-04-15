@@ -150,26 +150,28 @@ void doMeasurement() {
 						}
 
 						if (*(dir->Include) == 0) {
-							ListDirectory(dir->Path, "*", dir->Exclude, dir->Recursive, files_buffer, &handle_Hash_object);
+							status = ListDirectory(dir->Path, "*", dir->Exclude, dir->Recursive, files_buffer, &handle_Hash_object);
 						}
 						else {
-							ListDirectory(dir->Path, dir->Include, dir->Exclude, dir->Recursive, files_buffer, &handle_Hash_object);
+							status = ListDirectory(dir->Path, dir->Include, dir->Exclude, dir->Recursive, files_buffer, &handle_Hash_object);
 						}
 
-						//Dump the hash in variable and finish the Hash Object handle
-						status = BCryptHashData(handle_Hash_object, files_buffer, strlen(files_buffer), 0);
-						if (!NT_SUCCESS(status)) {
-							DbgPrint("Could not calculate directory hash : 0x%x\n", status);
-							cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-							goto free_dir;
+						if (status == 0) {
+							//Dump the hash in variable and finish the Hash Object handle
+							status = BCryptHashData(handle_Hash_object, files_buffer, strlen(files_buffer), 0);
+							if (!NT_SUCCESS(status)) {
+								DbgPrint("Could not calculate directory hash : 0x%x\n", status);
+								cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
+								goto free_dir;
+							}
+							status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
+							DbgPrint("Calculated Hash Bin : %s\n", hash_ptr);
+							bin2hex(hash_ptr, hash_size, calc_hash, MAX_HASH_LEN);
+							DbgPrint("Calculated Hash Hex : %s\n", calc_hash);
+							generate_cumulative_hash(hash_ptr);
 						}
-						status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
-						DbgPrint("Calculated Hash Bin : %s\n", hash_ptr);
-						bin2hex(hash_ptr, hash_size, calc_hash, MAX_HASH_LEN);
-						DbgPrint("Calculated Hash Hex : %s\n", calc_hash);
-						generate_cumulative_hash(hash_ptr);
+
 						cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-
 						WriteMeasurementFile(line, calc_hash, handle1, ioStatusBlock1, tag);
 
 						free_dir:

@@ -37,8 +37,7 @@ struct ManifestDirectory{
 	char * Recursive;
 };
 
-enum TagType
-{
+enum TagType{
 	Manifest,
 	File,
 	Directory
@@ -60,4 +59,4 @@ void generate_cumulative_hash(char *hash);
 
 char* calculate(char *path, char *output);
 
-void ListDirectory(char *path, char *include, char *exclude, char *recursive, char *files_buffer, BCRYPT_HASH_HANDLE *handle_Hash_object);
+int ListDirectory(char *path, char *include, char *exclude, char *recursive, char *files_buffer, BCRYPT_HASH_HANDLE *handle_Hash_object);

@@ -2,9 +2,10 @@
 !include "MUI.nsh"
 !include "x64.nsh"
 
-!define PRODUCT_NAME "tbootxm"
+!define PRODUCT_NAME "tbootxm_bootdriver"
 !define PRODUCT_VERSION "1.0"
 !define PRODUCT_PUBLISHER "Intel Corporation"
+!define PRODUCT_DIR_REGKEY "SYSTEM\CurrentControlSet\services\${PRODUCT_NAME}"
 
 ; MUI Settings
 !define MUI_ABORTWARNING
@@ -60,6 +61,7 @@ Section -Post
 SectionEnd
 
 Section -InstallDriver
+# Install tbootxm_bootdriver and create its service
 ${If} ${RunningX64}
   ${DisableX64FSRedirection}
   nsExec::Exec 'C:\Windows\System32\RUNDLL32.EXE C:\Windows\System32\SETUPAPI.DLL,InstallHinfSection DefaultInstall 132 $INSTDIR\bin\tbootxm_bootdriver.inf'
@@ -83,6 +85,7 @@ Function un.onInit
 FunctionEnd
 
 Section Uninstall
+# Uninstall tbootxm_bootdriver and remove its service
 ${If} ${RunningX64}
   ${DisableX64FSRedirection}
   nsExec::Exec 'C:\Windows\System32\RUNDLL32.EXE C:\Windows\System32\SETUPAPI.DLL,InstallHinfSection DefaultUninstall 132 $INSTDIR\bin\tbootxm_bootdriver.inf'
@@ -93,8 +96,11 @@ ${EndIf}
   Delete "$INSTDIR\bin\verifier.exe"
   Delete "$INSTDIR\bin\tbootxm_bootdriver.cat"
   Delete "$INSTDIR\bin\tbootxm_bootdriver.inf"
-  Delete "$INSTDIR\bin\tbootxm_bootdriver.sys"  
+  Delete "$INSTDIR\bin\tbootxm_bootdriver.sys"
+  
   RMDir "$INSTDIR\bin"
   RMDir "$INSTDIR"
+  
+  DeleteRegKey HKLM "${PRODUCT_DIR_REGKEY}"
   SetAutoClose true
 SectionEnd
