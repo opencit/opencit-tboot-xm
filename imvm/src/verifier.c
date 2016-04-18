@@ -303,7 +303,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 	char recursive_cmd[32] = {'\0'};
     size_t len = 0;
     char calc_hash[MAX_HASH_LEN] = {'\0'};
-    char ma_result_path[100] = {'\0'};
+    char ma_result_path[256] = {'\0'};
 	//memset_s(ma_result_path,sizeof(ma_result_path),'/0');
     char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
     int digest_check  = 0;
@@ -498,7 +498,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
  */
 int main(int argc, char **argv) {
 
-    char manifest_file[100] = {'\0'};
+    char manifest_file[256] = {'\0'};
     xmlDocPtr Doc;
     if(argc != 4) {
         ERROR_LOG("\n%s %s %s","Usage:",argv[0]," <manifest_path> <mounted_path> <IMVM/HOST>");
@@ -515,7 +515,7 @@ int main(int argc, char **argv) {
     if (strcmp(argv[3], "IMVM") == 0) {
     	char* last_oblique_ptr = strrchr(manifest_file, '/');
         //strncpy_s(hash_file,sizeof(hash_file),manifest_file,strlen(manifest_file)-strlen("/manifestlist.xml"));
-    	strncpy_s(hash_file,sizeof(hash_file),manifest_file,strnlen_s(manifest_file,sizeof(manifest_file))-strnlen_s(last_oblique_ptr + 1, sizeof("/manifestlist.xml")));
+    	strncpy_s(hash_file,sizeof(hash_file),manifest_file,strnlen_s(manifest_file,sizeof(manifest_file))-strnlen_s(last_oblique_ptr + 1, sizeof("/manifest.xml")));
     	strcat_s(hash_file,sizeof(hash_file),"/measurement.");
     } else if (strcmp(argv[3], "HOST") == 0) {
         snprintf(hash_file, sizeof(hash_file), "%s/var/log/trustagent/measurement.", fs_mount_path);
