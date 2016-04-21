@@ -1169,8 +1169,9 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					const int bufSize = 65000;
 					char *buffer = malloc(bufSize);
 					int bytesRead = 0;
-					if (!buffer) return; 
-					
+					if (!buffer){
+						return;
+					}					
 					BCRYPT_ALG_HANDLE       handle_Alg = NULL;
 					BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
 					NTSTATUS                status = STATUS_UNSUCCESSFUL;

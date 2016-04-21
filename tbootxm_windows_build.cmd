@@ -4,8 +4,6 @@ setlocal enabledelayedexpansion
 set me=%~n0
 set pwd=%~dp0
 
-set makensis="C:\NSIS\makensis.exe"
-
 IF "%1"=="" (
   call:print_help
 ) ELSE IF "%2"=="" (
@@ -15,6 +13,7 @@ IF "%1"=="" (
   echo. Going ahead with MA build only....
   call:verifier_build %1 %2
 ) ELSE (
+  set /p makensis=Enter the NSIS binary path : 
   call:tbootxm_install %1 %2 %3
 )
 GOTO:EOF
@@ -37,7 +36,7 @@ GOTO:EOF
 GOTO:EOF
 
 :tbootxm_build
-  echo. Building tbootxm_bootdriver.... %1 %2 %3
+  echo. Building tbootxm_driver.... %1 %2 %3
   cd
   call tbootxm_bootdriver\tbootxm_bootdriver_build.cmd %1 "%3 %2"
   IF NOT %ERRORLEVEL% EQU 0 (
@@ -47,9 +46,9 @@ GOTO:EOF
 GOTO:EOF
 
 :tbootxm_install
-  echo. Creating tbootxm_bootdriver installer....
+  echo. Creating tbootxm installer....
   cd
-  call %makensis% tbootxm_bootdriver_installer.nsi
+  call %makensis% tbootxm_installer.nsi
   IF NOT %ERRORLEVEL% EQU 0 (
     echo. %me%: tbootxm install failed
 	EXIT /b %ERRORLEVEL%

@@ -6,7 +6,7 @@
 Signature   = "$WINDOWS NT$"
 Class       = DiskDrive
 ClassGUID   = {4d36e967-e325-11ce-bfc1-08002be10318}
-Provider    = %provider%
+Provider    = "Intel Corporation"
 DriverVer   = 04/01/2016,15.36.8.8
 CatalogFile = %driver_name%.cat
 
@@ -43,7 +43,8 @@ HKLM, System\CurrentControlSet\Control\Class\{4d36e967-e325-11ce-bfc1-08002be103
 ;
 
 [tbootxm_bootdriver.Service.Install]
-DisplayName    = %service_name%
+DisplayName    = "Intel CIT tbootxm"
+Description    = "Runs Intel CIT tbootxm"
 ServiceBinary  = %12%\%driver_name%.sys
 ServiceType    = 1
 StartType 	   = 0
@@ -64,7 +65,6 @@ tbootxm_bootdriver.sys = 1,,
 ;
 
 [Strings]
-provider	 = "Intel Corporation"
 driver_name  = "tbootxm_bootdriver"
 service_name = "tbootxm_bootdriver"
 diskid1		 = "Intel Installation Disk"
