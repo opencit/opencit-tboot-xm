@@ -31,6 +31,7 @@ ShowUnInstDetails show
 ; Components page
 ;!insertmacro MUI_PAGE_COMPONENTS
 ; Directory page
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW DirectoryPageShow
 !insertmacro MUI_PAGE_DIRECTORY
 ; Instfiles page
 !insertmacro MUI_PAGE_INSTFILES
@@ -54,6 +55,7 @@ ShowUnInstDetails show
 ; ----------------------------------------------------------------------------------
 
 Section Install
+  SetOverwrite ifnewer
   SetOutPath "$INSTDIR\bin"
   File ".\tbootxm_bootdriver\signed\tbootxm_bootdriver.cat"
   File ".\tbootxm_bootdriver\signed\tbootxm_bootdriver.inf"
@@ -107,13 +109,21 @@ Function .onInit
 FunctionEnd
 
 Function un.onInit
-  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
-  Abort
+;  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
+;  Abort
 FunctionEnd
 
 Function un.onUninstSuccess
-  HideWindow
-  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer."
+;  HideWindow
+;  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer."
+FunctionEnd
+
+Function DirectoryPageShow
+	FindWindow $R0 "#32770" "" $HWNDPARENT
+	GetDlgItem $R1 $R0 1019
+	EnableWindow $R1 0
+	GetDlgItem $R1 $R0 1001
+	EnableWindow $R1 0
 FunctionEnd
 ; ----------------------------------------------------------
 ; ****************** END OF FUNCTIONS **********************

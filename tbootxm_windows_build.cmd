@@ -10,16 +10,15 @@ IF "%NSIS_HOME%"=="" (
   set "makensis=%NSIS_HOME%\makensis.exe"
 )
 
-IF "%1"=="" (
+IF "%~1"=="" (
   call:print_help
-) ELSE IF "%2"=="" (
+) ELSE IF "%~2"=="" (
   call:print_help
-) ELSE IF "%3"=="" (
+) ELSE IF "%~3"=="" (
   echo. OS is not specified....
   echo. Going ahead with MA build only....
   call:verifier_build %1 %2
 ) ELSE (
-  REM set /p makensis=Enter the NSIS binary path : 
   call:tbootxm_install %1 %2 %3
 )
 GOTO:EOF

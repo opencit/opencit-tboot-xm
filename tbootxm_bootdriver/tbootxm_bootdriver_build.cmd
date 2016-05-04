@@ -10,9 +10,9 @@ set "tbootxm_driver_home=%pwd%"
 
 set VsDevCmd="C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\Tools\VsDevCmd.bat"
 
-IF %1=="" (
+IF "%~1"=="" (
   call:print_help
-) ELSE IF %2=="" (
+) ELSE IF "%~2"=="" (
   call:print_help
 ) ELSE (
   call:tbootxm_build %2 %1
