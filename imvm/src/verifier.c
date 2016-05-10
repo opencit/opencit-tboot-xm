@@ -490,7 +490,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			}
 			//TODO remove \\?\ from target_buf
 			if (strstr("\\\\?\\", target_buf) != NULL) {
-				memmove(target_buf, target_buf + 4, clength - 4);
+				memmove_s(target_buf, target_buf_size, target_buf + 4, clength - 4);
 			}
 			DEBUG_LOG("\nchar path substitute name : %s", target_buf);
 
@@ -511,7 +511,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 				//todo remove \\?\ from target
 			}
 			if (strstr("\\\\?\\", target_buf) != NULL) {
-				memmove(target_buf, target_buf + 4, target_len - 3);
+				memmove_s(target_buf, target_buf_size, target_buf + 4, target_len - 3);
 			}
 			DEBUG_LOG("size of target : %d \ntarget of link is : %s", target_len, target_buf);
 		}
@@ -1039,8 +1039,13 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 						DEBUG_LOG("\n%s %s","Type of Hash used :",hashType);
 						fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.1\" DigestAlg=\"%s\">\n",hashType);
 						DEBUG_LOG("\n%s %s", "Type of Hash used :", hashType);
-/*
+
 #ifdef _WIN32
+						if (strcmp(hashType, "sha256") == 0)
+							cumulative_hash_size = 32;
+						else
+							cumulative_hash_size = 20;
+						/*
 						DEBUG_LOG("\n%s", "setting up CNG api algorithm provider");
 						NTSTATUS status = STATUS_UNSUCCESSFUL;
 
@@ -1049,8 +1054,8 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 							ERROR_LOG("\nCould not inititalize CNG Provider : 0x%x", status);
 							return;
 						}
+						*/
 #endif
-*/
 					}
 				}
 				//File Hashes
