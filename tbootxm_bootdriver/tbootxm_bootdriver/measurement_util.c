@@ -53,7 +53,7 @@ int setup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handl
 	}
 
 	*hashObject_ptr = (PBYTE)malloc(*hashObject_size);
-	if (hashObject_ptr == NULL) {
+	if (*hashObject_ptr == NULL) {
 		cleanup_CNG_api_args(handle_Alg, handle_Hash_object, hashObject_ptr, hash_ptr);
 		return -1;
 	}
@@ -81,6 +81,11 @@ char *GetTagValue(char *line, char *tag, char **sub_line)
 {
 	int i = strlen(tag) + 2;
 	*sub_line = strstr(line, tag);
+	if (*sub_line == NULL)
+	{
+		DbgPrint("%s does not contain %s\n", line, tag);
+		return NULL;
+	}
 	char *start = &(sub_line[0])[i];
 	while ((*sub_line)[i] != '\"')
 		i++;

@@ -222,7 +222,7 @@ int setup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handl
 	}
 
 	*hashObject_ptr = (PBYTE)malloc(*hashObject_size);
-	if (hashObject_ptr == NULL) {
+	if (*hashObject_ptr == NULL) {
 		cleanup_CNG_api_args(handle_Alg, handle_Hash_object, hashObject_ptr, hash_ptr);
 		return -1;
 	}
@@ -276,7 +276,7 @@ int ISLINK(char *path) {
 	hFind = FindFirstFile(path, &FindFileData);
 	if (hFind == INVALID_HANDLE_VALUE)
 	{
-		ERROR_LOG("\nFindFirstFile failed (%d)\n", GetLastError());
+		ERROR_LOG("\nFindFirstFile failed (%ld)\n", GetLastError());
 		return -1;
 	}
 	else {
@@ -297,7 +297,7 @@ int ISLINK(char *path) {
 			DEBUG_LOG("\n%s", "this file is JUNCTION ...");
 			islink = 0;
 		}
-		DEBUG_LOG("%d\n", FindFileData.dwFileAttributes);
+		DEBUG_LOG("%ld\n", FindFileData.dwFileAttributes);
 	}
 	return islink;
 }
@@ -315,7 +315,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 	hFind = FindFirstFile(path, &FindFileData);
 	if (hFind == INVALID_HANDLE_VALUE)
 	{
-		ERROR_LOG("\nFindFirstFile failed (%d)\n", GetLastError());
+		ERROR_LOG("\nFindFirstFile failed (%ld)\n", GetLastError());
 		return -1;
 	}
 	else {
@@ -332,7 +332,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 		else if (IO_REPARSE_TAG_MOUNT_POINT == FindFileData.dwReserved0) {
 			DEBUG_LOG("\n%s", "this file is JUNCTION ...");
 		}
-		DEBUG_LOG("%d\n", FindFileData.dwFileAttributes);
+		DEBUG_LOG("%ld\n", FindFileData.dwFileAttributes);
 		HANDLE target_handle = CreateFile(path, FILE_GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS | FILE_ATTRIBUTE_NORMAL, NULL);
 		if (target_handle == INVALID_HANDLE_VALUE) {
 			ERROR_LOG("\n%s", "couldn't get handle to file");
@@ -341,6 +341,11 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 		int req_size = 32767 + 8;
 		char *_buffer;
 		_buffer = (char *)malloc(sizeof(wchar_t)* req_size + sizeof(REPARSE_DATA_BUFFER));
+		if (_buffer == NULL) {
+			ERROR_LOG("Can't allocate memory for _buffer");
+			CloseHandle(target_handle);
+			return -3;
+		}
 		REPARSE_DATA_BUFFER *reparse_buffer;
 		reparse_buffer = (REPARSE_DATA_BUFFER *)(_buffer);
 		DWORD reparse_buffer_read_size = 0;
@@ -352,18 +357,28 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			//its a symbolic link
 			DEBUG_LOG("\n unparsed length : %d", reparse_buffer->Reserved);
 			if (reparse_buffer->SymbolicLinkReparseBuffer.Flags == 0) {
-				DEBUG_LOG("\nabsolute path : length : %d", reparse_buffer->SymbolicLinkReparseBuffer.Flags);
+				DEBUG_LOG("\nabsolute path : length : %ld", reparse_buffer->SymbolicLinkReparseBuffer.Flags);
 			}
 			else {
-				DEBUG_LOG("\nrelative path : length : %d", reparse_buffer->SymbolicLinkReparseBuffer.Flags);
+				DEBUG_LOG("\nrelative path : length : %ld", reparse_buffer->SymbolicLinkReparseBuffer.Flags);
 			}
 			wlength = reparse_buffer->SymbolicLinkReparseBuffer.PrintNameLength / sizeof(WCHAR) + 1;
 			w_complete_path_pname = (WCHAR *)malloc(sizeof(WCHAR) * wlength);
+			if (w_complete_path_pname == NULL) {
+				ERROR_LOG("Can't allocate memory for w_complete_path_pname");
+				target_buf_size = -3;
+				goto return_target_link;
+			}
 			strncpy_s(w_complete_path_pname, wlength, reparse_buffer->SymbolicLinkReparseBuffer.PathBuffer + (reparse_buffer->SymbolicLinkReparseBuffer.PrintNameOffset / sizeof(WCHAR)),
 				reparse_buffer->SymbolicLinkReparseBuffer.PrintNameLength / sizeof(WCHAR) + 1);
 			wprintf(L"\n wide char Path : %s", w_complete_path_pname);
 			clength = WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS, w_complete_path_pname, wlength, 0, 0, 0, 0);
 			complete_path_pname = (char *)malloc(sizeof(CHAR)* clength);
+			if (complete_path_pname == NULL) {
+				ERROR_LOG("Can't allocate memory for complete_path_pname");
+				target_buf_size = -3;
+				goto return_target_link;
+			}
 			clength = WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS, w_complete_path_pname, wlength, complete_path_pname, clength, 0, 0);
 			if (clength == 0) {
 				ERROR_LOG("\n%s", "conversion from wchar to char fails");
@@ -376,8 +391,13 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			if (strnlen_s(target_buf, target_buf_size) > 0) {
 				int target_buf_length = strnlen_s(complete_path_pname, clength) + (strnlen_s(path, MAX_LEN) - reparse_buffer->Reserved);
 				if (target_buf_length > target_buf_size) {
-					realloc(target_buf, target_buf_length);
+					target_buf = realloc(target_buf, target_buf_length);
 					target_buf_size = target_buf_length;
+				}
+				if (target_buf == NULL) {
+					target_buf_size = -3;
+					goto return_target_link;
+					//return -3;
 				}
 				//target_buf = (char *)malloc(target_buf_length * sizeof(char));
 				strcpy_s(target_buf, target_buf_size, complete_path_pname);
@@ -389,6 +409,11 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			//extract name from substitutestring
 			wlength = reparse_buffer->SymbolicLinkReparseBuffer.SubstituteNameLength;
 			w_complete_path_sname = (WCHAR *)malloc(sizeof(WCHAR)*wlength);
+			if (w_complete_path_sname == NULL) {
+				ERROR_LOG("Can't allocate memory for w_complete_path_sname");
+				target_buf_size = -3;
+				goto return_target_link;
+			}
 			strncpy_s(w_complete_path_sname, wlength, reparse_buffer->SymbolicLinkReparseBuffer.PathBuffer + (reparse_buffer->SymbolicLinkReparseBuffer.SubstituteNameOffset / sizeof(WCHAR)),
 				reparse_buffer->SymbolicLinkReparseBuffer.SubstituteNameLength / sizeof(WCHAR) + 1);
 
@@ -415,8 +440,13 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			//need to remove \\?\ from path
 			int target_buf_length = strnlen_s(complete_path_sname, clength) + (strnlen_s(path, MAX_LEN) - reparse_buffer->Reserved);
 			if (target_buf_length > target_buf_size) {
-				realloc(target_buf, target_buf_length);
+				target_buf = realloc(target_buf, target_buf_length);
 				target_buf_size = target_buf_length;
+			}
+			if (target_buf == NULL) {
+				target_buf_size = -3;
+				goto return_target_link;
+				//return -3;
 			}
 			//target_buf = (char *)malloc(target_buf_length * sizeof(char));
 			if (strstr(complete_path_sname, "\\\\?\\") != NULL) {
@@ -435,22 +465,26 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			DEBUG_LOG("\n unparsed length : %d", reparse_buffer->Reserved);
 			wlength = reparse_buffer->MountPointReparseBuffer.PrintNameLength / sizeof(WCHAR) + 1;
 			w_complete_path_pname = (WCHAR *)malloc(sizeof(WCHAR) * wlength);
+			if (w_complete_path_pname == NULL) {
+				ERROR_LOG("Can't allocate memory for w_complete_path_pname");
+				target_buf_size = -3;
+				goto return_target_link;
+			}
 			strncpy_s(w_complete_path_pname, wlength, reparse_buffer->MountPointReparseBuffer.PathBuffer + (reparse_buffer->MountPointReparseBuffer.PrintNameOffset / sizeof(WCHAR)),
 				reparse_buffer->MountPointReparseBuffer.PrintNameLength / sizeof(WCHAR) + 1);
 			wprintf(L"\n wide char Path : %s", w_complete_path_pname);
 
 			clength = WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS, w_complete_path_pname, wlength, 0, 0, 0, 0);
 			if (clength > target_buf_size) {
-				realloc(target_buf, clength);
-				if (target_buf == NULL) {
-					target_buf_size = -3;
-					goto return_target_link;
-					//return -3;
-				}
+				target_buf = realloc(target_buf, clength);
 				target_buf_size = clength;
 			}
 			//complete_path_pname = (char *)malloc(sizeof(CHAR)* clength);
-			memset(target_buf, 0, target_buf_size);
+			if (target_buf == NULL) {
+				target_buf_size = -3;
+				goto return_target_link;
+				//return -3;
+			}
 			clength = WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS, w_complete_path_pname, wlength, target_buf, clength, 0, 0);
 			if (clength == 0) {
 				ERROR_LOG("\n%s", "conversion from wchar to char fails");
@@ -466,12 +500,17 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			//extract name from substitutestring
 			wlength = reparse_buffer->MountPointReparseBuffer.SubstituteNameLength;
 			w_complete_path_sname = (WCHAR *)malloc(sizeof(WCHAR)*wlength);
+			if (w_complete_path_sname == NULL) {
+				ERROR_LOG("Can't allocate memory for w_complete_path_sname");
+				target_buf_size = -3;
+				goto return_target_link;
+			}
 			strncpy_s(w_complete_path_sname, wlength, reparse_buffer->MountPointReparseBuffer.PathBuffer + (reparse_buffer->MountPointReparseBuffer.SubstituteNameOffset / sizeof(WCHAR)),
 				reparse_buffer->MountPointReparseBuffer.SubstituteNameLength / sizeof(WCHAR) + 1);
 
 			clength = WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS, w_complete_path_sname, wlength, 0, 0, 0, 0);
 			if (clength > target_buf_size) {
-				realloc(target_buf, clength);
+				target_buf = realloc(target_buf, clength);
 				target_buf_size = clength;
 			}
 			//complete_path_sname = (char *)malloc(sizeof(CHAR) * clength);
@@ -499,7 +538,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 			//this gives the complete path when path contains an junction in it
 			int target_len = GetFinalPathNameByHandle(target_handle, target_buf, target_buf_size, VOLUME_NAME_DOS);
 			if (target_len >= target_buf_size){
-				realloc(target_buf, target_len);
+				target_buf = realloc(target_buf, target_len);
 				target_buf_size = target_len;
 				if (target_buf == NULL){
 					ERROR_LOG("\n%s", "can't reallocate memory for target buff");
@@ -531,6 +570,7 @@ int readlink(char *path, char *target_buf, int target_buf_size) {
 		if (complete_path_sname){
 			free(complete_path_sname);
 		}
+		CloseHandle(target_handle);
 		return target_buf_size;
 	}
 }
@@ -648,24 +688,26 @@ void generate_cumulative_hash(char *hash, int sha_one){
 	status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
 	if (!NT_SUCCESS(status)) {
 		ERROR_LOG("\nCould not inititalize CNG args Provider : 0x%x", status);
-		return NULL;
+		return;
 	}
 	cumulative_hash_size = hash_size;
 	status = BCryptHashData(handle_Hash_object, cH, hash_size, 0);
 	if (!NT_SUCCESS(status)) {
+		ERROR_LOG("\nCould not calculate hash : 0x%x", status);
 		cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-		return NULL;
+		return;
 	}
 
 	if (hexstr_len == hash_size) {
 		status = BCryptHashData(handle_Hash_object, cur_hash, hash_size, 0);
 		if (!NT_SUCCESS(status)) {
+			ERROR_LOG("\nCould not calculate hash : 0x%x", status);
 			cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-			return NULL;
+			return;
 		}
 	}
 	else {
-		DEBUG_LOG("\n length of string converted from hex is : %d not equal to expected hash digest length : %d", hexstr_len, hash_size);
+		DEBUG_LOG("\n length of string converted from hex is : %d not equal to expected hash digest length : %ld", hexstr_len, hash_size);
 		ERROR_LOG("\n ERROR: current hash is not being updated in cumulative hash");
 	}
 	//Dump the hash in variable and finish the Hash Object handle
@@ -702,7 +744,7 @@ void generate_cumulative_hash(char *hash, int sha_one){
 	   //DEBUG_LOG("\n%s %s","Cumulative Hash after is:",sha1_hash_string(cHash,ob));
 	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
 	   memset(ob,'\0',strnlen_s(ob,sizeof(ob)));
-	   
+
 	   return;
 	}
 	
@@ -745,21 +787,25 @@ int getSymLinkValue(char *path) {
 	int symlinkpath_size = 512;
 	// Check if the file path is a symbolic link
 	symlinkpath = (char *)malloc(sizeof(char)*symlinkpath_size);
-
+	if (symlinkpath == NULL) {
+		ERROR_LOG("Can't allocate memory for symlinkpath");
+		return -1;
+	}
 #ifdef _WIN32
 	if (ISLINK(path) == 0) {
 		// If symbolic link doesn't exists read the path its pointing to
 		int len = readlink(path, symlinkpath, symlinkpath_size);
 		if (len < 0) {
 			ERROR_LOG("\n%s", "Error occured in reading link");
-			return 0;
+			goto cleanup;
 		}
 		DEBUG_LOG("\n%s %s %s %s", "Symlink", path, " points to", symlinkpath);
 		//("Symlink '%s' points to '%s' \n", path, symlinkpath);
 		char *sympathroot;
 		sympathroot = (char *)malloc(sizeof(char)* len);
 		if (sympathroot == NULL) {
-			return 0;
+			ERROR_LOG("Can't allocate memory for sympathroot");
+			goto cleanup;
 		}
 		// If the path is starting with "/" and 'fs_mount_path' is not appended
 		if (((strstr(symlinkpath, ":") - symlinkpath) == 1) && (strstr(symlinkpath, fs_mount_path) == NULL)) {
@@ -777,6 +823,8 @@ int getSymLinkValue(char *path) {
 			//printf("Relative symlink path '%s' point to '%s'\n", symlinkpath, sympathroot);
 		}
 		strcpy_s(path, strnlen_s(sympathroot, len) + 1, sympathroot);
+		free(symlinkpath);
+		free(sympathroot);
 		return getSymLinkValue(path);
 	}
 #elif __linux__
@@ -814,6 +862,8 @@ int getSymLinkValue(char *path) {
             return getSymLinkValue(path);
     }
 #endif
+	cleanup:
+	free(symlinkpath);
 	return 0;
 }
 
@@ -844,6 +894,12 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
    3. Pass those to SHA function.(Output to char output passed to the function)
    4. Return the Output string. 
    */
+	FILE* file = fopen(value, "rb");
+	if (!file) {
+		ERROR_LOG("\n%s %s", "File not found-", value);
+		free(buffer);
+		return NULL;
+	}
 #ifdef _WIN32
 	BCRYPT_ALG_HANDLE       handle_Alg = NULL;
 	BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
@@ -854,24 +910,25 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
 	PBYTE                   hashObject_ptr = NULL;
 	PBYTE                   hash_ptr = NULL;
 
-	FILE* file;
+	/*FILE* file;
 	errno_t error_code;
 	error_code = fopen_s(&file, value, "rb");
 	if ( (!file) || error_code) {
 		ERROR_LOG("\n%s %s", "File not found-", value);
 		return NULL;
-	}
+	}*/
 	status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
 	if (!NT_SUCCESS(status)) {
 		ERROR_LOG("\nCould not inititalize CNG args Provider : 0x%x", status);
-		return NULL;
+		goto close;
 	}
 	while ((bytesRead = fread(buffer, 1, bufSize, file))) {
 		// calculate hash of bytes read
 		status = BCryptHashData(handle_Hash_object, buffer, bytesRead, 0);
 		if (!NT_SUCCESS(status)) {
+			ERROR_LOG("\nCould not calculate hash : 0x%x", status);
 			cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-			return NULL;
+			goto close;
 		}
 	}
 
@@ -888,11 +945,6 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
 		generate_cumulative_hash(output, 1);
 	}
 #elif __linux__
-	FILE* file = fopen(value, "rb");
-	if (!file) {
-		ERROR_LOG("\n%s %s", "File not found-", value);
-		return NULL;
-	}
     if(strcmp(hashType, "sha256") == 0) {
      //For SHA 256 hash**Hard dependency on exact usage of 'sha256'   
         unsigned char hash[SHA256_DIGEST_LENGTH];
@@ -923,6 +975,7 @@ char* calculate(char *path, char output[MAX_HASH_LEN]) {
 		generate_cumulative_hash(output,1);
     }
 #endif
+close:
 	fclose(file);
 	free(buffer);
 	return output;
@@ -1020,6 +1073,10 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 			char * temp_ptr = NULL;
 			//Open Manifest to get list of files to hash
 			line = (char *)malloc(sizeof(char) * len);
+			if (line == NULL) {
+				ERROR_LOG("Can't allocate memory for line");
+				goto close;
+			}
 			while (fgets(line, len, fp) != NULL) {
 				if (feof(fp)) {
 					break;
@@ -1060,9 +1117,13 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 				}
 				//File Hashes
 				if(strstr(line,"<File Path=")!= NULL && digest_check){
-					tagEntry(line);
+					temp_ptr = NULL;
+					temp_ptr = strstr(line, "Path=");
 					char file_name_buff[1024] = {'\0'};
-					snprintf(file_name_buff, sizeof(file_name_buff), "%s/%s", fs_mount_path, NodeValue);
+					if (temp_ptr != NULL) {
+						tagEntry(temp_ptr);
+						snprintf(file_name_buff, sizeof(file_name_buff), "%s/%s", fs_mount_path, NodeValue);
+					}
 					DEBUG_LOG("\nfile path : %s\n", file_name_buff);
 #ifdef _WIN32
 					int retval = fileExist(file_name_buff);
@@ -1127,6 +1188,10 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					char mDpath[256] = {'\0'};
 					char *dhash = NULL;
 					dhash = (char *)malloc(sizeof(char) * dhash_len);
+					if (dhash == NULL) {
+						ERROR_LOG("Can't allocate memory for dhash");
+						goto close;
+					}
 					memset(dhash, 0, dhash_len);
 					strcpy_s(mDpath,sizeof(mDpath),fs_mount_path);
 					strcat_s(mDpath,sizeof(mDpath),dir_path);//path of dir in the VM
@@ -1175,7 +1240,8 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					char *buffer = malloc(bufSize);
 					int bytesRead = 0;
 					if (!buffer){
-						return;
+						ERROR_LOG("Can't allocate memory for buffer");
+						goto cleanup;
 					}					
 					BCRYPT_ALG_HANDLE       handle_Alg = NULL;
 					BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
@@ -1189,14 +1255,15 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
 					if (!NT_SUCCESS(status)) {
 						ERROR_LOG("\nCould not inititalize CNG args Provider : 0x%x", status);
-						return NULL;
+						goto cleanup;
 					}
 					while ((bytesRead = fread(buffer, 1, bufSize, dir_file))) {
 						// calculate hash of bytes read
 						status = BCryptHashData(handle_Hash_object, buffer, bytesRead, 0);
 						if (!NT_SUCCESS(status)) {
+							ERROR_LOG("\nCould not calculate hash : 0x%x", status);
 							cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-							return NULL;
+							goto cleanup;
 						}
 					}
 
@@ -1208,6 +1275,8 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					/*if (remove(file) == -1) {
 						ERROR_LOG("\nFailed to remove the temproray created file %s", file);
 					}*/
+				cleanup:
+					if(buffer) free(buffer);
 #elif __linux__
 					//to remove mount path from the find command output and directory path and +1 is to remove the additional / after directory
 					char hash_algo[15] = {'\0'};
@@ -1244,6 +1313,7 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 					DEBUG_LOG("\n%s %s %s %s", "Dir :", mDpath, "Hash Measured:", dhash);
 					fprintf(fq, "<Dir Path=\"%s\">", dir_path);
 					fprintf(fq, "%s</Dir>\n", dhash);
+					free(dhash);
 				}//Dir hash ends
 			}//While ends
 			if(!digest_check){
@@ -1251,22 +1321,40 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 				//return -1 ?
 			}
 			fprintf(fq,"</Measurements>");
-			fclose(fq);
 		}
 		else{
 			ERROR_LOG("Can not open file: %s to write the measurement", ma_result_path);
 			fclose(fp);
 			return;
 		}
-		fclose(fp);
     }
     else {
     	ERROR_LOG("Can not open Manifest file: %s", origManifestPath);
     	return;
     }
-    strcat_s(hash_file,sizeof(hash_file),hashType);
-    /*Write the Cumulative Hash calculated to the file*/
-    FILE *fc = fopen(hash_file,"w");
+#ifdef _WIN32
+	if (bin2hex(cH, cumulative_hash_size, cH2, sizeof(cH2)) < 0) {
+		ERROR_LOG("\n Failed to convert binary hash to hex");
+		goto close;
+	}
+#elif __linux__
+	if(strcmp(hashType, "sha256") == 0){
+		if (bin2hex(d2, sizeof(d2), cH2, sizeof(cH2)) < 0 ) {
+			ERROR_LOG("\n Failed to convert binary hash to hex");
+			goto close;
+		}
+    }
+    else {
+		if (bin2hex(d1, sizeof(d1), cH2, sizeof(cH2)) < 0) {
+			ERROR_LOG("\n Failed to convert binary hash to hex");
+			goto close;
+		}
+    }
+#endif
+	DEBUG_LOG("\n%s %s\n", "Hash Measured:", cH2);
+	strcat_s(hash_file, sizeof(hash_file), hashType);
+	/*Write the Cumulative Hash calculated to the file*/
+	FILE *fc = fopen(hash_file, "w");
 #ifdef _WIN32
 	if (_chmod(hash_file, _S_IREAD | _S_IWRITE) == -1) {
 		ERROR_LOG("Failed to provide read write permissions to cumulative hash file %s ", hash_file);
@@ -1274,32 +1362,17 @@ static void generateLogs(const char *origManifestPath, char *imagePath, char *ve
 #elif __linux__
 	chmod(hash_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 #endif
-    if (fc == NULL ) {
-    	ERROR_LOG("Can not open file: %s, to write cumulative hash", hash_file);
-    	return;
-    }
-#ifdef _WIN32
-	if (bin2hex(cH, cumulative_hash_size, cH2, sizeof(cH2)) < 0) {
-		ERROR_LOG("\n Failed to convert binary hash to hex");
-		return;
+	if (fc == NULL) {
+		ERROR_LOG("Can not open file: %s, to write cumulative hash", hash_file);
+		goto close;
 	}
-#elif __linux__
-	if(strcmp(hashType, "sha256") == 0){
-		if (bin2hex(d2, sizeof(d2), cH2, sizeof(cH2)) < 0 ) {
-			ERROR_LOG("\n Failed to convert binary hash to hex");
-			return;
-		}
-    }
-    else {
-		if (bin2hex(d1, sizeof(d1), cH2, sizeof(cH2)) < 0) {
-			ERROR_LOG("\n Failed to convert binary hash to hex");
-			return;
-		}
-    }
-#endif
-	DEBUG_LOG("\n%s %s\n", "Hash Measured:", cH2);
 	fprintf(fc, "%s", cH2);
 	fclose(fc);
+
+close:
+	if (line) free(line);
+	fclose(fp);
+	fclose(fq);
 }
 
 /*
