@@ -5,6 +5,7 @@ extern char cH2[MAX_HASH_LEN];
 extern char hashType[10]; //SHA1 or SHA256
 extern char fs_root_path[1024] ;
 extern unsigned char cH[MAX_HASH_LEN];
+extern int cumulative_hash_size;
 
 void doMeasurement() {
 	static int ma_status = 0;
@@ -121,8 +122,8 @@ void doMeasurement() {
 						if (temp_ptr != NULL) {
 							DbgPrint("temp_ptr : %s\n", temp_ptr);
 							DbgPrint("calc_hash : %s\n", calc_hash);
+							WriteMeasurementFile(line, calc_hash, handle1, ioStatusBlock1, tag);
 						}
-						WriteMeasurementFile(line, calc_hash, handle1, ioStatusBlock1, tag);
 
 						free(file->Path);
 						free(file);
@@ -169,10 +170,10 @@ void doMeasurement() {
 							bin2hex(hash_ptr, hash_size, calc_hash, MAX_HASH_LEN);
 							DbgPrint("Calculated Hash Hex : %s\n", calc_hash);
 							generate_cumulative_hash(hash_ptr);
+							WriteMeasurementFile(line, calc_hash, handle1, ioStatusBlock1, tag);
 						}
 
 						cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-						WriteMeasurementFile(line, calc_hash, handle1, ioStatusBlock1, tag);
 
 						free_dir:
 							free(files_buffer);
@@ -180,6 +181,7 @@ void doMeasurement() {
 							free(dir->Exclude);
 							free(dir->Recursive);
 							free(dir->Path);
+							free(dir);
 					}
 					else
 					{
@@ -231,9 +233,9 @@ void doMeasurement() {
 		NULL, 0);
 	DbgPrint("ZwCreateFile returns : 0x%x\n", ntstatus);
 
-	bin2hex(cH, strnlen_s(cH, MAX_HASH_LEN), cH2, sizeof(cH2));
+	bin2hex(cH, cumulative_hash_size, cH2, sizeof(cH2));
 	DbgPrint("Hash Measured : %s\n", cH2);
-	WriteMeasurementFile(NULL, cH2, handle1, ioStatusBlock1, Manifest);
+	WriteMeasurementFile(cH2, NULL, handle1, ioStatusBlock1, Manifest);
 	ZwClose(handle1);
 
 	// extend to PCR 14

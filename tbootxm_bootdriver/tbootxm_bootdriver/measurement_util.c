@@ -4,6 +4,7 @@ char cH2[MAX_HASH_LEN];
 char hashType[10]; //SHA1 or SHA256
 char fs_root_path[1024] = "\\DosDevices\\";
 unsigned char cH[MAX_HASH_LEN] = { '\0' };
+int cumulative_hash_size = 20;
 
 /*
 Cleaup the CNG api,
@@ -150,65 +151,44 @@ void WriteMeasurementFile(char *line, char *hash, HANDLE handle1, IO_STATUS_BLOC
 	size_t  cb;
 	NTSTATUS ntstatus;
 
-	if (line != NULL)
+	if (hash != NULL)
 	{
-		if (hash != NULL)
-		{
-			int end_tag_max_size = 12;
-			DbgPrint("Hash value supplied : %s\n", hash);
-			int new_line_size = strlen(line) + strlen(hash) + end_tag_max_size;
-			char *new_line = (char *)malloc(new_line_size);
-			RtlZeroMemory(new_line, new_line_size);
-			int old_size = strlen(line);
-			RtlCopyMemory(new_line, line, old_size);
-			line = new_line;
-			line[old_size - 3] = '>';
-			line[old_size - 2] = '\0';
-			RtlStringCbCatA(line, new_line_size, hash);
-			if (tag == File)
-			{
-				RtlStringCbCatA(line, new_line_size, "</File>\r\n");
-			}
-			if (tag == Directory)
-			{
-				RtlStringCbCatA(line, new_line_size, "</Dir>\r\n");
-			}
-		}
-
-		buffer_size = strlen(line) + 1;
-		buffer = (char *)malloc(buffer_size);
-		ntstatus = RtlStringCbPrintfA(buffer, buffer_size, "%s", line);
-		DbgPrint("RtlStringCbPrintfA returns : 0x%x\n", ntstatus);
-		if (NT_SUCCESS(ntstatus))
-		{
-			ntstatus = RtlStringCbLengthA(buffer, buffer_size, &cb);
-			DbgPrint("RtlStringCbLengthA returns : 0x%x\n", ntstatus);
-			if (NT_SUCCESS(ntstatus))
-			{
-				ntstatus = ZwWriteFile(handle1, NULL, NULL, NULL, &ioStatusBlock1, buffer, cb, NULL, NULL);
-				DbgPrint("ZwWriteFile returns : 0x%x\n", ntstatus);
-			}
-		}
-		free(buffer);
-	}
-	else {
+		int end_tag_max_size = 12;
 		DbgPrint("Hash value supplied : %s\n", hash);
-		buffer_size = strlen(hash) + 1;
-		buffer = (char *)malloc(buffer_size);
-		ntstatus = RtlStringCbPrintfA(buffer, buffer_size, "%s", hash);
-		DbgPrint("RtlStringCbPrintfA returns : 0x%x\n", ntstatus);
+		int new_line_size = strlen(line) + strlen(hash) + end_tag_max_size;
+		char *new_line = (char *)malloc(new_line_size);
+		RtlZeroMemory(new_line, new_line_size);
+		int old_size = strlen(line);
+		RtlCopyMemory(new_line, line, old_size);
+		line = new_line;
+		line[old_size - 3] = '>';
+		line[old_size - 2] = '\0';
+		RtlStringCbCatA(line, new_line_size, hash);
+		if (tag == File)
+		{
+			RtlStringCbCatA(line, new_line_size, "</File>\r\n");
+		}
+		if (tag == Directory)
+		{
+			RtlStringCbCatA(line, new_line_size, "</Dir>\r\n");
+		}
+	}
+
+	buffer_size = strlen(line) + 1;
+	buffer = (char *)malloc(buffer_size);
+	ntstatus = RtlStringCbPrintfA(buffer, buffer_size, "%s", line);
+	DbgPrint("RtlStringCbPrintfA returns : 0x%x\n", ntstatus);
+	if (NT_SUCCESS(ntstatus))
+	{
+		ntstatus = RtlStringCbLengthA(buffer, buffer_size, &cb);
+		DbgPrint("RtlStringCbLengthA returns : 0x%x\n", ntstatus);
 		if (NT_SUCCESS(ntstatus))
 		{
-			ntstatus = RtlStringCbLengthA(buffer, buffer_size, &cb);
-			DbgPrint("RtlStringCbLengthA returns : 0x%x\n", ntstatus);
-			if (NT_SUCCESS(ntstatus))
-			{
-				ntstatus = ZwWriteFile(handle1, NULL, NULL, NULL, &ioStatusBlock1, buffer, cb, NULL, NULL);
-				DbgPrint("ZwWriteFile returns : 0x%x\n", ntstatus);
-			}
+			ntstatus = ZwWriteFile(handle1, NULL, NULL, NULL, &ioStatusBlock1, buffer, cb, NULL, NULL);
+			DbgPrint("ZwWriteFile returns : 0x%x\n", ntstatus);
 		}
-		free(buffer);
 	}
+	free(buffer);
 }
 
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
@@ -232,7 +212,7 @@ void generate_cumulative_hash(char *hash){
 		DbgPrint("Could not inititalize CNG args Provider : 0x%x", status);
 		return;
 	}
-
+	cumulative_hash_size = hash_size;
 	status = BCryptHashData(handle_Hash_object, cH, hash_size, 0);
 	if (!NT_SUCCESS(status)) {
 		cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
