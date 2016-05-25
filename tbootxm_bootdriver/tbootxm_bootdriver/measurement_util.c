@@ -80,7 +80,11 @@ int setup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handl
 
 char *GetTagValue(char *line, char *tag, char **sub_line)
 {
-	int i = strlen(tag) + 2;
+	size_t cb_tag;
+	RtlStringCbLengthA(tag, MAX_LEN, &cb_tag);
+	DbgPrint("tag length : %d\n", cb_tag);
+
+	int i = cb_tag + 2;
 	*sub_line = strstr(line, tag);
 	if (*sub_line == NULL)
 	{
@@ -146,19 +150,25 @@ void bin2hex(unsigned char *byte_buffer, int byte_buffer_len, char *hex_str, int
 
 void WriteMeasurementFile(char *line, char *hash, HANDLE handle1, IO_STATUS_BLOCK ioStatusBlock1, enum TagType tag)
 {
-	int buffer_size;
-	char *buffer = NULL;
-	size_t  cb;
 	NTSTATUS ntstatus;
+	size_t cb_line, cb_hash;
+	char *new_line = NULL;
+	//int buffer_size;
+	//char *buffer = NULL;
 
 	if (hash != NULL)
 	{
 		int end_tag_max_size = 12;
-		DbgPrint("Hash value supplied : %s\n", hash);
-		int new_line_size = strlen(line) + strlen(hash) + end_tag_max_size;
-		char *new_line = (char *)malloc(new_line_size);
+		RtlStringCbLengthA(line, MAX_LEN, &cb_line);
+		DbgPrint("line length : %d\n", cb_line);
+
+		RtlStringCbLengthA(hash, MAX_LEN, &cb_hash);
+		DbgPrint("hash length : %d\n", cb_hash);
+
+		int new_line_size = cb_line + cb_hash + end_tag_max_size;
+		new_line = (char *)malloc(new_line_size);
 		RtlZeroMemory(new_line, new_line_size);
-		int old_size = strlen(line);
+		int old_size = cb_line;
 		RtlCopyMemory(new_line, line, old_size);
 		line = new_line;
 		line[old_size - 3] = '>';
@@ -173,7 +183,7 @@ void WriteMeasurementFile(char *line, char *hash, HANDLE handle1, IO_STATUS_BLOC
 			RtlStringCbCatA(line, new_line_size, "</Dir>\r\n");
 		}
 	}
-
+/*
 	buffer_size = strlen(line) + 1;
 	buffer = (char *)malloc(buffer_size);
 	ntstatus = RtlStringCbPrintfA(buffer, buffer_size, "%s", line);
@@ -189,6 +199,14 @@ void WriteMeasurementFile(char *line, char *hash, HANDLE handle1, IO_STATUS_BLOC
 		}
 	}
 	free(buffer);
+*/
+	RtlStringCbLengthA(line, MAX_LEN, &cb_line);
+	DbgPrint("line length : %d\n", cb_line);
+
+	ntstatus = ZwWriteFile(handle1, NULL, NULL, NULL, &ioStatusBlock1, line, cb_line, NULL, NULL);
+	DbgPrint("ZwWriteFile returns : 0x%x\n", ntstatus);
+	if(new_line)
+		free(new_line);
 }
 
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
@@ -394,10 +412,11 @@ int ListDirectory(char *path, char *include, char *exclude, char *recursive, cha
 		return -1;
 	}
 
-	PUCHAR Buffer[MAX_LEN] = { '\0' };
 	ANSI_STRING as;
 	UNICODE_STRING entryName;
 	PFILE_DIRECTORY_INFORMATION dirInfo;
+	PUCHAR Buffer[MAX_LEN] = { '\0' };
+	size_t cb_path, cb_files_buffer;
 
 	RtlInitAnsiString(&ntInclude, include);
 	RtlAnsiStringToUnicodeString(&uniInclude, &ntInclude, TRUE);
@@ -433,6 +452,8 @@ int ListDirectory(char *path, char *include, char *exclude, char *recursive, cha
 	}
 
 	dirInfo = (PFILE_DIRECTORY_INFORMATION)Buffer;
+	RtlStringCbLengthA(path, MAX_LEN, &cb_path);
+	DbgPrint("path length : %d\n", cb_path);
 
 	while (TRUE) {
 		entryName.MaximumLength = entryName.Length = (USHORT)dirInfo->FileNameLength;
@@ -441,10 +462,9 @@ int ListDirectory(char *path, char *include, char *exclude, char *recursive, cha
 		DbgPrint("FileName : %s\n", as.Buffer);
 		DbgPrint("Next Entry Offest : %d\n", dirInfo->NextEntryOffset);
 		DbgPrint("File Attributes : %d\n", dirInfo->FileAttributes);
-
-		int path_len = strlen(path) + as.MaximumLength + 2;
+		
+		int path_len = cb_path + as.MaximumLength + 2;
 		DbgPrint("path_len : %d\n", path_len);
-
 		char *file_path = (char *)malloc(path_len);
 		RtlStringCbPrintfA(file_path, path_len, "%s\\%s", path, as.Buffer);
 		DbgPrint("file_path : %s\n", file_path);
@@ -453,8 +473,11 @@ int ListDirectory(char *path, char *include, char *exclude, char *recursive, cha
 
 			if (FsRtlIsNameInExpression(&uniInclude, &entryName, FALSE, NULL) && !FsRtlIsNameInExpression(&uniExclude, &entryName, FALSE, NULL)) {
 
-				if ((strlen(files_buffer) + path_len - 2) > MAX_LEN) {
-					int offset = MAX_LEN - strlen(files_buffer) - 1;
+				RtlStringCbLengthA(files_buffer, MAX_LEN, &cb_files_buffer);
+				DbgPrint("files_buffer length : %d\n", cb_files_buffer);
+
+				if ((cb_files_buffer + path_len - 2) > MAX_LEN) {
+					int offset = MAX_LEN - cb_files_buffer - 1;
 					RtlStringCbCatNA(files_buffer, MAX_LEN, file_path, offset);
 
 					ntstatus = BCryptHashData(handle_Hash_object, files_buffer, MAX_LEN - 1, 0);

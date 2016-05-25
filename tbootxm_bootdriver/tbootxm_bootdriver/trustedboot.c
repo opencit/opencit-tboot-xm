@@ -16,8 +16,7 @@ void doMeasurement() {
 	DbgPrint("doMeasurement function called");
 	// Do not try to perform any file operations at higher IRQL levels.
 	// Instead, you may use a work item or a system worker thread to perform file operations.
-	if (KeGetCurrentIrql() != PASSIVE_LEVEL)
-	{
+	if (KeGetCurrentIrql() != PASSIVE_LEVEL) {
 		DbgPrint("File operations not possible at PASSIVE Level");
 		return;
 	}
@@ -159,7 +158,11 @@ void doMeasurement() {
 
 						if (status == 0) {
 							//Dump the hash in variable and finish the Hash Object handle
-							status = BCryptHashData(handle_Hash_object, files_buffer, strlen(files_buffer), 0);
+							size_t cb_files_buffer;
+							RtlStringCbLengthA(files_buffer, MAX_LEN, &cb_files_buffer);
+							DbgPrint("files_buffer length : %d\n", cb_files_buffer);
+
+							status = BCryptHashData(handle_Hash_object, files_buffer, cb_files_buffer, 0);
 							if (!NT_SUCCESS(status)) {
 								DbgPrint("Could not calculate directory hash : 0x%x\n", status);
 								cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
@@ -183,12 +186,9 @@ void doMeasurement() {
 							free(dir->Path);
 							free(dir);
 					}
-					else
-					{
-						enum TagType tag = Manifest;
-						WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, tag);
+					else {
+						WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, Manifest);
 					}
-					free(line);
 					break;
 				}
 			}
@@ -196,16 +196,13 @@ void doMeasurement() {
 			{
 				line[i] = '\0';
 				DbgPrint("file end found : %s\n", line);
-				enum TagType tag = Manifest;
-				WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, tag);
-				free(line);
+				WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, Manifest);
 				break;
 			}
-			else {
-				free(line);
+			else
 				break;
-			}
 		}
+		free(line);
 	} while (NT_SUCCESS(ntstatus) || ntstatus != STATUS_END_OF_FILE);
 
 	ZwClose(handle);
@@ -289,8 +286,7 @@ IN PUNICODE_STRING pusUnicodeString)
 
 void 
 tbootdriverUnload(
-IN PDRIVER_OBJECT pDriverObject
-)
+IN PDRIVER_OBJECT pDriverObject)
 {
 	PAGED_CODE();
 
