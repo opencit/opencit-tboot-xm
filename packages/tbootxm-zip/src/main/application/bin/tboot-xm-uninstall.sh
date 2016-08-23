@@ -174,7 +174,7 @@ function main()
 	echo_success "tboot-xm uninstall complete"
 	echo_warning "default grub entry will be changed to first entry in GRUB file"
 	
-	sed -i s/GRUB_DEFAULT=[0-9]*/GRUB_DEFAULT=0/ $GRUB_DEFAULT_FILE
+	sed -i s/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/ $GRUB_DEFAULT_FILE
 }
 
 function help()
