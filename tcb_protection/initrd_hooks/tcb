@@ -33,7 +33,7 @@ copy_exec /usr/bin/sha1sum /bin/sha1sum
 copy_exec /usr/bin/sha256sum /bin/sha256sum
 #copy_exec /sbin/cryptsetup /sbin/
 #copy_exec /lib/modules/`uname -r`/kernel/drivers/md/dm-crypt.ko /lib/modules/`uname -r`/kernel/drivers/md/dm-crypt.ko
-
+copy_exec `which insmod` /bin/
 copy_exec $TBOOTXM_BIN/tpmextend /bin/
 copy_exec $TBOOTXM_LIB/rpmmio.ko /lib/modules/`uname -r`/kernel/drivers/char/tpm/
 copy_exec $TBOOTXM_BIN/verifier /bin/
