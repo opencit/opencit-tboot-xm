@@ -616,11 +616,11 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
 		    }
 
 		    temp_ptr = NULL;
-		    temp_ptr = strstr(line,"Version=");
+		    temp_ptr = strstr(line,"xmlns=");
 		    if(temp_ptr != NULL){
 		        /*Get the type of version */
 		        tagEntry(temp_ptr);
-			version = *(node_value + 2) - '0';
+			version = node_value[strnlen_s("mtwilson:trustdirector:manifest:1.1", 256) - 1] - '0';
 		        DEBUG_LOG("\n%s %d","Version of Policy used :",version);
 		    }
 		    fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.%d\" DigestAlg=\"%s\">\n",version,hashType);
