@@ -42,11 +42,18 @@ HRESULT TpmPCRExtend(
 	);
 
 /* PCR extend - tpm 1.2 */
-HRESULT
-pcrExtend12(
-TBS_HCONTEXT hPlatformTbsHandle,
-UINT32 pcrIndex,
-_In_ PBYTE pbDigest,
-_Out_ PBYTE pbNewDigest
-);
+HRESULT pcrExtend12(
+	TBS_HCONTEXT hPlatformTbsHandle,
+	UINT32 pcrIndex,
+	_In_ PBYTE pbDigest,
+	_Out_ PBYTE pbNewDigest
+	);
+
+/* PCR extend - tpm 2.0 */
+HRESULT pcrExtend20(
+	TBS_HCONTEXT hPlatformTbsHandle,
+	UINT32 pcrIndex,
+	_In_ PBYTE pbDigest,
+	_Out_ PBYTE pbNewDigest
+	);
 #endif
