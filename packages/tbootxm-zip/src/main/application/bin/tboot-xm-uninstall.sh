@@ -1,4 +1,4 @@
-#!/bin/bash177
+#!/bin/bash
 
 #This scripts uninstall the tboot-xm components on compute node
 TBOOTXM_ENV_FILE="/opt/tbootxm/env/tbootxm-layout"
