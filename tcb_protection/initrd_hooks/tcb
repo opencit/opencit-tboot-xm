@@ -37,5 +37,6 @@ copy_exec `which insmod` /bin/
 copy_exec $TBOOTXM_BIN/tpmextend /bin/
 copy_exec $TBOOTXM_LIB/rpmmio.ko /lib/modules/`uname -r`/kernel/drivers/char/tpm/
 copy_exec $TBOOTXM_BIN/verifier /bin/
+copy_exec `which findfs` /bin/
 
 exit 0
