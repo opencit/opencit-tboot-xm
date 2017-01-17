@@ -115,11 +115,12 @@ mount_root()
 	#root_mntDev=`echo $root | awk 'BEGIN{FS=":"}{print $2}'`
 	echo $ROOT_MOUNT_PATH
 	UUID_STR="UUID"
-	if [[ ${ROOT_MOUNT_PATH/$UUID_STR} != "$ROOT_MOUNT_PATH" ]]; then
+	strip=`echo $ROOT_MOUNT_PATH | cut -c1-4`
+	if [[ $strip = "$UUID_STR" ]]; then
 		drive_name=`findfs $ROOT_MOUNT_PATH`
 		ROOT_MOUNT_PATH=$drive_name
 		log "UUID to drive conversion = $ROOT_MOUNT_PATH"
-	fi
+	fi 
 	mount -t auto $ROOT_MOUNT_PATH $tmp_root
 	if [ $? -eq 0 ] ; then
 		log "Root mounted successfully"
