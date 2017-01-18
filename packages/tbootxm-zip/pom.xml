@@ -3,17 +3,17 @@
     
     <groupId>com.intel.mtwilson.tbootxm.packages</groupId>
     <artifactId>tbootxm-zip</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    
     <packaging>pom</packaging>
     <description>Measurement Agent</description>
-	
+    
     <parent>
         <groupId>com.intel.mtwilson.maven</groupId>
         <artifactId>mtwilson-maven-package-bin-zip</artifactId>
-        <version>3.0-SNAPSHOT</version>
+        <version>3.1-SNAPSHOT</version>
         <relativePath />
     </parent>
-
+    
     <properties>
         <build.timestamp>${maven.build.timestamp}</build.timestamp>
         <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss.SSSZ</maven.build.timestamp.format>
@@ -22,7 +22,7 @@
              "yyyy-MM-dd'T'HH:mm:ss.SSSZ"	2001-07-04T12:08:56.235-0700   
         -->
     </properties>
-
+    
     <build>
         <resources>
             <resource>
@@ -62,7 +62,7 @@
                                 <copy todir="${project.build.directory}/application/initrd_hooks">
                                     <fileset dir="../../tcb_protection/initrd_hooks"/>
                                 </copy>
-								<copy todir="${project.build.directory}/application/mkinitrd_files">
+                                <copy todir="${project.build.directory}/application/mkinitrd_files">
                                     <fileset dir="../../tcb_protection/mkinitrd_files"/>
                                 </copy>
                             </target>
@@ -85,45 +85,4 @@
         </plugins>
     </build>
     
-    
-    <dependencies>
-        
-        <!--<dependency>
-            <groupId>com.intel.mtwilson.integration</groupId>
-            <artifactId>mtwilson-launcher</artifactId>
-            <version>${mtwilson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.intel.mtwilson.services</groupId>
-            <artifactId>mtwilson-extensions-cache</artifactId>
-            <version>${mtwilson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.intel.mtwilson.services</groupId>
-            <artifactId>mtwilson-setup</artifactId>
-            <version>${mtwilson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.intel.mtwilson.integration</groupId>
-            <artifactId>mtwilson-password-vault</artifactId>
-            <version>${mtwilson.version}</version>
-        </dependency>-->
-            
-        <!--<dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <scope>test</scope>
-            <type>jar</type>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-        </dependency>-->
-    
-
-    </dependencies>  
 </project>
