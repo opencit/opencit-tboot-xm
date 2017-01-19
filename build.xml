@@ -94,5 +94,23 @@
 			<condition><not><equals arg1="${mavenExitInstallPackages}" arg2="0"/></not></condition>
 		</fail>
 	</target>
-	<target name="all" depends="ready,clean,build,packages"></target>
+    <target name="all" depends="ready,clean,build,packages"></target>
+    
+            <target name="klocwork" depends="init,ready">
+        <exec executable="/bin/bash">
+		      <arg value="klocwork.sh"/>
+		</exec>
+    </target>
+
+	   <target name="build-with-scans">
+	        <parallel>
+        	    <exec executable="ant">
+	                <arg value="all"/>
+        	    </exec>
+	            <exec executable="ant">
+        	        <arg value="klocwork"/>
+	            </exec>
+	        </parallel>
+	    </target>
+        
 </project>
