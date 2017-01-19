@@ -8,6 +8,14 @@ extern unsigned char cH[MAX_HASH_LEN];
 extern int cumulative_hash_size;
 
 void doMeasurement() {
+
+	/* test of TpmPcrExtend
+	 * extend to PCR 23 (not used most of time) to see if the value of PCR23 changes later
+	BYTE newPCRV1[20] = { 0 };
+	BYTE digestVal[20] = "97fc38c88a9c160c84b6";
+	TpmPCRExtend(23, digestVal, newPCRV1);
+	*/
+
 	static int ma_status = 0;
 	if (ma_status == 1) {
 		return;
