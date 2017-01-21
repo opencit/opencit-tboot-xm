@@ -7,10 +7,6 @@ if [ -n $1 ]; then
     BIN_DIR=$1
 fi
 
-mkdir -p $BIN_DIR
-
-LOG_FILE=$CURR_ROOT/rpmmio_buildlog
-
 function getFlavour()
 {
         flavour=""
@@ -52,25 +48,38 @@ fi
 
 INSTALLED_KERNEL_HEADERS=`ls $MODULE_DIR`
 
+BUILD_LOG=_buildlog
+
 cd src/
-for HEADER in $INSTALLED_KERNEL_HEADERS ; do
-    if [ -e $MODULE_DIR/$HEADER/build ]; then
-        make clean >> $LOG_FILE 2>&1
-        if [ `echo $?` -ne 0 ]
-        then
-                echo "ERROR: Could not clean rpmmio"
-                exit 1
-        fi
-        echo "Building rpmmio.ko for $HEADER"
-        make KDIR=$MODULE_DIR/$HEADER/build >> $LOG_FILE 2>&1
-        if [ `echo $?` -ne 0 ]
-        then
-                echo "ERROR: Could not make rpmmio"
-                exit 1
-        fi
-	mv rpmmio.ko $BIN_DIR/rpmmio-$HEADER.ko
-    else
-        echo "WARNING: Header files doesn't available for kernel $HEADER"
-    fi
+rpmmio_directories=$(find . -maxdepth 1 -mindepth 1 -type d | cut -c 3-)
+for directory in ${rpmmio_directories[@]}; do
+    echo $directory
+    RPMMIO_DIR=$BIN_DIR/$directory
+    echo $RPMMIO_DIR
+    mkdir -p $RPMMIO_DIR
+    LOG_FILE=$CURR_ROOT/$directory$BUILD_LOG
+    echo $LOG_FILE
+    cd $directory
+    for HEADER in $INSTALLED_KERNEL_HEADERS ; do
+    	if [ -e $MODULE_DIR/$HEADER/build ]; then
+	    make clean >> $LOG_FILE 2>&1
+	    if [ `echo $?` -ne 0 ]
+	    then
+		echo "ERROR: Could not clean rpmmio"
+		exit 1
+	    fi
+	    echo "Building rpmmio.ko for $HEADER"
+	    make KDIR=$MODULE_DIR/$HEADER/build >> $LOG_FILE 2>&1
+	    if [ `echo $?` -ne 0 ]
+	    then
+		echo "ERROR: Could not make rpmmio"
+		exit 1
+	    fi
+	    mv rpmmio.ko $RPMMIO_DIR/rpmmio-$HEADER.ko
+	else
+	    echo "WARNING: Header files doesn't available for kernel $HEADER"
+	fi
+    done
+    cd ..
 done
 cd ..
