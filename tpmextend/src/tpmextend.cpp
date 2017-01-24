@@ -7,10 +7,11 @@
 #include <unistd.h>
 //#include "vTCIDirect.h"
 
+#define MAX_HASH_LEN 		65
 //Hash value in PCRs: 20 bytes
-#define TPM_DIGEST_SIZE          20
+#define TPM_DIGEST_SIZE         20
 typedef struct __packed {
-    uint8_t     digest[TPM_DIGEST_SIZE];
+    uint8_t     digest[MAX_HASH_LEN];
 } tpm_digest_t;
 typedef tpm_digest_t tpm_pcr_value_t;
 
@@ -46,6 +47,8 @@ int main(int argc, char** argv)
     char    *filesystem_hash = NULL;
     uint8_t hash_bytes[TPM_DIGEST_SIZE];
     size_t  i = 0;
+    int hash_alg = 0;
+    int hash_size = 0;
 
     fprintf(STDOUT, "TPM extension\n\n");
 
@@ -61,8 +64,20 @@ int main(int argc, char** argv)
         	return -1;
         }
         filesystem_hash = argv[2];
-        printf("Will extend PCR%d by with filesyatem hash %s\n", pcrno, filesystem_hash);
+	if(strlen(filesystem_hash) == 40){
+		hash_alg = 1;
+		hash_size = 20;
+	}
+	else if(strlen(filesystem_hash) == 64){
+		hash_alg = 256;
+		hash_size = 32;
+	}
+	else{
+		printf("Please provide a valid digest size to extend\nCurrently supported digest size are 20 and 32\n");
+		return -1;
+	}
     }
+        printf("Will extend PCR%d by with filesyatem hash %s\n", pcrno, filesystem_hash);
  
 	fprintf(STDOUT, "use rpmmio\n");
 	int tpmfd = open(RPTPMDEVICE, O_RDWR);
@@ -72,7 +87,7 @@ int main(int argc, char** argv)
       return false;
     }
 
-
+	
 	//test of rpmmio tpm driver
     //Prepare and pass arguments pcr and locaity to the driver, by overriding
     //the offset input field of lseek().
@@ -80,22 +95,22 @@ int main(int argc, char** argv)
     size= BUFSIZE;
     tpm_digest_t in = {{0,}};
 
-    for(i = 0; i < TPM_DIGEST_SIZE ; i++) {
+    for(i = 0; i < hash_size ; i++) {
         sscanf(&filesystem_hash[i*2], "%2hhx", &(in.digest[i]));
     }
 
     tpm_pcr_value_t out = {{0,}};
-    PrintBytes("extend pcr: ", in.digest, TPM_DIGEST_SIZE);
+    PrintBytes("extend pcr: ", in.digest, hash_size);
 
-    int returnSize=TPM_DIGEST_SIZE;
-    byte returnDigest[TPM_DIGEST_SIZE];
+    int returnSize=hash_size;
+    byte returnDigest[hash_size];
     
     locality=0;
     offset = (pcrno<<16) | (locality&0XFFFF);
     lseek(tpmfd, offset, SEEK_SET);
     fprintf(STDOUT, "pcr %d, locality %d\n", pcrno, locality);
-    ret=read(tpmfd, &rgpcr, TPM_DIGEST_SIZE);
-    PrintBytes("PCR contents read by RPMMIO ", rgpcr, TPM_DIGEST_SIZE);
+    ret=read(tpmfd, &rgpcr, hash_size);
+    PrintBytes("PCR contents read by RPMMIO ", rgpcr, hash_size);
         if(ret<0){
         fprintf(STDOUT, "read failed\n");
         close(tpmfd);
@@ -107,14 +122,14 @@ int main(int argc, char** argv)
     lseek(tpmfd, offset, SEEK_SET);
     //int ret=read(tpmfd, rgpcr, size);
     fprintf(STDOUT, "extend prc %d, locality %d\n", pcrno, locality);
-    ret = write(tpmfd, in.digest, TPM_DIGEST_SIZE);
+    ret = write(tpmfd, in.digest, hash_size);
     
     locality = 0;
 	offset = (pcrno<<16) | (locality&0XFFFF);
     lseek(tpmfd, offset, SEEK_SET);
     fprintf(STDOUT, "pcr %d, locality %d\n", pcrno, locality);
-    ret=read(tpmfd, &rgpcr, TPM_DIGEST_SIZE);
-    PrintBytes("PCR contents read by RPMMIO ", rgpcr, TPM_DIGEST_SIZE);
+    ret=read(tpmfd, &rgpcr, hash_size);
+    PrintBytes("PCR contents read by RPMMIO ", rgpcr, hash_size);
     if(ret<0){
         fprintf(STDOUT, "read failed, ret %d\n", ret);
         close(tpmfd);
@@ -122,7 +137,7 @@ int main(int argc, char** argv)
     }
     
     close(tpmfd); 
-    PrintBytes("PCR contents: ", rgpcr, TPM_DIGEST_SIZE);
+    PrintBytes("PCR contents: ", rgpcr, hash_size);
     
     if(ret<0){
         fprintf(STDOUT, "submitTPMExtendReq failed\n");
