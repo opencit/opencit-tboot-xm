@@ -1,0 +1,70 @@
+;
+; tbootxm_bootdriver.inf
+;
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = DiskDrive
+ClassGUID   = {4d36e967-e325-11ce-bfc1-08002be10318}
+Provider    = "Intel Corporation"
+DriverVer   = 04/01/2016,15.36.8.8
+CatalogFile = %driver_name%.cat
+
+;
+; General installation section
+;
+
+[DestinationDirs]
+DefaultDestDir = 12
+tbootxm_bootdriver.DriverFiles = 12
+
+[DefaultInstall]
+CopyFiles = tbootxm_bootdriver.DriverFiles
+AddReg    = tbootxm_bootdriver.AddReg
+
+[DefaultInstall.Services]
+AddService = %service_name%,,tbootxm_bootdriver.Service.Install
+
+[tbootxm_bootdriver.AddReg]
+HKLM, System\CurrentControlSet\Control\Class\{4d36e967-e325-11ce-bfc1-08002be10318}, UpperFilters, 0x00010008, %driver_name%
+
+[DefaultUninstall]
+DelFiles = tbootxm_bootdriver.DriverFiles
+DelReg   = tbootxm_bootdriver.DelReg
+
+[DefaultUninstall.Services]
+DelService = %service_name%,0x200
+
+[tbootxm_bootdriver.DelReg]
+HKLM, System\CurrentControlSet\Control\Class\{4d36e967-e325-11ce-bfc1-08002be10318}, UpperFilters, 0x00018002, %driver_name%
+
+;
+; Service installation section
+;
+
+[tbootxm_bootdriver.Service.Install]
+DisplayName    = "Intel CIT tbootxm"
+Description    = "Runs Intel CIT tbootxm"
+ServiceBinary  = %12%\%driver_name%.sys
+ServiceType    = 1
+StartType 	   = 0
+ErrorControl   = 1
+LoadOrderGroup = "Pnp Filter"
+
+[tbootxm_bootdriver.DriverFiles]
+%driver_name%.sys
+
+[SourceDisksFiles]
+tbootxm_bootdriver.sys = 1,,
+
+[SourceDisksNames]
+1 = %diskid1%,,,
+
+;
+; Localizable Strings
+;
+
+[Strings]
+driver_name  = "tbootxm_bootdriver"
+service_name = "tbootxm_bootdriver"
+diskid1		 = "Intel Installation Disk"
