@@ -59,6 +59,7 @@
 			<condition><not><equals arg1="${mavenExitCleanPackages}" arg2="0"/></not></condition>
 		</fail>
 		
+		<delete dir="tbootxm-rpmmio/src/.tmp_versions"/>
 		<delete dir="tpmextend/bin"/>
 		<delete dir="imvm/bin"/>
 	</target>
