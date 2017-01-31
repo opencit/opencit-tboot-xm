@@ -14,8 +14,10 @@ IF "%~1"=="" (
   call:print_help
 ) ELSE IF "%~2"=="" (
   call:print_help
+) ELSE IF "%~3" =="" (
+  call:print_help
 ) ELSE (
-  call:tbootxm_build %2 %1
+  call:tbootxm_build "%3 %2" %1
 )
 GOTO:EOF
 
@@ -39,11 +41,11 @@ GOTO:EOF
   IF %2=="x86" (
     echo. calling with Win32 option
     msbuild tbootxm_bootdriver.sln /property:Configuration=%1;Platform=Win32
-	IF NOT %ERRORLEVEL% EQU 0 (
-	  echo. %me%: Build Failed
-	  call:ExitBatch
-	  REM EXIT /b %ERRORLEVEL%
-	)
+  	IF NOT %ERRORLEVEL% EQU 0 (
+  	  echo. %me%: Build Failed
+  	  call:ExitBatch
+  	  REM EXIT /b %ERRORLEVEL%
+  	)
   ) ELSE (
     echo. calling with x64 option
     msbuild tbootxm_bootdriver.sln /property:Configuration=%1;Platform=%2
@@ -51,7 +53,9 @@ GOTO:EOF
 	  echo. %me%: Build Failed
 	  call:ExitBatch
 	  REM EXIT /b %ERRORLEVEL%
-	)
+	  )
+    mkdir "%tbootxm_driver_home%\signed"
+    copy  /Y "%tbootxm_driver_home%\x64\Win8.1Release\tbootxm_bootdriver Package\tbootxm_bootdriver.*" "%tbootxm_driver_home%\signed\
   )
   endlocal
 GOTO:EOF

@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 
 set me=%~n0
 set pwd=%~dp0
-set "tbootxm_home=%pwd%"
+set "tbootxm_home=%pwd%\..\..\..\"
 IF "%NSIS_HOME%"=="" (
   set "makensis=C:\Program Files (x86)\NSIS\makensis.exe"
 ) ELSE (
@@ -26,7 +26,7 @@ GOTO:EOF
 :tbootxm_install
   echo. Creating tbootxm installer.... %1 %2 %3
   call:verifier_build %1 %2
-  call:tbootxm_build %1 %2 %3
+  REM call:tbootxm_build %1 %2 %3
   call:tbootxm_install
 GOTO:EOF
 
@@ -46,7 +46,7 @@ GOTO:EOF
   echo. Building tbootxm_driver.... %1 %2 %3
   cd %tbootxm_home%
   cd
-  call "%tbootxm_home%\tbootxm_bootdriver\tbootxm_bootdriver_build.cmd" %1 "%3 %2"
+  call "%tbootxm_home%\windows_bootdriver\tbootxm_bootdriver_build.cmd" %1 "%3 %2"
   IF NOT %ERRORLEVEL% EQU 0 (
     echo. %me%: tbootxm build failed
 	call:ExitBatch
@@ -56,7 +56,7 @@ GOTO:EOF
 
 :tbootxm_install
   echo. Creating tbootxm installer....
-  cd %tbootxm_home%
+  cd %pwd%
   cd
   IF EXIST "%makensis%" (
     echo. "%makensis% exists"

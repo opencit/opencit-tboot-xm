@@ -23,66 +23,74 @@
         -->
     </properties>
     
-    <build>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>true</filtering>
-            </resource>
-        </resources>
-        
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>add-compiled-binaries</id>
-                        <phase>generate-resources</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                        <configuration>
-                            <target>
-                                <!-- application/bin -->
-                                <copy file="../../tpmextend/bin/debug/tpmextend" todir="${project.build.directory}/application/bin"/>
-                                <copy file="../../imvm/bin/verifier" todir="${project.build.directory}/application/bin"/>
-                                <copy file="../../tcb_protection/configure_host.sh" todir="${project.build.directory}/application/bin"/>
-                                <copy file="../../tcb_protection/generate_initrd.sh" todir="${project.build.directory}/application/bin"/>
-                                <copy file="../../tcb_protection/tcb_protection_scripts/measure_host" todir="${project.build.directory}/application/bin"/>
-                                
-                                <!-- application/lib -->
-                                <copy file="../../tcb_protection/create_menuentry.pl" todir="${project.build.directory}/application/lib"/>
-                                <copy file="../../tcb_protection/update_menuentry.pl" todir="${project.build.directory}/application/lib"/>
-                                <copy file="../../tcb_protection/remove_menuentry.pl" todir="${project.build.directory}/application/lib"/>
-                                
-                                <copy todir="${project.build.directory}/application/dracut_files">
-                                    <fileset dir="../../tcb_protection/dracut_files"/>
-                                </copy>
-                                <copy todir="${project.build.directory}/application/initrd_hooks">
-                                    <fileset dir="../../tcb_protection/initrd_hooks"/>
-                                </copy>
-                                <copy todir="${project.build.directory}/application/mkinitrd_files">
-                                    <fileset dir="../../tcb_protection/mkinitrd_files"/>
-                                </copy>
-                            </target>
-                        </configuration>
-                    </execution>
-                </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.apache.ant</groupId>
-                        <artifactId>ant</artifactId>
-                        <version>1.8.4</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>ant-contrib</groupId>
-                        <artifactId>ant-contrib</artifactId>
-                        <version>1.0b3</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
-        </plugins>
-    </build>
+    <profiles>
+        <profile>
+            <activation>
+                <os>
+                  <family>unix</family>
+                </os>
+            </activation>
+            <build>
+                <resources>
+                    <resource>
+                        <directory>src/main/resources</directory>
+                        <filtering>true</filtering>
+                    </resource>
+                </resources>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>add-compiled-binaries</id>
+                                <phase>generate-resources</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <!-- application/bin -->
+                                        <copy file="../../tpmextend/bin/debug/tpmextend" todir="${project.build.directory}/application/bin"/>
+                                        <copy file="../../imvm/bin/verifier" todir="${project.build.directory}/application/bin"/>
+                                        <copy file="../../tcb_protection/configure_host.sh" todir="${project.build.directory}/application/bin"/>
+                                        <copy file="../../tcb_protection/generate_initrd.sh" todir="${project.build.directory}/application/bin"/>
+                                        <copy file="../../tcb_protection/tcb_protection_scripts/measure_host" todir="${project.build.directory}/application/bin"/>
+
+                                        <!-- application/lib -->
+                                        <copy file="../../tcb_protection/create_menuentry.pl" todir="${project.build.directory}/application/lib"/>
+                                        <copy file="../../tcb_protection/update_menuentry.pl" todir="${project.build.directory}/application/lib"/>
+                                        <copy file="../../tcb_protection/remove_menuentry.pl" todir="${project.build.directory}/application/lib"/>
+
+                                        <copy todir="${project.build.directory}/application/dracut_files">
+                                            <fileset dir="../../tcb_protection/dracut_files"/>
+                                        </copy>
+                                        <copy todir="${project.build.directory}/application/initrd_hooks">
+                                            <fileset dir="../../tcb_protection/initrd_hooks"/>
+                                        </copy>
+                                        <copy todir="${project.build.directory}/application/mkinitrd_files">
+                                            <fileset dir="../../tcb_protection/mkinitrd_files"/>
+                                        </copy>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.apache.ant</groupId>
+                                <artifactId>ant</artifactId>
+                                <version>1.8.4</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>ant-contrib</groupId>
+                                <artifactId>ant-contrib</artifactId>
+                                <version>1.0b3</version>
+                            </dependency>
+                        </dependencies>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
     
 </project>
