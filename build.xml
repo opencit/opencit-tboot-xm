@@ -72,7 +72,7 @@
 	
 	<target name="build-tbootxm-rpmmio" depends="init" if="isUnix">
 		<!-- the root pom and all projects except packages -->	
-		<exec executable="${cmd.maven}"  resultproperty="mavenExitInstall">
+		<exec executable="${cmd.maven}"  dir="." resultproperty="mavenExitInstall">
 			<arg value="-DskipTests=true"/>
 			<arg value="install"/>
 		</exec>
@@ -89,7 +89,14 @@
 		</exec>
 	</target>
 	
-	<target name="build" depends="build-tbootxm-rpmmio,build-imvm-tpmextend"></target>
+        <target name="build-windows-bootdriver" depends="init" if="isWindows">
+		<exec executable="${cmd.maven}"  dir="windows_bootdriver" resultproperty="mavenExitInstall">
+                        <arg value="clean"/>
+			<arg value="install"/>
+		</exec>
+	</target>
+        
+	<target name="build" depends="build-tbootxm-rpmmio,build-imvm-tpmextend, build-windows-bootdriver"></target>
 
 	<target name="packages" depends="init">
 		<!-- the packages -->
