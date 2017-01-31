@@ -91,7 +91,7 @@
 	
         <target name="build-windows-bootdriver" depends="init" if="isWindows">
 		<exec executable="${cmd.maven}"  dir="windows_bootdriver" resultproperty="mavenExitInstall">
-                        <arg value="clean"/>
+			<arg value="-DskipTests=true"/>
 			<arg value="install"/>
 		</exec>
 	</target>
