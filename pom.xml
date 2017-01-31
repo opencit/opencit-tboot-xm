@@ -10,6 +10,8 @@
     <modules>
         <module>tbootxm-maven-root</module>
         <module>tbootxm-rpmmio</module>
+        <module>windows_bootdriver</module>
+        <module>imvm</module>
     </modules>
     
 </project>

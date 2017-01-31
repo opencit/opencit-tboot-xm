@@ -1,0 +1,2 @@
+cd /d "C:\Users\hxia5\Documents\gitrepos\dcg_security-tboot-xm\tbootxm_bootdriver\tbootxm_bootdriver" &msbuild "tbootxm_bootdriver.vcxproj" /t:sdvViewer /p:configuration="Win8.1 Debug" /p:platform=x64
+exit %errorlevel% 
