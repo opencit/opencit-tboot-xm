@@ -57,10 +57,10 @@ ShowUnInstDetails show
 Section Install
   SetOverwrite ifnewer
   SetOutPath "$INSTDIR\bin"
-  File ".\tbootxm_bootdriver\signed\tbootxm_bootdriver.cat"
-  File ".\tbootxm_bootdriver\signed\tbootxm_bootdriver.inf"
-  File ".\tbootxm_bootdriver\signed\tbootxm_bootdriver.sys"
-  File ".\imvm\bin\verifier.exe"
+  File "..\..\..\windows_bootdriver\signed\tbootxm_bootdriver.cat"
+  File "..\..\..\\windows_bootdriver\signed\tbootxm_bootdriver.inf"
+  File "..\..\..\windows_bootdriver\signed\tbootxm_bootdriver.sys"
+  File "..\..\..\imvm\bin\verifier.exe"
 SectionEnd
 
 Section Post
