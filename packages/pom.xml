@@ -11,6 +11,7 @@
         <module>tbootxm-rpmmio</module>
         <module>tbootxm</module>
         <module>tbootxm-zip</module>
+        <module>tbootxm-windows</module>
     </modules>
     
 </project>

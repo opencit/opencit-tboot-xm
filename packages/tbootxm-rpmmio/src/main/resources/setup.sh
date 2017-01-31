@@ -65,14 +65,38 @@ if [ "$(whoami)" != "root" ]; then
   exit -1
 fi
 
+# identify tpm version
+# postcondition:
+#   variable TPM_VERSION is set to 1.2 or 2.0
+detect_tpm_version() {
+  export TPM_VERSION
+  if [[ -f "/sys/class//misc/tpm0/device/caps" || -f "/sys/class/tpm/tpm0/device/caps" ]]; then
+    TPM_VERSION=1.2
+  else
+  #  if [[ -f "/sys/class/tpm/tpm0/device/description" && 'cat /sys/class/tpm/tpm0/device/description' == "TPM 2.0 Device" ]]; then
+    TPM_VERSION=2.0
+  fi
+}
+
+# Get host tpm version
+detect_tpm_version
+echo "TPM_VERSION=$TPM_VERSION"
+
 export TBOOTXM_LIB=$TBOOTXM_HOME/lib
-export TBOOTXM_RPMMIO_MODULES=${TBOOTXM_RPMMIO_MODULES:-$TBOOTXM_LIB/rpmmios}
+export TBOOTXM_RPMMIO12_MODULES=${TBOOTXM_RPMMIO12_MODULES:-$TBOOTXM_LIB/rpmmio1.2}
+export TBOOTXM_RPMMIO20_MODULES=${TBOOTXM_RPMMIO20_MODULES:-$TBOOTXM_LIB/rpmmio2.0}
+if [ "$TPM_VERSION" == "1.2" ]; then
+  export TBOOTXM_RPMMIO_MODULES=$TBOOTXM_RPMMIO12_MODULES
+else
+  export TBOOTXM_RPMMIO_MODULES=$TBOOTXM_RPMMIO20_MODULES
+fi
+echo "TBOOTXM_RPMMIO_MODULES=$TBOOTXM_RPMMIO_MODULES"
 
 # note that the env dir is not configurable; it is defined as "env" under home
 export TBOOTXM_ENV=$TBOOTXM_HOME/env
 
 # create application directories (chown will be repeated near end of this script, after setup)
-for directory in $TBOOTXM_LIB $TBOOTXM_RPMMIO_MODULES; do
+for directory in $TBOOTXM_LIB $TBOOTXM_RPMMIO12_MODULES $TBOOTXM_RPMMIO20_MODULES; do
   mkdir -p $directory
   chmod 700 $directory
 done

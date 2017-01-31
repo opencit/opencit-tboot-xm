@@ -15,10 +15,16 @@
 	<target name="init">
 		<condition property="cmd.maven" value="mvn.bat">
 			<os family="windows"/>
-		</condition>
+                </condition>
+                <condition property="isWindows" value="true">
+                        <os family="windows" />
+                </condition>
 		<condition property="cmd.maven" value="mvn">
 			<os family="unix"/>
-		</condition>
+		</condition>                
+                <condition property="isUnix" value="true">
+                        <os family="unix" />
+                </condition>
 	</target>
 	
 	<target name="ready" depends="init">
@@ -37,7 +43,7 @@
 		<chmod file="build_components.sh" perm="700"/>
 		
 		<!-- run the build script to install prerequisite packages -->
-		<exec executable="/bin/bash" failonerror="true">
+		<exec executable="/bin/bash" failonerror="true" osfamily="unix">
 			<arg value="-c"/>
 			<arg value="./build_components.sh --installpkg-only"/>
 		</exec>
@@ -59,13 +65,14 @@
 			<condition><not><equals arg1="${mavenExitCleanPackages}" arg2="0"/></not></condition>
 		</fail>
 		
+		<delete dir="tbootxm-rpmmio/src/.tmp_versions"/>
 		<delete dir="tpmextend/bin"/>
 		<delete dir="imvm/bin"/>
 	</target>
 	
-	<target name="build-tbootxm-rpmmio" depends="init">
+	<target name="build-tbootxm-rpmmio" depends="init" if="isUnix">
 		<!-- the root pom and all projects except packages -->	
-		<exec executable="${cmd.maven}"  resultproperty="mavenExitInstall">
+		<exec executable="${cmd.maven}"  dir="." resultproperty="mavenExitInstall">
 			<arg value="-DskipTests=true"/>
 			<arg value="install"/>
 		</exec>
@@ -74,7 +81,7 @@
 		</fail>
 	</target>
 	
-	<target name="build-imvm-tpmextend" depends="init">
+	<target name="build-imvm-tpmextend" depends="init" if="isUnix">
 		<!-- run the build script -->
 		<exec executable="/bin/bash" failonerror="true">
 			<arg value="-c"/>
@@ -82,7 +89,14 @@
 		</exec>
 	</target>
 	
-	<target name="build" depends="build-tbootxm-rpmmio,build-imvm-tpmextend"></target>
+        <target name="build-windows-bootdriver" depends="init" if="isWindows">
+		<exec executable="${cmd.maven}"  dir="windows_bootdriver" resultproperty="mavenExitInstall">
+			<arg value="-DskipTests=true"/>
+			<arg value="install"/>
+		</exec>
+	</target>
+        
+	<target name="build" depends="build-tbootxm-rpmmio,build-imvm-tpmextend, build-windows-bootdriver"></target>
 
 	<target name="packages" depends="init">
 		<!-- the packages -->
@@ -94,23 +108,23 @@
 			<condition><not><equals arg1="${mavenExitInstallPackages}" arg2="0"/></not></condition>
 		</fail>
 	</target>
-    <target name="all" depends="ready,clean,build,packages"></target>
-    
-            <target name="klocwork" depends="init,ready">
-        <exec executable="/bin/bash">
-		      <arg value="klocwork.sh"/>
-		</exec>
-    </target>
+        <target name="all" depends="ready,clean,build,packages"></target>
 
-	   <target name="build-with-scans">
-	        <parallel>
-        	    <exec executable="ant">
-	                <arg value="all"/>
-        	    </exec>
-	            <exec executable="ant">
-        	        <arg value="klocwork"/>
-	            </exec>
-	        </parallel>
-	    </target>
+        <target name="klocwork" depends="init,ready">
+            <exec executable="/bin/bash">
+                <arg value="klocwork.sh"/>
+            </exec>
+        </target>
+
+        <target name="build-with-scans">
+            <parallel>
+                <exec executable="ant">
+                    <arg value="all"/>
+                </exec>
+                <exec executable="ant">
+                    <arg value="klocwork"/>
+                </exec>
+            </parallel>
+        </target>
         
 </project>
