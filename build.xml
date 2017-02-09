@@ -68,6 +68,11 @@
 		<delete dir="tbootxm-rpmmio/src/.tmp_versions"/>
 		<delete dir="tpmextend/bin"/>
 		<delete dir="imvm/bin"/>
+        <delete dir="imvm/msvc/imvm/x64"/>
+        <delete dir="windows_bootdriver/signed"/>
+        <delete dir="windows_bootdriver/x64"/>
+        <delete dir="windows_bootdriver/tbootxm_bootdriver/x64"/>
+        <delete dir="windows_bootdriver/tbootxm_bootdriver Package/x64"/>
 	</target>
 	
 	<target name="build-tbootxm-rpmmio" depends="init" if="isUnix">
@@ -96,7 +101,7 @@
 		</exec>
 	</target>
         
-        <target name="sign-windows-bootdriver" depends="init,build-windows-bootdriver" if="isWindows">
+     <target name="sign-windows-bootdriver" depends="init,build-windows-bootdriver" if="isWindows">
                 <!--1.This is to call the signing utility to sign the compiled tbootxm_bootdriver.sys.
                        if you different signing tool, you should update it here;
                        Not signed boot driver will not be loaded by Windows when it boots
