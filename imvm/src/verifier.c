@@ -1478,13 +1478,13 @@ char* calculateDirHashV2(char *line, FILE *fq) {
     snprintf(hash_algo,sizeof(hash_algo),"%ssum",hashType);
 
     if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
-        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | grep -vE \"%s\" | %s",mDpath, slen, include, exclude, hash_algo);
+        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | grep -vE \"%s\" | sort | %s",mDpath, slen, include, exclude, hash_algo);
     else if(strcmp(include,"") != 0)
-        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | %s",mDpath, slen, include, hash_algo);
+        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | sort | %s",mDpath, slen, include, hash_algo);
     else if(strcmp(exclude,"") != 0)
-        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -vE \"%s\" | %s",mDpath, slen, exclude, hash_algo);
+        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -vE \"%s\" | sort | %s",mDpath, slen, exclude, hash_algo);
     else
-        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | %s",mDpath, slen, hash_algo);
+        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | sort | %s",mDpath, slen, hash_algo);
 
     DEBUG_LOG("\n%s %s %s %s","********mDpath is ----------",mDpath," and command is ",Dir_Str);
 
