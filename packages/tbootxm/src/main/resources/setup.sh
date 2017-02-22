@@ -123,10 +123,10 @@ echo "export TBOOTXM_LOGS=$TBOOTXM_LOGS" >> $TBOOTXM_ENV/tbootxm-layout
 echo "export TBOOTXM_LIB=$TBOOTXM_LIB" >> $TBOOTXM_ENV/tbootxm-layout
 
 # make sure unzip and authbind are installed
-TBOOTXM_YUM_PACKAGES="zip unzip dos2unix"
-TBOOTXM_APT_PACKAGES="zip unzip dos2unix"
+TBOOTXM_YUM_PACKAGES="zip unzip dos2unix perl"
+TBOOTXM_APT_PACKAGES="zip unzip dos2unix perl"
 TBOOTXM_YAST_PACKAGES="zip unzip"
-TBOOTXM_ZYPPER_PACKAGES="zip unzip dos2unix"
+TBOOTXM_ZYPPER_PACKAGES="zip unzip dos2unix perl"
 auto_install "Installer requirements" "TBOOTXM"
 if [ $? -ne 0 ]; then echo_failure "Failed to install prerequisites through package installer"; exit -1; fi
 
