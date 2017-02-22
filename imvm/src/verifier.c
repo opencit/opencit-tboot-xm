@@ -1152,6 +1152,7 @@ char* calculateFileHash(char *line, FILE *fq) {
 
 char* calculateDirHashV1(char *line, FILE *fq) {
 
+#ifdef __linux__
     int slen = 0;
     size_t len = 0;
     size_t dhash_max = 128;
@@ -1159,6 +1160,7 @@ char* calculateDirHashV1(char *line, FILE *fq) {
     char *temp_ptr = NULL;
     char *next_token = NULL;
     char dir_path[NODE_LEN] = {'\0'};
+	char recursive_cmd[32] = {'\0'};
     char hash_algo[16] = {'\0'};
     char recursive[16] = {'\0'};
     char exclude[128] = { '\0'};
@@ -1166,11 +1168,7 @@ char* calculateDirHashV1(char *line, FILE *fq) {
     char Dir_Str[256] = {'\0'};
     char mDpath[256] = {'\0'};
     FILE *dir_file;
-#ifdef _WIN32
-    char recursive_cmd[32] = "-Recurse";
-#elif __linux__
-    char recursive_cmd[32] = {'\0'};
-#endif
+
     temp_ptr = strstr(line, "Path=");
     if (temp_ptr != NULL ) {
 	tagEntry(temp_ptr);
@@ -1185,11 +1183,7 @@ char* calculateDirHashV1(char *line, FILE *fq) {
 	strcpy_s(recursive,sizeof(recursive),node_value);
 	DEBUG_LOG("\nRecursive : %s", node_value);
 	if ( strcmp(recursive, "false") == 0) {
-#ifdef _WIN32
-	memset(recursive_cmd, 0, sizeof(recursive_cmd));
-#elif __linux__
 	snprintf(recursive_cmd, sizeof(recursive_cmd), "-maxdepth 1");
-#endif
 	}
     }
 
@@ -1214,85 +1208,6 @@ char* calculateDirHashV1(char *line, FILE *fq) {
 
     //to remove mount path from the find command output and directory path and +1 is to remove the additional / after directory
     slen = strnlen_s(mDpath,sizeof(mDpath)) + 1; 
-#ifdef _WIN32
-    //TODO need to write in sync with linux 
-    //char temp_dir_file_list[32] = "/tmp/dir_file.txt";
-    if (strcmp(include, "") != 0 && strcmp(exclude, "") != 0)
-	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}" 
-					" | Where-Object { $_.FullName.remove(0, %d) -cmatch '%s' -and $_.FullName.remove(0, %d) -cnotmatch '%s' }" 
-					" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
-					mDpath, recursive_cmd, slen, include, slen, exclude, slen);
-    else if (strcmp(include, "") != 0)
-	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}" 
-					" | Where-Object { $_.FullName.remove(0, %d) -cmatch '%s' }" 
-					" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
-					mDpath, recursive_cmd, slen, include, slen);
-    else if (strcmp(exclude, "") != 0)
-	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}"
-					" | Where-Object { $_.FullName.remove(0, %d) -cnotmatch '%s' }"
-					" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
-					mDpath, recursive_cmd, slen, exclude, slen);
-    else
-	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}"
-					" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
-					mDpath, recursive_cmd, slen);
-
-    /*char file[64] = {0};
-    strcpy_s(file, sizeof(file), fs_mount_path);
-    strcat_s(file, sizeof(file), temp_dir_file_list);*/
-
-    dir_file = _popen(Dir_Str, "r");
-    /*FILE *fd = NULL;
-    errno_t error_code = fopen_s(&fd, file, "wb");
-    if ( !fd || error_code) {
-	ERROR_LOG("\n%s %s", "File not found-", file);
-	return;
-    }
-    while (fgets(dhash, dhash_len, dir_file))
-    fputs(dhash, fd);
-    fclose(fd);
-    dhash = calculate(temp_dir_file_list, calc_hash);*/
-
-    //char output[MAX_HASH_LEN];
-    const int bufSize = 65000;
-    char *buffer = malloc(bufSize);
-    int bytesRead = 0;
-    if (!buffer){
-	ERROR_LOG("Can't allocate memory for buffer");
-    }					
-    BCRYPT_ALG_HANDLE       handle_Alg = NULL;
-    BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
-    NTSTATUS                status = STATUS_UNSUCCESSFUL;
-    DWORD                   out_data_size = 0,
-		hash_size = 0,
-		hashObject_size = 0;
-    PBYTE                   hashObject_ptr = NULL;
-    PBYTE                   hash_ptr = NULL;
-
-    status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
-    if (!NT_SUCCESS(status)) {
-	ERROR_LOG("\nCould not inititalize CNG args Provider : 0x%x", status);
-	free(buffer);
-    }
-    while ((bytesRead = fread(buffer, 1, bufSize, dir_file))) {
-	// calculate hash of bytes read
-	status = BCryptHashData(handle_Hash_object, buffer, bytesRead, 0);
-	if (!NT_SUCCESS(status)) {
-		ERROR_LOG("\nCould not calculate hash : 0x%x", status);
-		cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-		free(buffer);
-	}
-    }
-
-    //Dump the hash in variable and finish the Hash Object handle
-    status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
-    bin2hex(hash_ptr, hash_size, dhash, dhash_max);
-    cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-    _pclose(dir_file);
-    /*if (remove(file) == -1) {
-		ERROR_LOG("\nFailed to remove the temproray created file %s", file);
-    }*/
-#elif __linux__
     snprintf(hash_algo,sizeof(hash_algo),"%ssum",hashType);
 
     if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
@@ -1317,14 +1232,11 @@ char* calculateDirHashV1(char *line, FILE *fq) {
     if (dir_file != NULL) {
 	pclose(dir_file);
     }
-#endif
 
     fprintf(fq,"<Dir Path=\"%s\">",dir_path);
     fprintf(fq,"%s</Dir>\n",dhash);
-    if(strcmp(hashType, "sha256") == 0)
-	generate_cumulative_hash(dhash);
-    else
-        generate_cumulative_hash(dhash);
+    generate_cumulative_hash(dhash);
+#endif
 }
 
 char* calculateDirHashV2(char *line, FILE *fq) {
@@ -1336,7 +1248,8 @@ char* calculateDirHashV2(char *line, FILE *fq) {
     char *dhash = NULL;
     char *temp_ptr = NULL;
     char *next_token = NULL;
-    char dir_path[NODE_LEN] = {'\0'};
+	char output[MAX_HASH_LEN] = { '\0' };
+	char dir_path[NODE_LEN] = { '\0' };
     char filter_type[32] = {'\0'};
     char hash_algo[16] = {'\0'};
     char exclude[128] = { '\0'};
@@ -1344,8 +1257,7 @@ char* calculateDirHashV2(char *line, FILE *fq) {
     char Dir_Str[256] = {'\0'};
     char mDpath[256] = {'\0'};
     FILE *dir_file;
-    char recursive_cmd[32] = {0};
-
+    
     temp_ptr = strstr(line, "Path=");
     if (temp_ptr != NULL ) {
 	tagEntry(temp_ptr);
@@ -1400,24 +1312,24 @@ char* calculateDirHashV2(char *line, FILE *fq) {
     //TODO need to write in sync with linux 
     //char temp_dir_file_list[32] = "/tmp/dir_file.txt";
     if (strcmp(include, "") != 0 && strcmp(exclude, "") != 0)
-	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}" 
+	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' | Where-Object {! $_.PSIsContainer}" 
 					" | Where-Object { $_.FullName.remove(0, %d) -cmatch '%s' -and $_.FullName.remove(0, %d) -cnotmatch '%s' }" 
 					" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
-					mDpath, recursive_cmd, slen, include, slen, exclude, slen);
+					mDpath, slen, include, slen, exclude, slen);
     else if (strcmp(include, "") != 0)
-	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}" 
+	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' | Where-Object {! $_.PSIsContainer}" 
 					" | Where-Object { $_.FullName.remove(0, %d) -cmatch '%s' }" 
 					" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
-					mDpath, recursive_cmd, slen, include, slen);
+					mDpath, slen, include, slen);
     else if (strcmp(exclude, "") != 0)
-	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}"
+	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' | Where-Object {! $_.PSIsContainer}"
 					" | Where-Object { $_.FullName.remove(0, %d) -cnotmatch '%s' }"
 					" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
-					mDpath, recursive_cmd, slen, exclude, slen);
+					mDpath, slen, exclude, slen);
     else
-	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' %s | Where-Object {! $_.PSIsContainer}"
+	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' | Where-Object {! $_.PSIsContainer}"
 					" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
-					mDpath, recursive_cmd, slen);
+					mDpath, slen);
 
     /*char file[64] = {0};
     strcpy_s(file, sizeof(file), fs_mount_path);
@@ -1435,7 +1347,6 @@ char* calculateDirHashV2(char *line, FILE *fq) {
     fclose(fd);
     dhash = calculate(temp_dir_file_list, calc_hash);*/
 
-    //char output[MAX_HASH_LEN];
     const int bufSize = 65000;
     char *buffer = malloc(bufSize);
     int bytesRead = 0;
@@ -1468,7 +1379,7 @@ char* calculateDirHashV2(char *line, FILE *fq) {
 
     //Dump the hash in variable and finish the Hash Object handle
     status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
-    bin2hex(hash_ptr, hash_size, dhash, dhash_max);
+    bin2hex(hash_ptr, hash_size, output, MAX_HASH_LEN);
     cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
     _pclose(dir_file);
     /*if (remove(file) == -1) {
@@ -1478,13 +1389,13 @@ char* calculateDirHashV2(char *line, FILE *fq) {
     snprintf(hash_algo,sizeof(hash_algo),"%ssum",hashType);
 
     if(strcmp(include,"") != 0 && strcmp(exclude,"") != 0 )
-        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | grep -vE \"%s\" | %s",mDpath, slen, include, exclude, hash_algo);
+        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | grep -vE \"%s\" | sort | %s",mDpath, slen, include, exclude, hash_algo);
     else if(strcmp(include,"") != 0)
-        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | %s",mDpath, slen, include, hash_algo);
+        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -E  \"%s\" | sort | %s",mDpath, slen, include, hash_algo);
     else if(strcmp(exclude,"") != 0)
-        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -vE \"%s\" | %s",mDpath, slen, exclude, hash_algo);
+        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | grep -vE \"%s\" | sort | %s",mDpath, slen, exclude, hash_algo);
     else
-        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | %s",mDpath, slen, hash_algo);
+        snprintf(Dir_Str, sizeof(Dir_Str), "find \"%s\" -maxdepth 1 ! -type d | sed -r 's/.{%d}//' | sort | %s",mDpath, slen, hash_algo);
 
     DEBUG_LOG("\n%s %s %s %s","********mDpath is ----------",mDpath," and command is ",Dir_Str);
 
@@ -1496,16 +1407,14 @@ char* calculateDirHashV2(char *line, FILE *fq) {
     else {
 	dhash = "\0";
     }
+	strcpy_s(output, MAX_HASH_LEN, dhash);
     if (dir_file != NULL) {
 	pclose(dir_file);
     }
 #endif
     fprintf(fq,"<Dir Path=\"%s\">",dir_path);
-    fprintf(fq,"%s</Dir>\n",dhash);
-    if(strcmp(hashType, "sha256") == 0)
-	generate_cumulative_hash(dhash);
-    else
-        generate_cumulative_hash(dhash);
+    fprintf(fq,"%s</Dir>\n",output);
+    generate_cumulative_hash(output);
 }
 
 /*
@@ -1587,7 +1496,7 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
 		    if(temp_ptr != NULL){
 		        /*Get the type of version */
 		        tagEntry(temp_ptr);
-			version = node_value[strnlen_s("mtwilson:trustdirector:manifest:1.1", 256) - 1] - '0';
+				version = node_value[strnlen_s("mtwilson:trustdirector:manifest:1.1", 256) - 1] - '0';
 		        DEBUG_LOG("\n%s %d","Version of Policy used :",version);
 		    }
 		    fprintf(fq,"<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.%d\" DigestAlg=\"%s\">\n",version,hashType);
@@ -1649,11 +1558,11 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
         return;
     }
 #elif __linux__
-    if(strcmp(hashType, "sha256") == 0){
-    	bin2hex(uHash256, sizeof(uHash256), cH, sizeof(cH));
+    if(sha_one){
+		bin2hex(uHash, sizeof(uHash), cH, sizeof(cH));
     }
     else {
-    	bin2hex(uHash, sizeof(uHash), cH, sizeof(cH));
+		bin2hex(uHash256, sizeof(uHash256), cH, sizeof(cH));
     }
 #endif
 	DEBUG_LOG("\n%s %s\n", "Hash Measured:", cH);
