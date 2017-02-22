@@ -130,7 +130,7 @@ function remove_initrd()
 	then
 		echo "successfully removed CIT initrd"
 	else
-		echo_warning "seems like CIT initrd is not present for curent kernel version"
+		echo_warning "seems like CIT initrd is not present for current kernel version"
 	fi
 }
 
