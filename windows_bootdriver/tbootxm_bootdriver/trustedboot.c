@@ -91,7 +91,8 @@ void doMeasurement() {
 				int copy_bytes = bytes_malloced;
 				bytes_malloced += bytes_malloced;
 				char * new_line = (char *)malloc(bytes_malloced);;
-				RtlCopyMemory(new_line, line, copy_bytes);
+				RtlZeroMemory(new_line, bytes_malloced); 
+				RtlMoveMemory(new_line, line, copy_bytes);
 				line = new_line;
 			}
 
