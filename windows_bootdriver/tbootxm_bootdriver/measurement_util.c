@@ -99,7 +99,7 @@ char *GetTagValue(char *line, char *tag, char **sub_line)
 	int buffer_size = (int)(end - start + 1);
 	char *value = (char *)malloc(buffer_size);
 	RtlZeroMemory(value, buffer_size);
-	RtlCopyMemory(value, start, end - start);
+	RtlMoveMemory(value, start, end - start);
 	return value;
 }
 
@@ -166,10 +166,10 @@ void WriteMeasurementFile(char *line, char *hash, HANDLE handle1, IO_STATUS_BLOC
 		DbgPrint("hash length : %d\n", cb_hash);
 
 		int new_line_size = cb_line + cb_hash + end_tag_max_size;
+		int old_size = cb_line;
 		new_line = (char *)malloc(new_line_size);
 		RtlZeroMemory(new_line, new_line_size);
-		int old_size = cb_line;
-		RtlCopyMemory(new_line, line, old_size);
+		RtlMoveMemory(new_line, line, old_size);
 		line = new_line;
 		line[old_size - 3] = '>';
 		line[old_size - 2] = '\0';
@@ -245,7 +245,8 @@ void generate_cumulative_hash(char *hash){
 
 	//Dump the hash in variable and finish the Hash Object handle
 	status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
-	RtlCopyMemory(cH, hash_ptr, hash_size);
+	RtlZeroMemory(cH, MAX_HASH_LEN); 
+	RtlMoveMemory(cH, hash_ptr, hash_size);
 	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 
 	//strncpy_s((char *)cHash_buffer, sizeof(cHash_buffer), (char *)cH, strnlen_s(cH, MAX_HASH_LEN));
