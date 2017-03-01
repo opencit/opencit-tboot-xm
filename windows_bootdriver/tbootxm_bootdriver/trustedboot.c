@@ -6,6 +6,8 @@ extern char hashType[10]; //SHA1 or SHA256
 extern char fs_root_path[1024] ;
 extern unsigned char cH[MAX_HASH_LEN];
 extern int cumulative_hash_size;
+extern int sha_one;
+extern int version;
 
 void doMeasurement() {
 
@@ -79,7 +81,7 @@ void doMeasurement() {
 		ZwClose(handle);
 		return;
 	}
-
+	
 	do {
 		int i = 0;
 		int bytes_malloced = 64;
@@ -113,10 +115,18 @@ void doMeasurement() {
 						enum TagType tag = Manifest;
 						PopulateElementAttribues(&header, tag, updated_line);
 						RtlStringCbCopyA(hashType, sizeof(hashType), header->DigestAlg);
+						if (strcmp(hashType, "sha256") == 0) {
+							sha_one = 0;
+						}
+						
+						version = header->xmlns[strnlen_s("mtwilson:trustdirector:manifest:1.1", 256) - 1] - '0';
 						DbgPrint("Digest Algorithm to be used : %s\n", hashType);
+						DbgPrint("Version of Policy used : %d\n", version); 
+						RtlStringCbPrintfA(line, bytes_malloced, "<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.%d\" DigestAlg=\"%s\">\n", version, hashType);
 						WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, tag);
 
 						free(header->DigestAlg);
+						free(header->xmlns);
 						free(header);
 					}
 					else if (updated_line = strstr(line, "<File"))
@@ -142,6 +152,14 @@ void doMeasurement() {
 						enum TagType tag = Directory;
 						PopulateElementAttribues(&dir, tag, updated_line);
 						DbgPrint("Dir Path : %s\n", dir->Path);
+
+						char *files_buffer = (char *)malloc(MAX_LEN);
+						RtlZeroMemory(files_buffer, MAX_LEN);
+
+						if (strcmp(dir->FilterType, "regex") == 0) {
+							DbgPrint("Regex is Not Supported\n");
+							goto free_dir;
+						}
 						
 						BCRYPT_ALG_HANDLE       handle_Alg = NULL;
 						BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
@@ -149,22 +167,16 @@ void doMeasurement() {
 						DWORD                   hash_size = 0, hashObject_size = 0;
 						PBYTE                   hashObject_ptr = NULL, hash_ptr = NULL;
 
-						char *files_buffer = (char *)malloc(MAX_LEN);
-						RtlZeroMemory(files_buffer, MAX_LEN);
-
 						status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
 						if (!NT_SUCCESS(status)) {
 							DbgPrint("Could not inititalize CNG args Provider : 0x%x", status);
 							goto free_dir;
 						}
 
-						if (*(dir->Include) == 0) {
-							status = ListDirectory(dir->Path, "*", dir->Exclude, dir->Recursive, files_buffer, &handle_Hash_object);
-						}
-						else {
-							status = ListDirectory(dir->Path, dir->Include, dir->Exclude, dir->Recursive, files_buffer, &handle_Hash_object);
-						}
+						if (*(dir->Include) == 0)
+							*(dir->Include) = '*';
 
+						status = ListDirectory(dir->Path, dir->Include, dir->Exclude, files_buffer, &handle_Hash_object);
 						if (status == 0) {
 							//Dump the hash in variable and finish the Hash Object handle
 							size_t cb_files_buffer;
@@ -191,9 +203,13 @@ void doMeasurement() {
 							free(files_buffer);
 							free(dir->Include);
 							free(dir->Exclude);
-							free(dir->Recursive);
+							//free(dir->Recursive);
+							free(dir->FilterType);
 							free(dir->Path);
 							free(dir);
+					}
+					else if (updated_line = strstr(line, "<Symlink")) {
+						DbgPrint("Symlink is Not Supported\n");
 					}
 					else {
 						WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, Manifest);
@@ -205,6 +221,7 @@ void doMeasurement() {
 			{
 				line[i] = '\0';
 				DbgPrint("file end found : %s\n", line);
+				RtlStringCbPrintfA(line, bytes_malloced, "<Measurements\>\n");
 				WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, Manifest);
 				break;
 			}

@@ -17,13 +17,16 @@
 #define free(mem_ptr) ExFreePool(mem_ptr)
 
 #define hash_algo_tag "DigestAlg"
+#define xmlns_tag "xmlns"
 #define path_tag "Path"
 #define dir_include_tag "Include"
 #define dir_exclude_tag "Exclude"
 #define dir_recursive_tag "Recursive"
+#define dir_filter_type_tag "FilterType"
 
 struct ManifestHeader{
 	char * DigestAlg;
+	char * xmlns;
 };
 
 struct ManifestFile{
@@ -34,7 +37,8 @@ struct ManifestDirectory{
 	char * Path;
 	char * Include;
 	char * Exclude;
-	char * Recursive;
+	//char * Recursive;
+	char * FilterType;
 };
 
 enum TagType{
@@ -59,4 +63,4 @@ void generate_cumulative_hash(char *hash);
 
 char* calculate(char *path, char *output);
 
-int ListDirectory(char *path, char *include, char *exclude, char *recursive, char *files_buffer, BCRYPT_HASH_HANDLE *handle_Hash_object);
+int ListDirectory(char *path, char *include, char *exclude, char *files_buffer, BCRYPT_HASH_HANDLE *handle_Hash_object);

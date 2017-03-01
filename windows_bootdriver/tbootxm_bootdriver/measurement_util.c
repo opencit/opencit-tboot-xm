@@ -5,6 +5,8 @@ char hashType[10]; //SHA1 or SHA256
 char fs_root_path[1024] = "\\DosDevices\\";
 unsigned char cH[MAX_HASH_LEN] = { '\0' };
 int cumulative_hash_size = 20;
+int sha_one = 1;
+int version = 1;
 
 /*
 Cleaup the CNG api,
@@ -110,6 +112,8 @@ void PopulateElementAttribues(void **structure, enum TagType tag, char *line)
 	{
 		DbgPrint("Manifest element found %s\n", line);
 		struct ManifestHeader *header = ((struct ManifestHeader *) *structure);
+		header->xmlns = GetTagValue(line, xmlns_tag, &subline);
+		DbgPrint("Policy Version to be used : %s\n", header->xmlns);
 		header->DigestAlg = GetTagValue(line, hash_algo_tag, &subline);
 		DbgPrint("Digest Algorithm to be used : %s\n", header->DigestAlg);
 	}
@@ -130,8 +134,10 @@ void PopulateElementAttribues(void **structure, enum TagType tag, char *line)
 		DbgPrint("Include tag : %s\n", dir->Include);
 		dir->Exclude = GetTagValue(line, dir_exclude_tag, &subline);
 		DbgPrint("Exclude tag : %s\n", dir->Exclude);
-		dir->Recursive = GetTagValue(line, dir_recursive_tag, &subline);
-		DbgPrint("Recursive tag : %s\n", dir->Recursive);
+		//dir->Recursive = GetTagValue(line, dir_recursive_tag, &subline);
+		//DbgPrint("Recursive tag : %s\n", dir->Recursive);
+		dir->FilterType = GetTagValue(line, dir_filter_type_tag, &subline);
+		DbgPrint("FilterType tag : %s\n", dir->FilterType);
 		dir->Path = GetTagValue(line, path_tag, &subline);
 		DbgPrint("Path tag : %s\n", dir->Path);
 	}
@@ -364,7 +370,7 @@ close_handle:
 	return output;
 }
 
-int ListDirectory(char *path, char *include, char *exclude, char *recursive, char *files_buffer, BCRYPT_HASH_HANDLE *handle_Hash_object) {
+int ListDirectory(char *path, char *include, char *exclude, char *files_buffer, BCRYPT_HASH_HANDLE *handle_Hash_object) {
 	int status = 0;
 	char value[1056] = { '\0' };
 	/*We append the mount path before the filepath first,
@@ -499,9 +505,6 @@ int ListDirectory(char *path, char *include, char *exclude, char *recursive, cha
 				}
 				DbgPrint("files_buffer : %s\n", files_buffer);
 			}
-		}
-		else if (strcmp(recursive, "true") == 0 && *(as.Buffer) != '.') {
-			status = ListDirectory(file_path, include, exclude, recursive, files_buffer, handle_Hash_object);
 		}
 		free(file_path);
 
