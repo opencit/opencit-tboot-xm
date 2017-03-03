@@ -273,7 +273,6 @@ void doMeasurement() {
 
 	if (!NT_SUCCESS(ntstatus)) {
 		DbgPrint("Unable to create File - %s%s\n", "\\DosDevices\\C:\\Windows\\Logs\\MeasuredBoot\\measurement.", hashType);
-		ZwClose(handle1);
 		return;
 	}
 
