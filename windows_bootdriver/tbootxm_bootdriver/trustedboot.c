@@ -6,6 +6,8 @@ extern char hashType[10]; //SHA1 or SHA256
 extern char fs_root_path[1024] ;
 extern unsigned char cH[MAX_HASH_LEN];
 extern int cumulative_hash_size;
+extern int sha_one;
+extern int version;
 
 void doMeasurement() {
 
@@ -75,11 +77,11 @@ void doMeasurement() {
 		NULL, 0);
 
 	if (!NT_SUCCESS(ntstatus)) {
-		DbgPrint("File Not Found - %s\n", "\\DosDevices\\C:\\Windows\\Logs\\MeasuredBoot\\measurement.xml");
+		DbgPrint("Unable to create File - %s\n", "\\DosDevices\\C:\\Windows\\Logs\\MeasuredBoot\\measurement.xml");
 		ZwClose(handle);
 		return;
 	}
-
+	
 	do {
 		int i = 0;
 		int bytes_malloced = 64;
@@ -91,7 +93,8 @@ void doMeasurement() {
 				int copy_bytes = bytes_malloced;
 				bytes_malloced += bytes_malloced;
 				char * new_line = (char *)malloc(bytes_malloced);;
-				RtlCopyMemory(new_line, line, copy_bytes);
+				RtlZeroMemory(new_line, bytes_malloced); 
+				RtlMoveMemory(new_line, line, copy_bytes);
 				line = new_line;
 			}
 
@@ -111,29 +114,52 @@ void doMeasurement() {
 						struct ManifestHeader * header = ((struct ManifestHeader *)malloc(sizeof(struct ManifestHeader)));
 						enum TagType tag = Manifest;
 						PopulateElementAttribues(&header, tag, updated_line);
+						
+						if (header->DigestAlg == NULL) {
+							DbgPrint("DigestAlg is not present. Measurement cannot be carried out.\n");
+							ZwClose(handle);
+							ZwClose(handle1);
+							return;
+						}
+
 						RtlStringCbCopyA(hashType, sizeof(hashType), header->DigestAlg);
 						DbgPrint("Digest Algorithm to be used : %s\n", hashType);
+						if (strcmp(hashType, "sha256") == 0) {
+							sha_one = 0;
+						}
+
+						if (header->xmlns == NULL) {
+							RtlStringCbPrintfA(line, bytes_malloced, "<Measurements DigestAlg=\"%s\">\n", hashType);
+						}
+						else {
+							version = header->xmlns[strnlen_s("mtwilson:trustdirector:manifest:1.1", 256) - 1] - '0';
+							RtlStringCbPrintfA(line, bytes_malloced, "<Measurements xmlns=\"mtwilson:trustdirector:measurements:1.%d\" DigestAlg=\"%s\">\n", version, hashType);
+						}
+
 						WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, tag);
 
-						free(header->DigestAlg);
-						free(header);
+						if (header->DigestAlg) free(header->DigestAlg);
+						if (header->xmlns) free(header->xmlns);
+						if (header) free(header);
 					}
 					else if (updated_line = strstr(line, "<File"))
 					{
 						struct ManifestFile * file = ((struct ManifestFile *)malloc(sizeof(struct ManifestFile)));
 						enum TagType tag = File;
 						PopulateElementAttribues(&file, tag, updated_line);
-								
 						DbgPrint("File Path : %s\n", file->Path);
-						char *temp_ptr = calculate(file->Path, calc_hash);
-						if (temp_ptr != NULL) {
-							DbgPrint("temp_ptr : %s\n", temp_ptr);
-							DbgPrint("calc_hash : %s\n", calc_hash);
-							WriteMeasurementFile(line, calc_hash, handle1, ioStatusBlock1, tag);
+
+						if (file->Path) {
+							char *temp_ptr = calculate(file->Path, calc_hash);
+							if (temp_ptr) {
+								DbgPrint("temp_ptr : %s\n", temp_ptr);
+								DbgPrint("calc_hash : %s\n", calc_hash);
+								WriteMeasurementFile(line, calc_hash, handle1, ioStatusBlock1, tag);
+							}
 						}
 
-						free(file->Path);
-						free(file);
+						if (file->Path) free(file->Path);
+						if (file) free(file);
 					}
 					else if (updated_line = strstr(line, "<Dir"))
 					{
@@ -141,60 +167,67 @@ void doMeasurement() {
 						enum TagType tag = Directory;
 						PopulateElementAttribues(&dir, tag, updated_line);
 						DbgPrint("Dir Path : %s\n", dir->Path);
-						
-						BCRYPT_ALG_HANDLE       handle_Alg = NULL;
-						BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
-						NTSTATUS                status = STATUS_UNSUCCESSFUL;
-						DWORD                   hash_size = 0, hashObject_size = 0;
-						PBYTE                   hashObject_ptr = NULL, hash_ptr = NULL;
 
 						char *files_buffer = (char *)malloc(MAX_LEN);
 						RtlZeroMemory(files_buffer, MAX_LEN);
 
-						status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
-						if (!NT_SUCCESS(status)) {
-							DbgPrint("Could not inititalize CNG args Provider : 0x%x", status);
-							goto free_dir;
-						}
-
-						if (*(dir->Include) == 0) {
-							status = ListDirectory(dir->Path, "*", dir->Exclude, dir->Recursive, files_buffer, &handle_Hash_object);
-						}
-						else {
-							status = ListDirectory(dir->Path, dir->Include, dir->Exclude, dir->Recursive, files_buffer, &handle_Hash_object);
-						}
-
-						if (status == 0) {
-							//Dump the hash in variable and finish the Hash Object handle
-							size_t cb_files_buffer;
-							RtlStringCbLengthA(files_buffer, MAX_LEN, &cb_files_buffer);
-							DbgPrint("files_buffer length : %d\n", cb_files_buffer);
-
-							status = BCryptHashData(handle_Hash_object, files_buffer, cb_files_buffer, 0);
-							if (!NT_SUCCESS(status)) {
-								DbgPrint("Could not calculate directory hash : 0x%x\n", status);
-								cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
+						if (dir->Include && dir->Exclude && dir->FilterType && dir->Path) {
+							if (strcmp(dir->FilterType, "regex") == 0) {
+								DbgPrint("Regex is Not Supported\n");
 								goto free_dir;
 							}
-							status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
-							DbgPrint("Calculated Hash Bin : %s\n", hash_ptr);
-							bin2hex(hash_ptr, hash_size, calc_hash, MAX_HASH_LEN);
-							DbgPrint("Calculated Hash Hex : %s\n", calc_hash);
-							generate_cumulative_hash(hash_ptr);
-							WriteMeasurementFile(line, calc_hash, handle1, ioStatusBlock1, tag);
+
+							BCRYPT_ALG_HANDLE       handle_Alg = NULL;
+							BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
+							NTSTATUS                status = STATUS_UNSUCCESSFUL;
+							DWORD                   hash_size = 0, hashObject_size = 0;
+							PBYTE                   hashObject_ptr = NULL, hash_ptr = NULL;
+
+							status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
+							if (!NT_SUCCESS(status)) {
+								DbgPrint("Could not inititalize CNG args Provider : 0x%x", status);
+								goto free_dir;
+							}
+
+							if (*(dir->Include) == 0)
+								*(dir->Include) = '*';
+
+							status = ListDirectory(dir->Path, dir->Include, dir->Exclude, files_buffer, &handle_Hash_object);
+							if (status == 0) {
+								//Dump the hash in variable and finish the Hash Object handle
+								size_t cb_files_buffer;
+								RtlStringCbLengthA(files_buffer, MAX_LEN, &cb_files_buffer);
+								DbgPrint("files_buffer length : %d\n", cb_files_buffer);
+
+								status = BCryptHashData(handle_Hash_object, files_buffer, cb_files_buffer, 0);
+								if (!NT_SUCCESS(status)) {
+									DbgPrint("Could not calculate directory hash : 0x%x\n", status);
+									cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
+									goto free_dir;
+								}
+								status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
+								DbgPrint("Calculated Hash Bin : %s\n", hash_ptr);
+								bin2hex(hash_ptr, hash_size, calc_hash, MAX_HASH_LEN);
+								DbgPrint("Calculated Hash Hex : %s\n", calc_hash);
+								generate_cumulative_hash(hash_ptr);
+								WriteMeasurementFile(line, calc_hash, handle1, ioStatusBlock1, tag);
+							}
+
+							cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 						}
 
-						cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-
 						free_dir:
-							free(files_buffer);
-							free(dir->Include);
-							free(dir->Exclude);
-							free(dir->Recursive);
-							free(dir->Path);
-							free(dir);
+							if (files_buffer) free(files_buffer);
+							if (dir->Include) free(dir->Include);
+							if (dir->Exclude) free(dir->Exclude);
+							if (dir->FilterType) free(dir->FilterType);
+							if (dir->Path) free(dir->Path);
+							if (dir) free(dir);
 					}
-					else {
+					else if (updated_line = strstr(line, "<Symlink")) {
+						DbgPrint("Symlink is Not Supported\n");
+					}
+					else  if (updated_line = strstr(line, "<?xml")) {
 						WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, Manifest);
 					}
 					break;
@@ -204,13 +237,14 @@ void doMeasurement() {
 			{
 				line[i] = '\0';
 				DbgPrint("file end found : %s\n", line);
+				RtlStringCbPrintfA(line, bytes_malloced, "</Measurements>\n");
 				WriteMeasurementFile(line, NULL, handle1, ioStatusBlock1, Manifest);
 				break;
 			}
 			else
 				break;
 		}
-		free(line);
+		if (line) free(line);
 	} while (NT_SUCCESS(ntstatus) || ntstatus != STATUS_END_OF_FILE);
 
 	ZwClose(handle);
@@ -236,7 +270,11 @@ void doMeasurement() {
 		FILE_OVERWRITE_IF,
 		FILE_SYNCHRONOUS_IO_NONALERT,
 		NULL, 0);
-	DbgPrint("ZwCreateFile returns : 0x%x\n", ntstatus);
+
+	if (!NT_SUCCESS(ntstatus)) {
+		DbgPrint("Unable to create File - %s%s\n", "\\DosDevices\\C:\\Windows\\Logs\\MeasuredBoot\\measurement.", hashType);
+		return;
+	}
 
 	bin2hex(cH, cumulative_hash_size, cH2, sizeof(cH2));
 	DbgPrint("Hash Measured : %s\n", cH2);
