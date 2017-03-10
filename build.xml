@@ -100,6 +100,13 @@
 			<arg value="install"/>
 		</exec>
 	</target>
+	
+	<target name="build-imvm-tpmextend=windows" depends="init" if="isWindows">
+		<exec executable="${cmd.maven}"  dir="imvm" resultproperty="mavenExitInstall">
+			<arg value="-DskipTests=true"/>
+			<arg value="install"/>
+		</exec>
+	</target>
         
      <target name="sign-windows-bootdriver" depends="init,build-windows-bootdriver" if="isWindows">
                 <!--1.This is to call the signing utility to sign the compiled tbootxm_bootdriver.sys.
@@ -112,7 +119,7 @@
 		</exec>
 	</target>
         
-	<target name="build" depends="build-tbootxm-rpmmio,build-imvm-tpmextend,build-windows-bootdriver,sign-windows-bootdriver"></target>
+	<target name="build" depends="build-tbootxm-rpmmio,build-imvm-tpmextend,build-imvm-tpmextend=windows,build-windows-bootdriver,sign-windows-bootdriver"></target>
 
 	<target name="packages" depends="init">
 		<!-- the packages -->
