@@ -39,7 +39,7 @@ while(<FH>) {
 		if($_ ne '}') {
 			if ($_ =~ /tboot\.gz/ ) {
 				$isTboot = 1;
-				$buffer .= $_ . " measure_nv=true\n";
+				$buffer .= $_ . " measure_nv=true extpol=embedded\n";
 	#		} elsif ( $_ =~ $kernel_version and !($_ =~ $kernel_arg ) )
 			} elsif ( $_ =~ /$kernel_version/ and $_ =~ /vmlinu[xz]-/ and !($_ =~ $kernel_arg ) )
 			{
@@ -92,7 +92,7 @@ elsif ( $grub_version == 0 )
 				}
 				elsif ( $_ =~ /$kernel_version/ and $_ =~ /vmlinu[xz]/)
 				{
-					$buffer .= "\tkernel /boot/tboot.gz logging=serial,vga,memory measure_nv=true\n";
+					$buffer .= "\tkernel /boot/tboot.gz logging=serial,vga,memory measure_nv=true extpol=embedded\n";
 					$_ =~ s/kernel/module/;
 					$buffer .= $_. " " . $kernel_arg. "\n";
 					$isSameKernel = 1;
