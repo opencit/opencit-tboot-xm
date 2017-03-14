@@ -138,6 +138,10 @@ static ssize_t device_read(struct file *fp, char *buff, size_t size, loff_t *ppo
  
   tpm2b_digest tb;
   tb.size = size;
+  if(tb.size > SHA256_DIGEST_SIZE){
+      printk(KERN_ALERT "rpmmio error: size %d > %d", tb.size, SHA256_DIGEST_SIZE);
+      return -1;
+  }
   memset(tb.buffer, 0, tb.size);
 
   tpml_digest digest;
@@ -181,7 +185,11 @@ static ssize_t device_write(struct file *fp, const char *buff, size_t size, loff
 
   //copy_from_user(in.digest, buff, size);
    //tpm_pcr_extend(g_locality, g_pcr, &in, &out);
-
+  if( size > SHA256_DIGEST_SIZE){
+        printk(KERN_ERR "rpmmio: write error, size %d > %d\n", size, SHA256_DIGEST_SIZE);
+        return -1;
+  }
+    
   copy_from_user(in.sha256, buff, size);
    tpm_pcr_extend2(g_locality, handle, hash, size, in.sha256);
 
