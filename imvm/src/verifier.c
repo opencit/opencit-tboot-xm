@@ -1457,7 +1457,6 @@ int main(int argc, char **argv) {
     strcpy_s(fs_mount_path,sizeof(fs_mount_path),argv[2]);
     strcat_s(fs_mount_path,sizeof(fs_mount_path),"/");
 #ifdef __linux__
-    memset_s((char *)cHash,strnlen_s((char *)cHash,sizeof(cHash)),0);
     memset_s((char *)cHash256,strnlen_s((char *)cHash256,sizeof(cHash256)),0);
 #endif
     if (strcmp(argv[3], "IMVM") == 0) {
