@@ -4,9 +4,6 @@ char cH2[MAX_HASH_LEN];
 char hashType[10]; //SHA1 or SHA256
 char fs_root_path[1024] = "\\DosDevices\\";
 unsigned char cH[MAX_HASH_LEN] = { '\0' };
-int cumulative_hash_size = 20;
-int sha_one = 1;
-int version = 1;
 
 /*
 Cleaup the CNG api,
@@ -233,10 +230,10 @@ void generate_cumulative_hash(char *hash){
 
 	status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
 	if (!NT_SUCCESS(status)) {
-		DbgPrint("Could not inititalize CNG args Provider : 0x%x", status);
+		DbgPrint("Could not inititalize CNG args Provider : 0x%x\n", status);
 		return;
 	}
-	cumulative_hash_size = hash_size;
+
 	status = BCryptHashData(handle_Hash_object, cH, hash_size, 0);
 	if (!NT_SUCCESS(status)) {
 		cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
