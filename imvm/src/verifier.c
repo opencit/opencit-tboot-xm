@@ -54,7 +54,6 @@ int version = 1;
 #ifdef _WIN32
 unsigned char cH[MAX_HASH_LEN] = {'\0'};
 unsigned char uH[MAX_HASH_LEN] = {0};
-#define tpm_version_file "../../TrustAgent/configuration/tpm-version"
 #elif __linux__
 unsigned char cHash256[SHA256_DIGEST_LENGTH] = {'\0'};
 unsigned char uHash256[SHA256_DIGEST_LENGTH]={0};
@@ -1301,6 +1300,7 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
     char *line = NULL;
     char *temp_ptr = NULL;
     char ma_result_path[1024] = {'\0'};
+	char tpm_version_file_path[1024] = {'\0'};
     char cH[MAX_HASH_LEN]= {'\0'};
 	char tpm_version[10] = {'\0'};
     char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
@@ -1391,9 +1391,10 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
 		bin2hex(uHash256, sizeof(uHash256), cH, sizeof(cH));
 	}
 	else {
-		fp = fopen(tpm_version_file, "r");
+		snprintf(tpm_version_file_path, sizeof(tpm_version_file_path), "%s%s", fs_mount_path, tpm_version_file);
+		fp = fopen(tpm_version_file_path, "r");
 		if (fp == NULL) {
-			ERROR_LOG("\n%s %s", "Failed to open tpm version file :", tpm_version_file);
+			ERROR_LOG("\n%s %s", "Failed to open tpm version file :", tpm_version_file_path);
 			return;
 		}
 		fgets(tpm_version, sizeof(tpm_version), fp);
