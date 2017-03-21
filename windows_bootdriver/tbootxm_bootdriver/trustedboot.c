@@ -31,7 +31,7 @@ void doMeasurement() {
 	char	hash_file[256];
 	char    buffer[2] = { '\0' };
 	char	calc_hash[MAX_HASH_LEN] = { '\0' };
-	int		cumulative_hash_size = 32;
+	int		cumulative_hash_size = 20;
 
 	RtlInitUnicodeString(&uniName, L"\\DosDevices\\C:\\manifest.xml");
 	InitializeObjectAttributes(&objAttr, &uniName,
@@ -238,54 +238,38 @@ void doMeasurement() {
 	ZwClose(handle);
 	ZwClose(handle1);
 
-	HRESULT hr = 0;
-	UINT32 tpmVersion;
-	// Get TPM version to select implementation
-	if (FAILED(hr = TpmAttiGetTpmVersion(&tpmVersion)))
-	{
-		DbgPrint("Failed to get Tpm Version : 0x%x\n", hr);
+	/*
+	Taking sha1 hash of the generated cumulative sha256 hash because
+	1. TPM1.2 does not support sha256
+	2. Windows server 2012 does not support sha256 with TPM2.0
+	This sha1 hash is then used to extend the PCR value
+	*/
+	RtlStringCbCopyA(hashType, sizeof(hashType), "sha1");
+
+	BCRYPT_ALG_HANDLE       handle_Alg = NULL;
+	BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
+	NTSTATUS                status = STATUS_UNSUCCESSFUL;
+	DWORD					hash_size = 0, hashObject_size = 0;
+	PBYTE                   hashObject_ptr = NULL, hash_ptr = NULL;
+
+	status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("Could not inititalize CNG args Provider : 0x%x\n", status);
 		return;
 	}
 
-	if (tpmVersion == TPM_VERSION_12)
-	{
-		DbgPrint("Tpm Version : 1.2\n");
-		cumulative_hash_size = 20;
-		RtlStringCbCopyA(hashType, sizeof(hashType), "sha1");
-
-		BCRYPT_ALG_HANDLE       handle_Alg = NULL;
-		BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
-		NTSTATUS                status = STATUS_UNSUCCESSFUL;
-		DWORD					hash_size = 0, hashObject_size = 0;
-		PBYTE                   hashObject_ptr = NULL, hash_ptr = NULL;
-
-		status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
-		if (!NT_SUCCESS(status)) {
-			DbgPrint("Could not inititalize CNG args Provider : 0x%x\n", status);
-			return;
-		}
-
-		status = BCryptHashData(handle_Hash_object, cH, hash_size, 0);
-		if (!NT_SUCCESS(status)) {
-			DbgPrint("Could not calculate cumulative hash : 0x%x\n", status);
-			cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-			return;
-		}
-
-		//Dump the hash in variable and finish the Hash Object handle
-		status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
-		RtlZeroMemory(cH, MAX_HASH_LEN);
-		RtlMoveMemory(cH, hash_ptr, hash_size);
+	status = BCryptHashData(handle_Hash_object, cH, hash_size, 0);
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("Could not calculate cumulative hash : 0x%x\n", status);
 		cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-	}
-	else if (tpmVersion == TPM_VERSION_20)
-	{
-		DbgPrint("Tpm Version : 2.0\n");
-	}
-	else {
-		DbgPrint("Not a valid Tpm Version\n");
 		return;
 	}
+
+	//Dump the hash in variable and finish the Hash Object handle
+	status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
+	RtlZeroMemory(cH, MAX_HASH_LEN);
+	RtlMoveMemory(cH, hash_ptr, hash_size);
+	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 
 	RtlStringCbCopyA(hash_file, sizeof(hash_file), fs_root_path);
 	RtlStringCbCatA(hash_file, sizeof(hash_file), "C:\\Windows\\Logs\\MeasuredBoot\\measurement.");
