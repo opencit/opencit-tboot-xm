@@ -48,21 +48,16 @@ char hashType[10];
 char hashFile[NODE_LEN];
 char node_value[NODE_LEN];
 char fs_mount_path[NODE_LEN];
-int sha_one = 1;
 int version = 1;
 
 /*These global variables are required for calculating the cumulative hash */
 #ifdef _WIN32
-unsigned char cH[MAX_HASH_LEN] = { '\0' };
+unsigned char cH[MAX_HASH_LEN] = {'\0'};
 unsigned char uH[MAX_HASH_LEN] = {0};
-int cumulative_hash_size = 0;
 #elif __linux__
-unsigned char cHash[SHA_DIGEST_LENGTH] = {'\0'}; //Cumulative hash
 unsigned char cHash256[SHA256_DIGEST_LENGTH] = {'\0'};
-unsigned char uHash[SHA_DIGEST_LENGTH]={0};
 unsigned char uHash256[SHA256_DIGEST_LENGTH]={0};
-SHA_CTX csha1;
-SHA256_CTX csha256;
+#define tpm_version_file "/opt/trustagent/configuration/tpm-version"
 #endif
 
 #ifdef _WIN32
@@ -107,76 +102,6 @@ typedef struct _REPARSE_DATA_BUFFER {
 
 #ifdef _WIN32
 /*
-Cleanup the CNG api
-return : 0 for success or failure status
-
-void cleanup_CNG_api() {
-	if (handle_Alg) {
-		BCryptCloseAlgorithmProvider(handle_Alg, 0);
-	}
-	if (handle_Hash_object) {
-		BCryptDestroyHash(handle_Hash_object);
-	}
-	if (hashObject_ptr) {
-		free(hashObject_ptr);
-	}
-	if (hash_ptr) {
-		free(hash_ptr);
-	}
-}
-
-
-open Crypto Algorithm Handle, allocate buffer for hashObject and hash buffer,
-and create hash object
-return : 0 for success or failure status
-
-int setup_CNG_api() {
-	// Open algorithm
-	if (strcmp(hashType, "sha256") == 0) {
-		status = BCryptOpenAlgorithmProvider(&handle_Alg, BCRYPT_SHA256_ALGORITHM, NULL, 0);
-	}
-	else {
-		status = BCryptOpenAlgorithmProvider(&handle_Alg, BCRYPT_SHA1_ALGORITHM, NULL, 0);
-	}
-	if (!NT_SUCCESS(status)) {
-		cleanup_CNG_api();
-		return status;
-	}
-
-	//calculate the size of buffer of hashobject
-	status = BCryptGetProperty(handle_Alg, BCRYPT_OBJECT_LENGTH, (PBYTE)&hashObject_size, sizeof(DWORD), &out_data_size, 0);
-	if (!NT_SUCCESS(status)) {
-		cleanup_CNG_api();
-		return status;
-	}
-	hashObject_ptr = (PBYTE)malloc(hashObject_size*sizeof(BYTE));
-	memset(hashObject_ptr, 0, hashObject_size*sizeof(BYTE));
-	if (hashObject_ptr == NULL) {
-		cleanup_CNG_api();
-		return -1;
-	}
-	//calculate the size of buffer of hash
-	status = BCryptGetProperty(handle_Alg, BCRYPT_HASH_LENGTH, (PBYTE)&hash_size, sizeof(DWORD), &out_data_size, 0);
-	if (!NT_SUCCESS(status)) {
-		cleanup_CNG_api();
-		return status;
-	}
-	hash_ptr = (PBYTE)malloc(hash_size*sizeof(BYTE));
-	memset(hash_ptr, 0, hash_size*sizeof(BYTE));
-	if (hash_ptr == NULL){
-		cleanup_CNG_api();
-		return -1;
-	}
-	//create hashobject 
-	status = BCryptCreateHash(handle_Alg, &handle_Hash_object, hashObject_ptr, hashObject_size, NULL, 0, 0);
-	if (!NT_SUCCESS(status)) {
-		cleanup_CNG_api();
-		return status;
-	}
-	return status;
-}
-*/
-/*
 Cleaup the CNG api,
 Close and Destroy the handle, free the allocated memory for hash Object and hash buffer
 return: error number
@@ -206,11 +131,11 @@ int setup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handl
 	// Open algorithm
 	int out_data_size;
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
-	if (sha_one) {
-		status = BCryptOpenAlgorithmProvider(handle_Alg, BCRYPT_SHA1_ALGORITHM, NULL, 0);
+	if (strcmp(hashType, "sha256") == 0) {
+		status = BCryptOpenAlgorithmProvider(handle_Alg, BCRYPT_SHA256_ALGORITHM, NULL, 0);
 	}
 	else {
-		status = BCryptOpenAlgorithmProvider(handle_Alg, BCRYPT_SHA256_ALGORITHM, NULL, 0);
+		status = BCryptOpenAlgorithmProvider(handle_Alg, BCRYPT_SHA1_ALGORITHM, NULL, 0);
 	}
 	if (!NT_SUCCESS(status)) {
 		cleanup_CNG_api_args(handle_Alg, handle_Hash_object, hashObject_ptr, hash_ptr);
@@ -720,46 +645,24 @@ void generate_cumulative_hash(char *hash) {
 	DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
 	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 #elif __linux__
-    	if(sha_one){
-	   strncpy_s((char *)cHash,sizeof(cHash),(char *)uHash,SHA_DIGEST_LENGTH);
-	   bin2hex(cHash, sizeof(cHash), ob, sizeof(ob));
-	   DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
-	   SHA1_Init(&csha1);
-	   SHA1_Update(&csha1,uHash,SHA_DIGEST_LENGTH);
-	   if (hexstr_len == SHA_DIGEST_LENGTH) {
-	        SHA1_Update(&csha1,cur_hash, SHA_DIGEST_LENGTH);
-	   }
-	   else {
-		DEBUG_LOG("\n length of string converted from hex is not equal to SHA1 digest length");
-	   }
-	   SHA1_Final(uHash,&csha1);
-	   
-	   memcpy_s((char *)cHash, sizeof(cHash), (char *)uHash,SHA_DIGEST_LENGTH);
-	   bin2hex(cHash, sizeof(cHash), ob, sizeof(ob));
-	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
-	   memset_s(ob,strnlen_s(ob,sizeof(ob)),'\0');
-	   return;
+	strncpy_s((char *)cHash256,sizeof(cHash256),(char *)uHash256,SHA256_DIGEST_LENGTH);
+	bin2hex(cHash256, sizeof(cHash256), ob, sizeof(ob));
+	DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
+
+	SHA256_CTX csha256;
+	SHA256_Init(&csha256);
+	SHA256_Update(&csha256,uHash256,SHA256_DIGEST_LENGTH);
+	if (hexstr_len == SHA256_DIGEST_LENGTH) {
+	    SHA256_Update(&csha256,cur_hash, SHA256_DIGEST_LENGTH);
 	}
 	else {
-	   strncpy_s((char *)cHash256,sizeof(cHash256),(char *)uHash256,SHA256_DIGEST_LENGTH);
-	   bin2hex(cHash256, sizeof(cHash256), ob, sizeof(ob));
-	   DEBUG_LOG("\n%s %s","Cumulative Hash before:",ob);
-	   SHA256_Init(&csha256);
-	   SHA256_Update(&csha256,uHash256,SHA256_DIGEST_LENGTH);
-	   if (hexstr_len == SHA256_DIGEST_LENGTH) {
-	        SHA256_Update(&csha256,cur_hash, SHA256_DIGEST_LENGTH);
-	   }
-	   else {
-		DEBUG_LOG("\n length of string converted from hex is not equal to SHA256 digest length");
-	   }
-	   SHA256_Final(uHash256,&csha256);
-	   
-	   memcpy_s((char *)cHash256, sizeof(cHash256), (char *)uHash256,SHA256_DIGEST_LENGTH);
-	   bin2hex(cHash256, sizeof(cHash256), ob, sizeof(ob));
-	   DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
-	   memset_s(ob,strnlen_s(ob,sizeof(ob)),'\0');
-	   return;
+	DEBUG_LOG("\n length of string converted from hex is not equal to SHA256 digest length");
 	}
+	SHA256_Final(uHash256,&csha256);
+	   
+	memcpy_s((char *)cHash256, sizeof(cHash256), (char *)uHash256,SHA256_DIGEST_LENGTH);
+	bin2hex(cHash256, sizeof(cHash256), ob, sizeof(ob));
+	DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
 #endif
 }
 
@@ -1000,26 +903,14 @@ char* calculateSymlinkHash(char *line, FILE *fq) {
 	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 	generate_cumulative_hash(output);
 #elif __linux__
-        if(sha_one) {
-            // Using SHA1 algorithm for hash calculation
-            unsigned char hash[SHA_DIGEST_LENGTH];
-            SHA_CTX sha1;
-            SHA1_Init(&sha1);
-            SHA1_Update(&sha1, hash_str, strnlen_s(hash_str, sizeof(hash_str)));
-            SHA1_Final(hash, &sha1);
-            bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
-            generate_cumulative_hash(output);
-        }
-        else {
-            //For SHA 256 hash**Hard dependency on exact usage of 'sha256'
-            unsigned char hash[SHA256_DIGEST_LENGTH];
-            SHA256_CTX sha256;
-            SHA256_Init(&sha256);
-            SHA256_Update(&sha256, hash_str, strnlen_s(hash_str, sizeof(hash_str)));
-            SHA256_Final(hash, &sha256);
-            bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
-            generate_cumulative_hash(output);
-        }
+    //For SHA 256 hash**Hard dependency on exact usage of 'sha256'
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+    SHA256_Update(&sha256, hash_str, strnlen_s(hash_str, sizeof(hash_str)));
+    SHA256_Final(hash, &sha256);
+    bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
+    generate_cumulative_hash(output);
 #endif
 	cleanup:
         fprintf(fq,"%s</Symlink>\n", output);
@@ -1080,6 +971,7 @@ char* calculateFileHash(char *line, FILE *fq) {
 
         buffer = (char *)malloc(bufSize);
         if(!buffer) {
+			ERROR_LOG("Can't allocate memory for buffer");
             goto cleanup;
         }
 
@@ -1104,42 +996,23 @@ char* calculateFileHash(char *line, FILE *fq) {
 	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 	generate_cumulative_hash(output);
 #elif __linux__
-    if(sha_one) {
-        //Using SHA1 algorithm for hash calculation   
-        unsigned char hash[SHA_DIGEST_LENGTH];
-        SHA_CTX sha1;
-        SHA1_Init(&sha1);
-        const int bufSize = 32768;
-
-        buffer = (char *)malloc(bufSize);
-        if(!buffer) {
-            goto cleanup;
-        }
-        while((bytesRead = fread(buffer, 1, bufSize, file))) {
-            SHA1_Update(&sha1, buffer, bytesRead);
-        }
-        SHA1_Final(hash, &sha1);
-        bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
-        generate_cumulative_hash(output);
-    }
-    else {
 	//For SHA 256 hash**Hard dependency on exact usage of 'sha256'
-        unsigned char hash[SHA256_DIGEST_LENGTH];
-        SHA256_CTX sha256;
-        SHA256_Init(&sha256);
-        const int bufSize = 65000;
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+    const int bufSize = 65000;
 
-        buffer = (char *)malloc(bufSize);
-        if(!buffer) {
-            goto cleanup;
-        }
-        while((bytesRead = fread(buffer, 1, bufSize, file))) {
-            SHA256_Update(&sha256, buffer, bytesRead);
-        }
-        SHA256_Final(hash, &sha256);
-        bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
-        generate_cumulative_hash(output);
+    buffer = (char *)malloc(bufSize);
+    if(!buffer) {
+		ERROR_LOG("Can't allocate memory for buffer");
+        goto cleanup;
     }
+    while((bytesRead = fread(buffer, 1, bufSize, file))) {
+        SHA256_Update(&sha256, buffer, bytesRead);
+    }
+    SHA256_Final(hash, &sha256);
+    bin2hex(hash, sizeof(hash), output, MAX_HASH_LEN);
+    generate_cumulative_hash(output);
 #endif
     cleanup:
 	if(file) fclose(file);
@@ -1225,14 +1098,11 @@ char* calculateDirHashV1(char *line, FILE *fq) {
     if (dir_file != NULL ) {
 	getline(&dhash, &len, dir_file);
 	strtok_s(dhash,&dhash_max," ",&next_token);
+	pclose(dir_file);
     }
     else {
 	dhash = "\0";
     }
-    if (dir_file != NULL) {
-	pclose(dir_file);
-    }
-
     fprintf(fq,"<Dir Path=\"%s\">",dir_path);
     fprintf(fq,"%s</Dir>\n",dhash);
     generate_cumulative_hash(dhash);
@@ -1331,60 +1201,49 @@ char* calculateDirHashV2(char *line, FILE *fq) {
 					" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
 					mDpath, slen);
 
-    /*char file[64] = {0};
-    strcpy_s(file, sizeof(file), fs_mount_path);
-    strcat_s(file, sizeof(file), temp_dir_file_list);*/
 
     dir_file = _popen(Dir_Str, "r");
-    /*FILE *fd = NULL;
-    errno_t error_code = fopen_s(&fd, file, "wb");
-    if ( !fd || error_code) {
-	ERROR_LOG("\n%s %s", "File not found-", file);
-	return;
-    }
-    while (fgets(dhash, dhash_len, dir_file))
-    fputs(dhash, fd);
-    fclose(fd);
-    dhash = calculate(temp_dir_file_list, calc_hash);*/
+	if (dir_file != NULL) {
+		const int bufSize = 65000;
+		char *buffer = malloc(bufSize);
+		int bytesRead = 0;
+		if (!buffer){
+			ERROR_LOG("Can't allocate memory for buffer");
+			goto cleanup;
+		}
 
-    const int bufSize = 65000;
-    char *buffer = malloc(bufSize);
-    int bytesRead = 0;
-    if (!buffer){
-	ERROR_LOG("Can't allocate memory for buffer");
-    }					
-    BCRYPT_ALG_HANDLE       handle_Alg = NULL;
-    BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
-    NTSTATUS                status = STATUS_UNSUCCESSFUL;
-    DWORD                   out_data_size = 0,
-		hash_size = 0,
-		hashObject_size = 0;
-    PBYTE                   hashObject_ptr = NULL;
-    PBYTE                   hash_ptr = NULL;
+		BCRYPT_ALG_HANDLE       handle_Alg = NULL;
+		BCRYPT_HASH_HANDLE      handle_Hash_object = NULL;
+		NTSTATUS                status = STATUS_UNSUCCESSFUL;
+		DWORD                   out_data_size = 0,
+			hash_size = 0,
+			hashObject_size = 0;
+		PBYTE                   hashObject_ptr = NULL;
+		PBYTE                   hash_ptr = NULL;
 
-    status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
-    if (!NT_SUCCESS(status)) {
-	ERROR_LOG("\nCould not inititalize CNG args Provider : 0x%x", status);
-	free(buffer);
-    }
-    while ((bytesRead = fread(buffer, 1, bufSize, dir_file))) {
-	// calculate hash of bytes read
-	status = BCryptHashData(handle_Hash_object, buffer, bytesRead, 0);
-	if (!NT_SUCCESS(status)) {
-		ERROR_LOG("\nCould not calculate hash : 0x%x", status);
+		status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
+		if (!NT_SUCCESS(status)) {
+			ERROR_LOG("\nCould not inititalize CNG args Provider : 0x%x", status);
+			goto cleanup;
+		}
+		while ((bytesRead = fread(buffer, 1, bufSize, dir_file))) {
+			// calculate hash of bytes read
+			status = BCryptHashData(handle_Hash_object, buffer, bytesRead, 0);
+			if (!NT_SUCCESS(status)) {
+				ERROR_LOG("\nCould not calculate hash : 0x%x", status);
+				cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
+				goto cleanup;
+			}
+		}
+
+		//Dump the hash in variable and finish the Hash Object handle
+		status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
+		bin2hex(hash_ptr, hash_size, output, MAX_HASH_LEN);
 		cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-		free(buffer);
+	cleanup:
+		if (buffer) free(buffer);
+		_pclose(dir_file);
 	}
-    }
-
-    //Dump the hash in variable and finish the Hash Object handle
-    status = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
-    bin2hex(hash_ptr, hash_size, output, MAX_HASH_LEN);
-    cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-    _pclose(dir_file);
-    /*if (remove(file) == -1) {
-		ERROR_LOG("\nFailed to remove the temproray created file %s", file);
-    }*/
 #elif __linux__
     snprintf(hash_algo,sizeof(hash_algo),"%ssum",hashType);
 
@@ -1401,15 +1260,10 @@ char* calculateDirHashV2(char *line, FILE *fq) {
 
     dir_file = popen(Dir_Str,"r");
     if (dir_file != NULL ) {
-	getline(&dhash, &len, dir_file);
-	strtok_s(dhash,&dhash_max," ",&next_token);
-    }
-    else {
-	dhash = "\0";
-    }
-	strcpy_s(output, MAX_HASH_LEN, dhash);
-    if (dir_file != NULL) {
-	pclose(dir_file);
+		getline(&dhash, &len, dir_file);
+		strtok_s(dhash,&dhash_max," ",&next_token);
+		strcpy_s(output, MAX_HASH_LEN, dhash);
+		pclose(dir_file);
     }
 #endif
     fprintf(fq,"<Dir Path=\"%s\">",dir_path);
@@ -1441,11 +1295,14 @@ is passed to calculate and the hash is added against log the dir in question
 void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char *verificationType) {
 
     int digest_check = 0;
+	int cumulative_hash_size = 32;
     size_t len = 32768;
     char *line = NULL;
     char *temp_ptr = NULL;
     char ma_result_path[1024] = {'\0'};
+	char tpm_version_file_path[1024] = {'\0'};
     char cH[MAX_HASH_LEN]= {'\0'};
+	char tpm_version[10] = {'\0'};
     char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
     FILE *fp, *fq, *fd; 
 
@@ -1456,18 +1313,25 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
     
     DEBUG_LOG("\n%s %s","Manifest Path",origManifestPath);
     fp = fopen(origManifestPath,"r");
-    if (fp != NULL) {
+	if (fp == NULL) {
+		ERROR_LOG("Can not open Manifest file: %s", origManifestPath);
+		return;
+	}
 	fq = fopen(ma_result_path,"w");
+	if (fq == NULL) {
+		ERROR_LOG("Can not open file: %s to write the measurement", ma_result_path);
+		fclose(fp);
+		return;
+	}
 #ifdef _WIN32
 	_chmod(ma_result_path, _S_IREAD | _S_IWRITE);
 #elif __linux__
 	chmod(ma_result_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 #endif
-	if (fq != NULL) {
-            fprintf(fq,"<?xml version=\"1.0\"?>\n");
-	    //Open Manifest to get list of files to hash
-		line = (char *)malloc(sizeof(char) * len);
-	    while (fgets(line, len, fp) != NULL) {
+    fprintf(fq,"<?xml version=\"1.0\"?>\n");
+	//Open Manifest to get list of files to hash
+	line = (char *)malloc(sizeof(char) * len);
+	while (fgets(line, len, fp) != NULL) {
 		DEBUG_LOG("%s %s","Line Read",line);
 		if(feof(fp)) {
 			DEBUG_LOG("%s","End of file found\n");
@@ -1478,16 +1342,7 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
 		    if(temp_ptr != NULL){
 		        /*Get the type of hash */
 		        tagEntry(temp_ptr);
-		        strcpy_s(hashType,sizeof(hashType),node_value);
-			if(strcmp(hashType, "sha256") == 0) {
-			    sha_one = 0;
-			}
-#ifdef _WIN32
-			if (strcmp(hashType, "sha256") == 0)
-		   	    cumulative_hash_size = 32;
-			else
-		    	cumulative_hash_size = 20;
-#endif		    
+		        strcpy_s(hashType,sizeof(hashType),node_value);		    
 		        digest_check = 1;
 		        DEBUG_LOG("\n%s %s","Type of Hash used :",hashType);
 		    }
@@ -1511,61 +1366,73 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
 		if(strstr(line,"<Symlink Path=") != NULL && digest_check) {
 		    calculateSymlinkHash(line, fq);
 		}
+
 		//Directory Hashes
 		if(strstr(line,"<Dir ") != NULL && digest_check) {
 		    if(version == 1)
-			calculateDirHashV1(line, fq);
+				calculateDirHashV1(line, fq);
 		    else
-			calculateDirHashV2(line, fq);
+				calculateDirHashV2(line, fq);
 		}//Dir hash ends
 
-	    }//While ends
-
-	    if(!digest_check){
-		ERROR_LOG("%s","Hash Algorithm not specified!");
-	    }
-
-	    fprintf(fq,"</Measurements>");
-		fclose(fq);
-	    }
-	    else{
-		ERROR_LOG("Can not open file: %s to write the measurement", ma_result_path);
-		return;
-	    }
+	}//While ends
+	fprintf(fq, "</Measurements>");
+	fclose(fq);
 	fclose(fp);
-    }
-    else {
-    	ERROR_LOG("Can not open Manifest file: %s", origManifestPath);
-    	return;
-    }
-    strcat_s(hashFile, sizeof(hashFile), hashType);
+
+	if(!digest_check){
+		ERROR_LOG("\n%s","Hash Algorithm not specified!");
+		return;
+	}
+#ifdef _WIN32
+	bin2hex(uH, cumulative_hash_size, cH, sizeof(cH));
+#elif __linux__
+	if (strcmp(verificationType, "IMVM") == 0) {
+		bin2hex(uHash256, sizeof(uHash256), cH, sizeof(cH));
+	}
+	else {
+		snprintf(tpm_version_file_path, sizeof(tpm_version_file_path), "%s%s", fs_mount_path, tpm_version_file);
+		fp = fopen(tpm_version_file_path, "r");
+		if (fp == NULL) {
+			ERROR_LOG("\n%s %s", "Failed to open tpm version file :", tpm_version_file_path);
+			return;
+		}
+		fgets(tpm_version, sizeof(tpm_version), fp);
+		fclose(fp);
+		DEBUG_LOG("\n%s %s", "TPM version :", tpm_version);
+
+		if (strcmp(tpm_version, "2.0") == 0) {
+			bin2hex(uHash256, sizeof(uHash256), cH, sizeof(cH));
+		}
+		else if (strcmp(tpm_version, "1.2") == 0) {
+			strcpy_s(hashType, sizeof(hashType), "sha1");
+			// Using SHA1 algorithm for hash calculation
+			unsigned char hash[SHA_DIGEST_LENGTH];
+			SHA_CTX sha1;
+			SHA1_Init(&sha1);
+			SHA1_Update(&sha1, uHash256, sizeof(uHash256));
+			SHA1_Final(hash, &sha1);
+			bin2hex(hash, sizeof(hash), cH, sizeof(cH));
+		}
+		else {
+			ERROR_LOG("Failed to find valid tpm version");
+			return;
+		}
+	}
+#endif
+	strcat_s(hashFile, sizeof(hashFile), hashType);
     /*Write the Cumulative Hash calculated to the file*/
     FILE *fc = fopen(hashFile, "w");
+	if (fc == NULL) {
+		ERROR_LOG("\n%s %s", "Can not open file to write cumulative hash :", hashFile);
+		return;
+	}
 #ifdef _WIN32
-    if (_chmod(hashFile, _S_IREAD | _S_IWRITE) == -1) {
-        ERROR_LOG("Failed to provide read write permissions to cumulative hash file %s ", hashFile);
-    }
+	_chmod(hashFile, _S_IREAD | _S_IWRITE);
 #elif __linux__
     chmod(hashFile, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 #endif
-    if (fc == NULL) {
-        ERROR_LOG("Can not open file: %s, to write cumulative hash", hashFile);
-        return;
-    }
-#ifdef _WIN32
-    if (bin2hex(uH, cumulative_hash_size, cH, sizeof(cH)) < 0) {
-        ERROR_LOG("\n Failed to convert binary hash to hex");
-        return;
-    }
-#elif __linux__
-    if(sha_one){
-		bin2hex(uHash, sizeof(uHash), cH, sizeof(cH));
-    }
-    else {
-		bin2hex(uHash256, sizeof(uHash256), cH, sizeof(cH));
-    }
-#endif
-	DEBUG_LOG("\n%s %s\n", "Hash Measured:", cH);
+	DEBUG_LOG("\n%s %s", "Hash Measured :", cH);
 	fprintf(fc, "%s", cH);
 	fclose(fc);
 }
@@ -1591,7 +1458,6 @@ int main(int argc, char **argv) {
     strcpy_s(fs_mount_path,sizeof(fs_mount_path),argv[2]);
     strcat_s(fs_mount_path,sizeof(fs_mount_path),"/");
 #ifdef __linux__
-    memset_s((char *)cHash,strnlen_s((char *)cHash,sizeof(cHash)),0);
     memset_s((char *)cHash256,strnlen_s((char *)cHash256,sizeof(cHash256)),0);
 #endif
     if (strcmp(argv[3], "IMVM") == 0) {
