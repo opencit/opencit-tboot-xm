@@ -7,6 +7,7 @@ print $ARGV[3]."\n";	  # kernel arg
 print $ARGV[4]."\n";	  # Menuentry name prefix
 print $ARGV[5]."\n";	#GRUB File Path
 print $ARGV[6]."\n";	#Grub Version
+print $ARGV[7]."\n";	#Tpm Version
 
 $output_file = $ARGV[0];
 $kernel_version = $ARGV[1];
@@ -15,6 +16,7 @@ $kernel_arg = $ARGV[3];
 $menu_name = $ARGV[4];
 $grub_file = $ARGV[5];
 $grub_version = $ARGV[6];
+$tpm_version = $ARGV[7];
 
 open(FH, $grub_file);
 open(OUT, ">>$output_file");
@@ -25,6 +27,7 @@ $isSameKernel = 0;
 
 $flag = 0;
 $buffer = "";
+$isTboot195 = 0;
 
 if ( $grub_version == 2 or $grub_version == 1 )
 {
@@ -32,6 +35,9 @@ while(<FH>) {
 	chomp;
 	if($_ =~ /menuentry '/) {
 		$flag = 1;
+		if ($_ =~ /tboot 1\.9\.5/) {
+			$isTboot195 = 1;
+		}
 		$_ =~ s/menuentry '/menuentry '$menu_name /;
 		$buffer = $_."\n";
 	}
@@ -39,11 +45,21 @@ while(<FH>) {
 		if($_ ne '}') {
 			if ($_ =~ /tboot\.gz/ ) {
 				$isTboot = 1;
-				$buffer .= $_ . " measure_nv=true\n";
+				if ($isTboot195 == 1) {
+					$_ =~ s/\/tboot\.gz/\/tboot\.gz \/tboot\.gz/;
+				}
+				$_ .= " measure_nv=true";
+				if ($tpm_version == "2.0") {
+					$_ .= " extpol=embedded";
+				}
+				$buffer .= $_."\n";
 	#		} elsif ( $_ =~ $kernel_version and !($_ =~ $kernel_arg ) )
 			} elsif ( $_ =~ /$kernel_version/ and $_ =~ /vmlinu[xz]-/ and !($_ =~ $kernel_arg ) )
 			{
 				$isSameKernel = 1;
+				if ($isTboot195 == 1) {
+					$_ =~ s/\/vmlinuz-$kernel_version/\/vmlinuz-$kernel_version \/vmlinuz-$kernel_version/;
+				}
 				$buffer .= $_ . " " . $kernel_arg . "\n";
 			}
 			else {
@@ -53,7 +69,11 @@ while(<FH>) {
 			$buffer .= "}\n";
 			if ($isTboot == 1 and $isSameKernel == 1 )
 			{ 
-				$buffer =~ s/\/initr\S+$kernel_version\S*/\/$ARGV[2]/g;
+				if ($isTboot195 == 1) {
+					$buffer =~ s/\/initr\S+$kernel_version\S*/\/$ARGV[2] \/$ARGV[2]/g;
+				} else {
+					$buffer =~ s/\/initr\S+$kernel_version\S*/\/$ARGV[2]/g;
+				}
 				print OUT $buffer;
 				exit 0;
 			}
