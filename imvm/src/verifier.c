@@ -1298,7 +1298,7 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
     size_t len = 32768;
     char *line = NULL;
     char *temp_ptr = NULL;
-    char ma_result_path[1024] = {'\0'};'};
+    char ma_result_path[1024] = {'\0'};
     char cH[MAX_HASH_LEN]= {'\0'};
     char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
     FILE *fp, *fq, *fd; 
