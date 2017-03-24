@@ -57,7 +57,6 @@ unsigned char uH[MAX_HASH_LEN] = {0};
 #elif __linux__
 unsigned char cHash256[SHA256_DIGEST_LENGTH] = {'\0'};
 unsigned char uHash256[SHA256_DIGEST_LENGTH]={0};
-#define tpm_version_file "/opt/trustagent/configuration/tpm-version"
 #endif
 
 #ifdef _WIN32
@@ -1299,10 +1298,8 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
     size_t len = 32768;
     char *line = NULL;
     char *temp_ptr = NULL;
-    char ma_result_path[1024] = {'\0'};
-	char tpm_version_file_path[1024] = {'\0'};
+    char ma_result_path[1024] = {'\0'};'};
     char cH[MAX_HASH_LEN]= {'\0'};
-	char tpm_version[10] = {'\0'};
     char ma_result_path_default[100]="/var/log/trustagent/measurement.xml";
     FILE *fp, *fq, *fd; 
 
@@ -1384,42 +1381,7 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
 		ERROR_LOG("\n%s","Hash Algorithm not specified!");
 		return;
 	}
-#ifdef _WIN32
-	bin2hex(uH, cumulative_hash_size, cH, sizeof(cH));
-#elif __linux__
-	if (strcmp(verificationType, "IMVM") == 0) {
-		bin2hex(uHash256, sizeof(uHash256), cH, sizeof(cH));
-	}
-	else {
-		snprintf(tpm_version_file_path, sizeof(tpm_version_file_path), "%s%s", fs_mount_path, tpm_version_file);
-		fp = fopen(tpm_version_file_path, "r");
-		if (fp == NULL) {
-			ERROR_LOG("\n%s %s", "Failed to open tpm version file :", tpm_version_file_path);
-			return;
-		}
-		fgets(tpm_version, sizeof(tpm_version), fp);
-		fclose(fp);
-		DEBUG_LOG("\n%s %s", "TPM version :", tpm_version);
 
-		if (strcmp(tpm_version, "2.0") == 0) {
-			bin2hex(uHash256, sizeof(uHash256), cH, sizeof(cH));
-		}
-		else if (strcmp(tpm_version, "1.2") == 0) {
-			strcpy_s(hashType, sizeof(hashType), "sha1");
-			// Using SHA1 algorithm for hash calculation
-			unsigned char hash[SHA_DIGEST_LENGTH];
-			SHA_CTX sha1;
-			SHA1_Init(&sha1);
-			SHA1_Update(&sha1, uHash256, sizeof(uHash256));
-			SHA1_Final(hash, &sha1);
-			bin2hex(hash, sizeof(hash), cH, sizeof(cH));
-		}
-		else {
-			ERROR_LOG("Failed to find valid tpm version");
-			return;
-		}
-	}
-#endif
 	strcat_s(hashFile, sizeof(hashFile), hashType);
     /*Write the Cumulative Hash calculated to the file*/
     FILE *fc = fopen(hashFile, "w");
@@ -1429,8 +1391,10 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
 	}
 #ifdef _WIN32
 	_chmod(hashFile, _S_IREAD | _S_IWRITE);
+	bin2hex(uH, cumulative_hash_size, cH, sizeof(cH));
 #elif __linux__
     chmod(hashFile, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	bin2hex(uHash256, sizeof(uHash256), cH, sizeof(cH));
 #endif
 	DEBUG_LOG("\n%s %s", "Hash Measured :", cH);
 	fprintf(fc, "%s", cH);
