@@ -27,6 +27,7 @@ $isSameKernel = 0;
 
 $flag = 0;
 $buffer = "";
+$isTboot195 = 0;
 
 if ( $grub_version == 2 or $grub_version == 1 )
 {
@@ -34,6 +35,9 @@ while(<FH>) {
 	chomp;
 	if($_ =~ /menuentry '/) {
 		$flag = 1;
+		if ($_ =~ /tboot 1\.9\.5/) {
+			$isTboot195 = 1;
+		}
 		$_ =~ s/menuentry '/menuentry '$menu_name /;
 		$buffer = $_."\n";
 	}
@@ -41,6 +45,9 @@ while(<FH>) {
 		if($_ ne '}') {
 			if ($_ =~ /tboot\.gz/ ) {
 				$isTboot = 1;
+				if ($isTboot195 == 1) {
+					$_ =~ s/\/tboot\.gz/\/tboot\.gz \/tboot\.gz/;
+				}
 				$_ .= " measure_nv=true";
 				if ($tpm_version == "2.0") {
 					$_ .= " extpol=embedded";
@@ -50,6 +57,9 @@ while(<FH>) {
 			} elsif ( $_ =~ /$kernel_version/ and $_ =~ /vmlinu[xz]-/ and !($_ =~ $kernel_arg ) )
 			{
 				$isSameKernel = 1;
+				if ($isTboot195 == 1) {
+					$_ =~ s/\/vmlinuz-$kernel_version/\/vmlinuz-$kernel_version \/vmlinuz-$kernel_version/;
+				}
 				$buffer .= $_ . " " . $kernel_arg . "\n";
 			}
 			else {
@@ -59,7 +69,11 @@ while(<FH>) {
 			$buffer .= "}\n";
 			if ($isTboot == 1 and $isSameKernel == 1 )
 			{ 
-				$buffer =~ s/\/initr\S+$kernel_version\S*/\/$ARGV[2]/g;
+				if ($isTboot195 == 1) {
+					$buffer =~ s/\/initr\S+$kernel_version\S*/\/$ARGV[2] \/$ARGV[2]/g;
+				} else {
+					$buffer =~ s/\/initr\S+$kernel_version\S*/\/$ARGV[2]/g;
+				}
 				print OUT $buffer;
 				exit 0;
 			}
