@@ -186,23 +186,7 @@ void WriteMeasurementFile(char *line, char *hash, HANDLE handle1, IO_STATUS_BLOC
 			RtlStringCbCatA(line, new_line_size, "</Dir>\r\n");
 		}
 	}
-/*
-	buffer_size = strlen(line) + 1;
-	buffer = (char *)malloc(buffer_size);
-	ntstatus = RtlStringCbPrintfA(buffer, buffer_size, "%s", line);
-	DbgPrint("RtlStringCbPrintfA returns : 0x%x\n", ntstatus);
-	if (NT_SUCCESS(ntstatus))
-	{
-		ntstatus = RtlStringCbLengthA(buffer, buffer_size, &cb);
-		DbgPrint("RtlStringCbLengthA returns : 0x%x\n", ntstatus);
-		if (NT_SUCCESS(ntstatus))
-		{
-			ntstatus = ZwWriteFile(handle1, NULL, NULL, NULL, &ioStatusBlock1, buffer, cb, NULL, NULL);
-			DbgPrint("ZwWriteFile returns : 0x%x\n", ntstatus);
-		}
-	}
-	free(buffer);
-*/
+
 	RtlStringCbLengthA(line, MAX_LEN, &cb_line);
 	DbgPrint("line length : %d\n", cb_line);
 
