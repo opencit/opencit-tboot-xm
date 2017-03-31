@@ -20,7 +20,8 @@ PATH=$PATH:$KW_HOME
 declare -A projectsArray
 check=0
 #Assign key value pairs, which correspond to [specFileName] = projectPath
-projectsArray[tbootxm-rpmmio-src.out]="tbootxm-rpmmio/src"
+projectsArray[tbootxm-rpmmio-12.out]="tbootxm-rpmmio/src/rpmmio1.2"
+projectsArray[tbootxm-rpmmio-20.out]="tbootxm-rpmmio/src/rpmmio2.0"
 
 
 #==========================================Functions==========================================
