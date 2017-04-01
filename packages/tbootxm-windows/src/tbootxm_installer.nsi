@@ -2,7 +2,7 @@
 !include "MUI.nsh"
 !include "x64.nsh"
 
-!define PRODUCT_NAME "tbootxm"
+!define PRODUCT_NAME "Tbootxm"
 !define PRODUCT_VERSION "1.0"
 !define PRODUCT_PUBLISHER "Intel Corporation"
 !define PRODUCT_DIR_REGKEY "SYSTEM\CurrentControlSet\services\${PRODUCT_NAME}"
@@ -16,7 +16,7 @@
 
 Name "${PRODUCT_NAME}"
 OutFile "tbootxm-setup.exe"
-InstallDir "$PROGRAMFILES\Intel\tbootxm"
+InstallDir "$PROGRAMFILES\Intel\Tbootxm"
 ShowInstDetails show
 ShowUnInstDetails show
 
