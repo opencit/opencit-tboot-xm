@@ -46,7 +46,7 @@ while(<FH>) {
 			if ($_ =~ /tboot\.gz/ ) {
 				$isTboot = 1;
 				if ($isTboot195 == 1) {
-					$_ =~ s/\/tboot\.gz/\/tboot\.gz \/tboot\.gz/;
+					$_ =~ s/\/tboot\.gz/\/tboot\.gz/;
 				}
 				$_ .= " measure_nv=true";
 				if ($tpm_version == "2.0") {
