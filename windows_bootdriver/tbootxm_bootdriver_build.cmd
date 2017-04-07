@@ -40,7 +40,7 @@ GOTO:EOF
   cd
   IF %2=="x86" (
     echo. calling with Win32 option
-    msbuild tbootxm_bootdriver.sln /property:Configuration=%1;Platform=Win32
+    msbuild tbootxm_bootdriver.sln /property:Configuration=%1;Platform=Win32;ForceImportBeforeCppTargets=%tbootxm_driver_home%\..\compiler_flags_x86.props
   	IF NOT %ERRORLEVEL% EQU 0 (
   	  echo. %me%: Build Failed
   	  call:ExitBatch
@@ -48,7 +48,7 @@ GOTO:EOF
   	)
   ) ELSE (
     echo. calling with x64 option
-    msbuild tbootxm_bootdriver.sln /property:Configuration=%1;Platform=%2
+    msbuild tbootxm_bootdriver.sln /property:Configuration=%1;Platform=%2;ForceImportBeforeCppTargets=%tbootxm_driver_home%\..\compiler_flags_x64.props
     IF NOT %ERRORLEVEL% EQU 0 (
 	  echo. %me%: Build Failed
 	  call:ExitBatch

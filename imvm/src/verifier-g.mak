@@ -11,7 +11,7 @@
   # compiler flags:
   #  -g    adds debugging information to the executable file
   LDFLAGS  := -pie -z noexecstack -z relro -z now
-  CFLAGS  = -g -Wformat -Wformat-security -fPIE -fPIC -fstack-protector -O2 -D FORTIFY_SOURCE=2
+  CFLAGS  = -g -Wformat -Wformat-security -fPIE -fPIC -fstack-protector-strong -O2 -D FORTIFY_SOURCE=2
 
   LIBS = -lxml2 -lcrypto -lSafeStringRelease
   #LIBS = -lxml2 -lcrypto
