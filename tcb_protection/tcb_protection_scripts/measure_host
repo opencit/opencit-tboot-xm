@@ -184,7 +184,7 @@ mount_partitions()
 manifest_verify()
 {
 	tpm_version_file=$tmp_root/opt/trustagent/configuration/tpm-version
-	cumulative_hash=$tmp_root/var/log/trustagent/measurement.sha
+	cumulative_hash=$tmp_root/var/log/trustagent/measurement
 	log "TCB Verification - STARTED"
 	#Grab the tcb-manifest file path from Grub Entry
 	manifest_path=$MANIFEST_PATH
@@ -194,7 +194,7 @@ manifest_verify()
         	return 1
 	fi
 	
-	rm -f "$cumulative_hash"*
+	rm -f "${cumulative_hash}.sha"*
 	
 	#Run the Verifier and the check for its results
 	mkdir -p ${tmp_root}/var/log/trustagent/
@@ -215,15 +215,6 @@ manifest_verify()
 tpm_extend()
 {
 	log "tpm version file : $tpm_version_file"
-	log "hash file prefix : $cumulative_hash"
-	if [ -e "${cumulative_hash}1" ]
-        then
-                cumulative_hash="${cumulative_hash}1"
-        else
-                cumulative_hash="${cumulative_hash}256"
-        fi
-        log "cumulative hash file : $cumulative_hash"	
-	
 	log "TPM Extend STARTED"
 	log "SHA hash will be used to extend PCR"
 	#Grab the value of tpm_version from TrustAgent Configuration
@@ -233,10 +224,13 @@ tpm_extend()
 	image_hash=""
 	if [ "$tpm_version" == "1.2" ]
 		then
+			cumulative_hash="${cumulative_hash}.bin"
 			image_hash=`sha1sum $cumulative_hash | awk '{ print $1; }'`
 		else
+			cumulative_hash="${cumulative_hash}.sha256"
 			image_hash=`cat $cumulative_hash`
 		fi
+		log "cumulative hash file : $cumulative_hash"
 		log "image hash : $image_hash"
 
 	if [ "$image_hash" = "" ]

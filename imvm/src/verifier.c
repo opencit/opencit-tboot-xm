@@ -46,6 +46,7 @@ Keywords in the Policy should match with those in this code : DigestAlg, File Pa
 
 char hashType[10];
 char hashFile[NODE_LEN];
+char hashBinFilePath[NODE_LEN];
 char node_value[NODE_LEN];
 char fs_mount_path[NODE_LEN];
 int version = 1;
@@ -1381,7 +1382,11 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
 		ERROR_LOG("\n%s","Hash Algorithm not specified!");
 		return;
 	}
-
+	
+	// File name for hash file binary data
+	strcat_s(hashBinFilePath, sizeof(hashBinFilePath), hashFile);
+	strcat_s(hashBinFilePath, sizeof(hashBinFilePath), "bin");
+	
 	strcat_s(hashFile, sizeof(hashFile), hashType);
     /*Write the Cumulative Hash calculated to the file*/
     FILE *fc = fopen(hashFile, "w");
@@ -1395,6 +1400,17 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
 #elif __linux__
     chmod(hashFile, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	bin2hex(uHash256, sizeof(uHash256), cH, sizeof(cH));
+	
+	// Write to binary hash file
+	DEBUG_LOG("\n%s %s","Attempting to write hash binary data to file :", hashBinFilePath);
+	FILE *hashBinFile = fopen(hashBinFilePath, "w");
+	if (hashBinFile == NULL) {
+		ERROR_LOG("\n%s %s", "Can not open file to write binary cumulative hash :", hashBinFilePath);
+		return;
+	}
+	fwrite(uHash256, 1, SHA256_DIGEST_LENGTH, hashBinFile);
+	//fprintf(hashBinFile, "%s", uHash256);
+	fclose(hashBinFile);
 #endif
 	DEBUG_LOG("\n%s %s", "Hash Measured :", cH);
 	fprintf(fc, "%s", cH);
