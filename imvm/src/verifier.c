@@ -594,7 +594,7 @@ CleanUp:
 /*This function keeps track of the cumulative hash and stores it in a global variable (which is later written to a file) */
 void generate_cumulative_hash(char *hash) {
 
-    DEBUG_LOG("\nIncoming Hash : %s\n",hash);
+    DEBUG_LOG("\nIncoming Hash : %s",hash);
 	char ob[MAX_HASH_LEN]= {'\0'};
 	char cur_hash[MAX_HASH_LEN] = {'\0'};
 
@@ -642,7 +642,7 @@ void generate_cumulative_hash(char *hash) {
 	memcpy_s(uH, sizeof(uH), hash_ptr, hash_size);
 	memcpy_s(cH, sizeof(cH), hash_ptr, hash_size);
 	bin2hex(cH, hash_size, ob, sizeof(ob));
-	DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
+	DEBUG_LOG("\n%s %s\n","Cumulative Hash after is:",ob);
 	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 #elif __linux__
 	strncpy_s((char *)cHash256,sizeof(cHash256),(char *)uHash256,SHA256_DIGEST_LENGTH);
@@ -662,7 +662,7 @@ void generate_cumulative_hash(char *hash) {
 	   
 	memcpy_s((char *)cHash256, sizeof(cHash256), (char *)uHash256,SHA256_DIGEST_LENGTH);
 	bin2hex(cHash256, sizeof(cHash256), ob, sizeof(ob));
-	DEBUG_LOG("\n%s %s","Cumulative Hash after is:",ob);
+	DEBUG_LOG("\n%s %s\n","Cumulative Hash after is:",ob);
 #endif
 }
 
@@ -862,7 +862,7 @@ char* calculateSymlinkHash(char *line, FILE *fq) {
 
     tagEntry(line);
     snprintf(file_name_buff, sizeof(file_name_buff), "%s/%s", fs_mount_path, node_value);
-    DEBUG_LOG("\nfile path : %s\n", file_name_buff);
+    DEBUG_LOG("\nfile path : %s", file_name_buff);
     retval = getSymLinkValue(file_name_buff);
     if( retval == 0 ) {
         fprintf(fq,"<Symlink Path=\"%s\">",node_value);
@@ -936,7 +936,7 @@ char* calculateFileHash(char *line, FILE *fq) {
 
     tagEntry(line);
     snprintf(file_name_buff, sizeof(file_name_buff), "%s/%s", fs_mount_path, node_value);
-    DEBUG_LOG("\nfile path : %s\n", file_name_buff);
+    DEBUG_LOG("\nfile path : %s", file_name_buff);
 #ifdef _WIN32
     retval = fileExist(file_name_buff);
 #elif __linux__
@@ -1330,7 +1330,7 @@ void generateMeasurementLogs(const char *origManifestPath, char *imagePath, char
 	//Open Manifest to get list of files to hash
 	line = (char *)malloc(sizeof(char) * len);
 	while (fgets(line, len, fp) != NULL) {
-		DEBUG_LOG("%s %s","Line Read",line);
+		DEBUG_LOG("\n%s %s","Line Read",line);
 		if(feof(fp)) {
 			DEBUG_LOG("%s","End of file found\n");
 		    break;
