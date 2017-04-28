@@ -32,6 +32,7 @@ void doMeasurement() {
 	char    buffer[2] = { '\0' };
 	char	calc_hash[MAX_HASH_LEN] = { '\0' };
 	int		cumulative_hash_size = 20;
+	int     digest_hash_size = 32; //set to 32 for sha256 since sha256 is the supported algorithm for file hash
 
 	RtlInitUnicodeString(&uniName, L"\\DosDevices\\C:\\manifest.xml");
 	InitializeObjectAttributes(&objAttr, &uniName,
@@ -258,7 +259,7 @@ void doMeasurement() {
 		return;
 	}
 
-	status = BCryptHashData(handle_Hash_object, cH, hash_size, 0);
+	status = BCryptHashData(handle_Hash_object, cH, digest_hash_size, 0);
 	if (!NT_SUCCESS(status)) {
 		DbgPrint("Could not calculate cumulative hash : 0x%x\n", status);
 		cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);

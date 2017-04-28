@@ -41,8 +41,10 @@ while(<FH>) {
 		if($_ ne '}') {
 			if ($_ =~ /tboot\.gz/ ) {
 				$isTboot = 1;
-				$_ .= " measure_nv=true";
-				if ($tpm_version == "2.0") {
+				if ($_ !~ /measure_nv=true/ ) {
+					$_ .= " measure_nv=true";
+				}
+				if (($tpm_version == "2.0") and ($_ !~ /extpol=embedded/ )) {
 					$_ .= " extpol=embedded";
 				}
 				$buffer .= $_."\n";
