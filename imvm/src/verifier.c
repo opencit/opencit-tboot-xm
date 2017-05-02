@@ -1181,6 +1181,7 @@ char* calculateDirHashV2(char *line, FILE *fq) {
 #ifdef _WIN32
     //TODO need to write in sync with linux 
     //char temp_dir_file_list[32] = "/tmp/dir_file.txt";
+	slen = slen -1;
     if (strcmp(include, "") != 0 && strcmp(exclude, "") != 0)
 	snprintf(Dir_Str, sizeof(Dir_Str), "Powershell \"Get-ChildItem '%s' | Where-Object {! $_.PSIsContainer}" 
 					" | Where-Object { $_.FullName.remove(0, %d) -cmatch '%s' -and $_.FullName.remove(0, %d) -cnotmatch '%s' }" 
@@ -1201,6 +1202,7 @@ char* calculateDirHashV2(char *line, FILE *fq) {
 					" | Foreach-Object { Write-Output $_.FullName.remove(0, %d).replace('\\','/') } | Sort-Object\"",
 					mDpath, slen);
 
+	DEBUG_LOG("\n%s %s %s %s", "********mDpath is ----------", mDpath, " and command is ", Dir_Str);
 
     dir_file = _popen(Dir_Str, "r");
 	if (dir_file != NULL) {
@@ -1229,6 +1231,7 @@ char* calculateDirHashV2(char *line, FILE *fq) {
 		while ((bytesRead = fread(buffer, 1, bufSize, dir_file))) {
 			// calculate hash of bytes read
 			status = BCryptHashData(handle_Hash_object, buffer, bytesRead, 0);
+			DEBUG_LOG("\n dir content:\n%s", buffer);
 			if (!NT_SUCCESS(status)) {
 				ERROR_LOG("\nCould not calculate hash : 0x%x", status);
 				cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
