@@ -470,7 +470,7 @@ int ListDirectory(char *path, char *include, char *exclude, char *files_buffer, 
 
 					ntstatus = BCryptHashData(handle_Hash_object, files_buffer, MAX_LEN - 1, 0);
 					if (!NT_SUCCESS(ntstatus)) {
-						DbgPrint("Could not calculate directory hash : 0x%x\n", ntstatus);
+						DbgPrint("ListDirectory: Could not calculate directory hash : 0x%x\n", ntstatus);
 						free(file_path);
 						status = -1;
 						goto close_handle;
