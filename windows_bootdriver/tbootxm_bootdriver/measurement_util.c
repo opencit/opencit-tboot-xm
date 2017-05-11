@@ -468,7 +468,7 @@ int ListDirectory(char *path, char *include, char *exclude, char *files_buffer, 
 					int offset = MAX_LEN - cb_files_buffer - 1;
 					RtlStringCbCatNA(files_buffer, MAX_LEN, file_path, offset);
 					
-					ntstatus = BCryptHashData(handle_Hash_object, files_buffer, MAX_LEN - 1, 0);
+					ntstatus = BCryptHashData(*handle_Hash_object, files_buffer, MAX_LEN - 1, 0);
 					if (!NT_SUCCESS(ntstatus)) {
 						DbgPrint("ListDirectory: Could not calculate directory hash : 0x%x\n", ntstatus);
 						free(file_path);
