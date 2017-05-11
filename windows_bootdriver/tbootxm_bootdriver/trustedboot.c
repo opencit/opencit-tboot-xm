@@ -13,7 +13,7 @@ void doMeasurement() {
 		return;
 	}
 
-	DbgPrint("doMeasurement function called");
+	DbgPrint("doMeasurement function called\n");
 	// Do not try to perform any file operations at higher IRQL levels.
 	// Instead, you may use a work item or a system worker thread to perform file operations.
 	if (KeGetCurrentIrql() != PASSIVE_LEVEL) {
@@ -190,7 +190,7 @@ void doMeasurement() {
 
 								status = BCryptHashData(handle_Hash_object, files_buffer, cb_files_buffer, 0);
 								if (!NT_SUCCESS(status)) {
-									DbgPrint("Could not calculate directory hash : 0x%x\n", status);
+									DbgPrint("doMeasurement: Could not calculate directory hash : 0x%x\n", status);
 									cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 									goto free_dir;
 								}
