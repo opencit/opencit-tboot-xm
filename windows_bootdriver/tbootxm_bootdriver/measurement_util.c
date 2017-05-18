@@ -364,10 +364,10 @@ int ListDirectory(char *path, char *include, char *exclude, char *files_buffer, 
 	IO_STATUS_BLOCK		ioStatusBlock;
 	OBJECT_ATTRIBUTES	objAttr;
 
-	DbgPrint("path : %s\n", path);
+	DbgPrint("ListDirectory: path : %s\n", path);
 	RtlStringCbCopyA(value, sizeof(value), fs_root_path);
 	RtlStringCbCatA(value, sizeof(value), path); //Value = Mount Path + Path in the image/disk
-	DbgPrint("Mounted file path for file %s is %s\n", path, value);
+	DbgPrint("ListDirectory: Mounted file path for file %s is %s\n", path, value);
 
 	RtlInitAnsiString(&ntName, value);
 	RtlAnsiStringToUnicodeString(&uniName, &ntName, TRUE);
@@ -384,18 +384,18 @@ int ListDirectory(char *path, char *include, char *exclude, char *files_buffer, 
 		FILE_OPEN,
 		FILE_DIRECTORY_FILE,
 		NULL, 0);
-	DbgPrint("ZwCreateFile returns 0x%x\n", ntstatus);
+	DbgPrint("ListDirectory: ZwCreateFile returns 0x%x\n", ntstatus);
 
 	if (!NT_SUCCESS(ntstatus)) {
-		DbgPrint("File not found - %s\n", value);
+		DbgPrint("ListDirectory: File not found - %s\n", value);
 		return -1;
 	}
 
 	ntstatus = ZwCreateEvent(&event, GENERIC_ALL, 0, NotificationEvent, FALSE);
-	DbgPrint("ZwCreateEvent returns : 0x%x\n", ntstatus);
+	DbgPrint("ListDirectory: ZwCreateEvent returns : 0x%x\n", ntstatus);
 
 	if (!NT_SUCCESS(ntstatus)) {
-		DbgPrint("NotificationEvent could not be created\n");
+		DbgPrint("ListDirectory: NotificationEvent could not be created\n");
 		ZwClose(handle);
 		return -1;
 	}
@@ -420,57 +420,57 @@ int ListDirectory(char *path, char *include, char *exclude, char *files_buffer, 
 		FileDirectoryInformation,
 		FALSE,
 		NULL, FALSE);
-	DbgPrint("ZwQueryDirectoryFile returns 0x%x\n", ntstatus);
+	DbgPrint("ListDirectory: ZwQueryDirectoryFile returns 0x%x\n", ntstatus);
 
 	if (ntstatus == STATUS_PENDING) {
 		ntstatus = ZwWaitForSingleObject(event, TRUE, 0);
-		DbgPrint("ZwWaitForSingleObject returns : 0x%x\n", ntstatus);
+		DbgPrint("ListDirectory: ZwWaitForSingleObject returns : 0x%x\n", ntstatus);
 	}
 
 	if (!NT_SUCCESS(ntstatus)) {
-		DbgPrint("Could not get directory information\n");
+		DbgPrint("ListDirectory: Could not get directory information\n");
 		status = -1;
 		goto close_handle;
 	}
 
 	if (*Buffer == 0) {
-		DbgPrint("Buffer is Empty\n");
+		DbgPrint("ListDirectory: Buffer is Empty\n");
 		status = -1;
 		goto close_handle;
 	}
 
 	dirInfo = (PFILE_DIRECTORY_INFORMATION)Buffer;
 	RtlStringCbLengthA(path, MAX_LEN, &cb_path);
-	DbgPrint("path length : %d\n", cb_path);
+	DbgPrint("ListDirectory: path length : %d\n", cb_path);
 
 	while (TRUE) {
 		entryName.MaximumLength = entryName.Length = (USHORT)dirInfo->FileNameLength;
 		entryName.Buffer = &dirInfo->FileName[0];
 		RtlUnicodeStringToAnsiString(&as, &entryName, TRUE);
-		DbgPrint("FileName : %s\n", as.Buffer);
-		DbgPrint("Next Entry Offest : %d\n", dirInfo->NextEntryOffset);
-		DbgPrint("File Attributes : %d\n", dirInfo->FileAttributes);
+		DbgPrint("ListDirectory: FileName : %s\n", as.Buffer);
+		DbgPrint("ListDirectory: Next Entry Offest : %d\n", dirInfo->NextEntryOffset);
+		DbgPrint("ListDirectory: File Attributes : %d\n", dirInfo->FileAttributes);
 		
 		int path_len = cb_path + as.MaximumLength + 2;
-		DbgPrint("path_len : %d\n", path_len);
+		DbgPrint("ListDirectory: path_len : %d\n", path_len);
 		char *file_path = (char *)malloc(path_len);
 		RtlStringCbPrintfA(file_path, path_len, "%s\\%s", path, as.Buffer);
-		DbgPrint("file_path : %s\n", file_path);
+		DbgPrint("ListDirectory: file_path : %s\n", file_path);
 
 		if (dirInfo->FileAttributes != FILE_ATTRIBUTE_DIRECTORY) {
 
 			if (FsRtlIsNameInExpression(&uniInclude, &entryName, FALSE, NULL) && !FsRtlIsNameInExpression(&uniExclude, &entryName, FALSE, NULL)) {
 
 				RtlStringCbLengthA(files_buffer, MAX_LEN, &cb_files_buffer);
-				DbgPrint("files_buffer length : %d\n", cb_files_buffer);
+				DbgPrint("ListDirectory: files_buffer length : %d\n", cb_files_buffer);
 
 				if ((cb_files_buffer + path_len - 2) > MAX_LEN) {
 					int offset = MAX_LEN - cb_files_buffer - 1;
 					RtlStringCbCatNA(files_buffer, MAX_LEN, file_path, offset);
-
-					ntstatus = BCryptHashData(handle_Hash_object, files_buffer, MAX_LEN - 1, 0);
+					
+					ntstatus = BCryptHashData(*handle_Hash_object, files_buffer, MAX_LEN - 1, 0);
 					if (!NT_SUCCESS(ntstatus)) {
-						DbgPrint("Could not calculate directory hash : 0x%x\n", ntstatus);
+						DbgPrint("ListDirectory: Could not calculate directory hash : 0x%x\n", ntstatus);
 						free(file_path);
 						status = -1;
 						goto close_handle;
@@ -484,7 +484,7 @@ int ListDirectory(char *path, char *include, char *exclude, char *files_buffer, 
 					RtlStringCbCatNA(files_buffer, MAX_LEN, file_path, path_len);
 					RtlStringCbCatA(files_buffer, MAX_LEN, "\n");
 				}
-				DbgPrint("files_buffer : %s\n", files_buffer);
+				DbgPrint("ListDirectory: files_buffer : %s\n", files_buffer);
 			}
 		}
 		free(file_path);
