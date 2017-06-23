@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.intel.mtwilson.tbootxm</groupId>
         <artifactId>tbootxm-maven-build</artifactId>
-        <version>3.2-SNAPSHOT</version>
+        <version>3.2.1-SNAPSHOT</version>
     </parent>
     <artifactId>imvm</artifactId>
     <packaging>pom</packaging>
