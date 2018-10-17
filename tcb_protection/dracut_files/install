@@ -1,0 +1,28 @@
+#!/bin/bash
+#copying all binaries to /bin
+
+#inst /bin/base64 "/bin/base64"
+#inst /sbin/lsof "/bin/lsof"
+#inst /sbin/fuser "/bin/fuser"
+#inst /bin/cut "/bin/cut"
+#inst "$moddir"/mtw_pubkey.pem /etc/mtw_pubkey.pem
+#inst /bin/awk "/bin/awk"
+#inst /bin/date "/bin/date"
+#inst /bin/chmod "/bin/chmod"
+#inst /bin/bash "/bin/bash"
+#inst /bin/vi "/bin/vi"
+#inst /sbin/insmod "/bin/insmod"
+#inst "$moddir"/bin/verifier "/bin/verifier"
+#inst "$moddir"/bin/rpmmio.ko "/lib/modules/`uname -r`/kernel/drivers/char/tpm/rpmmio.ko"
+#inst "$moddir"/bin/tpmextend "/bin/tpmextend"
+
+#installing the hook
+#inst_hook pre-mount 89 "$moddir/measure_host.sh"
+#SCRIPT_PATH= $(readlink -f $0)
+#source $(dirname $SCRIPT_PATH)/module-setup.sh
+#source $(readlink -f $0)/module-setup.sh
+source /usr/share/dracut/modules.d/89tcbprotection/module-setup.sh
+#srcfile=$(dirname $(readlink -f $0))/module-setup.sh
+#echo $srcfile
+#source $srcfile
+install

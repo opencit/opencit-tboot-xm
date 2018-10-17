@@ -1,0 +1,70 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <groupId>com.intel.mtwilson.tbootxm</groupId>
+    <artifactId>tbootxm-rpmmio</artifactId>
+    
+    <description>Mtwilson tbootxm rpmmio drivers zip</description>
+    
+    <parent>
+        <groupId>com.intel.mtwilson.maven</groupId>
+        <artifactId>mtwilson-maven-package-bin-zip</artifactId>
+        <version>3.2.1-SNAPSHOT</version>
+        <relativePath/>
+    </parent>
+    
+    <profiles>
+        <profile>
+	    <activation>
+		<os>
+		  <family>unix</family>
+		</os>
+	    </activation>
+            <build>
+            <resources>
+                <resource>
+                    <directory>src/main/resources</directory>
+                    <filtering>true</filtering>
+                </resource>
+            </resources>
+
+            <plugins>
+                <!-- Generate patches for Policy Agent hooks -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>build-rpmmio-modules</id>
+                            <phase>generate-resources</phase>
+                            <goals>
+                                <goal>run</goal>
+                            </goals>
+                            <configuration>
+                                <target>
+                                    <exec executable="/bin/bash" failonerror="true">
+                                        <arg value="${project.basedir}/build-rpmmio.sh" />
+                                        <arg value="${project.build.directory}/application" />
+                                    </exec>
+                                </target>
+                            </configuration>
+                        </execution>
+                    </executions>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.ant</groupId>
+                            <artifactId>ant</artifactId>
+                            <version>1.8.4</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>ant-contrib</groupId>
+                            <artifactId>ant-contrib</artifactId>
+                            <version>1.0b3</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+            </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

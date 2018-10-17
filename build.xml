@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="tbootxm" default="all" basedir=".">
+	<description>
+	Run "ant ready" to ensure you have all pre-requisites to build
+	Run "ant" or "ant build" to build the entire project
+	Run "ant ready build packages" to clean build and generate packages
+	Run "ant build packages" to rebuild only and generate packages
+	Run "ant packages" to generate packages (requires prior build)
+	</description>
+	
+	<target name="info">
+		<echoproperties/>
+	</target>
+	
+	<target name="init">
+		<condition property="cmd.maven" value="mvn.cmd">
+			<os family="windows"/>
+                </condition>
+                <condition property="isWindows" value="true">
+                        <os family="windows" />
+                </condition>
+		<condition property="cmd.maven" value="mvn">
+			<os family="unix"/>
+		</condition>                
+                <condition property="isUnix" value="true">
+                        <os family="unix" />
+                </condition>
+	</target>
+	
+	<target name="ready" depends="init">
+		<!-- the root pom -->
+		<exec executable="${cmd.maven}" dir="tbootxm-maven-root" resultproperty="mavenExitInstallRootPom">
+			<arg value="-N"/>
+			<arg value="install"/>
+		</exec>
+		<fail message="Cannot install tbootxm-maven-root" status="${mavenExitInstallRootPom}">
+			<condition><not><equals arg1="${mavenExitInstallRootPom}" arg2="0"/></not></condition>
+		</fail>
+		<!-- the maven archetypes depend on root pom -->
+		<!-- the root pom -->
+
+		<!-- permissions -->
+		<chmod file="build_components.sh" perm="700"/>
+		
+		<!-- run the build script to install prerequisite packages -->
+		<exec executable="/bin/bash" failonerror="true" osfamily="unix">
+			<arg value="-c"/>
+			<arg value="./build_components.sh --installpkg-only"/>
+		</exec>
+	</target>
+	
+	<target name="clean" depends="init">
+		<!-- the root pom and all projects -->
+		<exec executable="${cmd.maven}" resultproperty="mavenExitClean">
+			<arg value="clean"/>
+		</exec>
+		<fail message="Cannot clean build files" status="${mavenExitClean}">
+			<condition><not><equals arg1="${mavenExitClean}" arg2="0"/></not></condition>
+		</fail>
+		<!-- the packages -->
+		<exec executable="${cmd.maven}" dir="packages" resultproperty="mavenExitCleanPackages">
+			<arg value="clean"/>
+		</exec>
+		<fail message="Cannot clean project packages" status="${mavenExitCleanPackages}">
+			<condition><not><equals arg1="${mavenExitCleanPackages}" arg2="0"/></not></condition>
+		</fail>
+		
+		<delete dir="tbootxm-rpmmio/src/.tmp_versions"/>
+		<delete dir="tpmextend/bin"/>
+		<delete dir="imvm/bin"/>
+        <delete dir="imvm/msvc/imvm/x64"/>
+        <delete dir="windows_bootdriver/signed"/>
+        <delete dir="windows_bootdriver/x64"/>
+        <delete dir="windows_bootdriver/tbootxm_bootdriver/x64"/>
+        <delete dir="windows_bootdriver/tbootxm_bootdriver Package/x64"/>
+	</target>
+	
+	<target name="build-tbootxm-rpmmio" depends="init" if="isUnix">
+		<!-- the root pom and all projects except packages -->	
+		<exec executable="${cmd.maven}"  dir="." resultproperty="mavenExitInstall">
+			<arg value="-DskipTests=true"/>
+			<arg value="install"/>
+		</exec>
+		<fail message="Cannot maven build projects" status="${mavenExitInstall}">
+			<condition><not><equals arg1="${mavenExitInstall}" arg2="0"/></not></condition>
+		</fail>
+	</target>
+	
+	<target name="build-imvm-tpmextend" depends="init" if="isUnix">
+		<!-- run the build script -->
+		<exec executable="/bin/bash" failonerror="true">
+			<arg value="-c"/>
+			<arg value="./build_components.sh"/>
+		</exec>
+	</target>
+	
+        <target name="build-windows-bootdriver" depends="init" if="isWindows">
+		<exec executable="${cmd.maven}"  dir="windows_bootdriver" resultproperty="mavenExitInstall">
+			<arg value="-DskipTests=true"/>
+			<arg value="install"/>
+		</exec>
+	</target>
+	
+	<target name="build-imvm-tpmextend=windows" depends="init" if="isWindows">
+		<exec executable="${cmd.maven}"  dir="imvm" resultproperty="mavenExitInstall">
+			<arg value="-DskipTests=true"/>
+			<arg value="install"/>
+		</exec>
+	</target>
+        
+     <target name="sign-windows-bootdriver" depends="init,build-windows-bootdriver" if="isWindows">
+                <!--1.This is to call the signing utility to sign the compiled tbootxm_bootdriver.sys.
+                       if you different signing tool, you should update it here;
+                       Not signed boot driver will not be loaded by Windows when it boots
+                    2. if you don't want or not ready to sign it for now, you can comment the following exec section.
+                -->
+		<exec executable="signfile.exe"  dir="windows_bootdriver/signed">
+			<arg value="tbootxm_bootdriver.sys"/>
+		</exec>
+	</target>
+        
+	<target name="build" depends="build-tbootxm-rpmmio,build-imvm-tpmextend,build-imvm-tpmextend=windows,build-windows-bootdriver,sign-windows-bootdriver"></target>
+
+	<target name="packages" depends="init">
+		<!-- the packages -->
+		<exec executable="${cmd.maven}" dir="packages" resultproperty="mavenExitInstallPackages">
+			<arg value="-DskipTests=true"/>
+			<arg value="install"/>
+		</exec>
+		<fail message="Cannot build project packages" status="${mavenExitInstallPackages}">
+			<condition><not><equals arg1="${mavenExitInstallPackages}" arg2="0"/></not></condition>
+		</fail>
+	</target>
+        <target name="all" depends="ready,clean,build,packages"></target>
+
+        <target name="klocwork" depends="init,ready">
+            <exec executable="/bin/bash">
+                <arg value="klocwork.sh"/>
+            </exec>
+        </target>
+
+        <target name="build-with-scans">
+            <parallel>
+                <exec executable="ant">
+                    <arg value="all"/>
+                </exec>
+                <exec executable="ant">
+                    <arg value="klocwork"/>
+                </exec>
+            </parallel>
+        </target>
+        
+</project>
